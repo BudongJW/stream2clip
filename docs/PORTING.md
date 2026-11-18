@@ -124,6 +124,9 @@ paddle = "my_pkg.ocr:make_detector"
 
 [project.entry-points."stream2clip.translators"]
 deepl = "my_pkg.deepl:make_translator"
+
+[project.entry-points."stream2clip.face_detectors"]
+mine = "my_pkg.faces:make_detector"
 ```
 
 인터페이스는 모두 `typing.Protocol`입니다(상속 불필요).
@@ -191,6 +194,23 @@ cues = slice_cues(load_subtitles("VIDEO_ID.ja.vtt"), 3723, 3778)   # 클립 기�
 write_ass(cues, "clip.ass", play_res=(1080, 1920))                  # 카라오케 \k 태그
 ```
 
+아바타 박스만 필요하면 `detect`를 씁니다. 검출기는 `detect(image) -> list[Face]` 메서드만 있으면 되므로 다른 얼굴 검출 모델로 바꿔 끼울 수 있습니다.
+
+```python
+from stream2clip.detect import OnnxFaceDetector, suggest_avatar_for_video
+from stream2clip.layouts import VerticalLayout
+
+found = suggest_avatar_for_video("vod.mp4", OnnxFaceDetector())      # 프레임 12장, CPU로 몇 초
+if found:                                                             # 못 찾으면 None
+    layout = VerticalLayout("stack", avatar=found.region)             # found.hits / found.frames = 얼굴이 나온 프레임 수
+```
+
+```python
+from stream2clip.plugins import register_face_detector
+
+register_face_detector("mine", lambda: MyDetector())                 # --avatar auto 가 이 검출기를 씁니다
+```
+
 LLM 기반 하이라이트 판정을 쓰는 프로젝트라면 `HighlightResult.signals`(신호별 z-점수 배열)와 각 구간의 `reasons`를 프롬프트 재료로 넘기면 됩니다.
 
 ## 8. 라이선스 메모
@@ -198,5 +218,6 @@ LLM 기반 하이라이트 판정을 쓰는 프로젝트라면 `HighlightResult.
 - stream2clip: Apache-2.0. 코어(`gui` 제외)는 numpy(BSD) + Pillow(MIT-CMU)만 씁니다.
 - GUI: PySide6는 LGPLv3입니다. 동적 링크(pip 설치)로 쓰면 호스트 프로젝트 라이선스에 제약이 생기지 않습니다.
 - ffmpeg: 바이너리를 외부 프로세스로 호출만 합니다. 배포할 때는 쓰는 ffmpeg 빌드(LGPL/GPL, libx264는 GPL)의 조건을 따르세요.
+- 아바타 검출: onnxruntime(MIT)으로 deepghs/anime_face_detection 모델(MIT)의 ONNX 파일만 실행합니다. 모델 파일은 저장소에 넣지 않고 처음 쓸 때 내려받습니다.
 - 선택 의존성: yt-dlp(Unlicense), faster-whisper(MIT, 모델 가중치는 각 모델 라이선스), libass(ISC, ffmpeg에 포함).
 - 레퍼런스 조사에서 AGPL로 확인된 클리퍼(supoclip, Clips Kitty, hotclip)나 ultralytics YOLO의 코드는 가져오지 않았습니다.
