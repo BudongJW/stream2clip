@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
+from PySide6.QtGui import QCloseEvent, QColor, QFont, QIcon, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -40,11 +40,17 @@ from ..highlights import Highlight, HighlightConfig, HighlightResult
 from ..layouts import LAYOUTS, VerticalLayout
 from . import theme
 from .qt import app_icon, mascot, pil_to_qimage
+from .settings import load_section, save_section
 
 __all__ = ["HighlightsWindow", "TimelineWidget", "default_clip_dir", "mood_for"]
 
 _LAYOUT_LABELS = {"blur": "blur · 블러 배경", "center": "center · 가운데 채우기", "fit": "fit · 전체 보이기", "stack": "stack · 아바타 위 / 게임 아래", "none": "원본 화면 그대로"}
-_STAGES = {"chat": "채팅 읽는 중…", "audio": "음량 분석 중… (영상 길이에 따라 수십 초)", "detect": "하이라이트 찾는 중…"}
+_STAGES = {
+    "chat": "채팅 읽는 중…", "audio": "음량 분석 중… (영상 길이에 따라 수십 초)", "laughter": "웃음소리 찾는 중…",
+    "singing": "노래 구간 찾는 중…", "detect": "하이라이트 찾는 중…",
+}
+_SINGING = [("off", "노래 구간 안 봄"), ("mark", "노래 구간 표시"), ("skip", "노래 구간 제외")]
+_PICK_FILE = "\x00file"  # the "choose a .py file" entry of the translator list
 _AGENCIES = ["", "hololive", "nijisanji", "vspo", "aogiri", "generic"]
 
 
@@ -305,6 +311,8 @@ class HighlightsWindow(QMainWindow):
         self.busy = False
         self.dialogs = True  # also show failures in a message box (tests turn this off)
         self.last_results: list = []
+        self.upload_dialog = None
+        self.last_dir = ""
         self._preview_token = 0
 
         root = QWidget(objectName="Root")
@@ -358,9 +366,15 @@ class HighlightsWindow(QMainWindow):
         self.export_button.clicked.connect(self.export)
         self.export_button.setEnabled(False)
         bottom.addWidget(self.export_button)
+        self.upload_button = QPushButton("업로드…")
+        self.upload_button.setMinimumHeight(38)
+        self.upload_button.setToolTip("고른 클립(또는 다른 영상)을 YouTube에 올립니다. 기본은 비공개입니다.")
+        self.upload_button.clicked.connect(self.open_upload)
+        bottom.addWidget(self.upload_button)
         outer.addLayout(bottom)
         self.setCentralWidget(root)
-        self.resize(1080, 700)
+        self.resize(1080, 760)
+        self._restore()
 
         self._stage.connect(lambda name: self.status.setText(_STAGES.get(name, name)))
         self._analysed.connect(self._on_analysed)
@@ -382,10 +396,11 @@ class HighlightsWindow(QMainWindow):
         return edit
 
     def _browse(self, edit: QLineEdit, filters: str) -> None:
-        start = str(Path(edit.text()).parent) if edit.text() else str(Path.home())
+        start = str(Path(edit.text()).parent) if edit.text() else (self.last_dir or str(Path.home()))
         path, _ = QFileDialog.getOpenFileName(self, "파일 고르기", start, filters)
         if path:
             edit.setText(path)
+            self.last_dir = str(Path(path).parent)
 
     def _source_card(self) -> QWidget:
         card = QWidget(objectName="Card")
@@ -404,6 +419,14 @@ class HighlightsWindow(QMainWindow):
         options.setSpacing(8)
         self.audio_check = QCheckBox("음량도 사용", checked=True)
         options.addWidget(self.audio_check)
+        self.laughter_check = QCheckBox("웃음소리 (실험)")
+        self.laughter_check.setToolTip("끊어지는 큰 소리(웃음 같은 소리)가 있는 장면에 점수를 더합니다. 다른 신호로 찾은 장면은 그대로 남습니다.")
+        options.addWidget(self.laughter_check)
+        self.singing_combo = QComboBox()
+        for key, label in _SINGING:
+            self.singing_combo.addItem(label, key)
+        self.singing_combo.setToolTip("노래 방송(歌枠)은 곡 저작권 때문에 클립이 제한되는 경우가 많습니다.\n표시: 노래와 겹치는 하이라이트에 표시 / 제외: 대부분이 노래인 하이라이트는 뺌")
+        options.addWidget(self.singing_combo)
         options.addSpacing(14)
         options.addWidget(QLabel("최대"))
         self.top_spin = QSpinBox(minimum=1, maximum=50, value=10)
@@ -454,32 +477,131 @@ class HighlightsWindow(QMainWindow):
         grid.addWidget(self.subs_combo, 2, 1, 1, 2)
         grid.addWidget(QLabel("언어"), 3, 0)
         self.language_edit = QLineEdit("ja")
-        self.language_edit.setToolTip("받아쓰기 언어 (ja, ko, en …)")
+        self.language_edit.setToolTip("자막 원문 언어 (ja, ko, en …) — 받아쓰기와 번역에 씁니다")
         grid.addWidget(self.language_edit, 3, 1)
         self.karaoke_check = QCheckBox("카라오케", checked=True)
-        self.karaoke_check.setToolTip("말하는 단어에 맞춰 색이 바뀝니다")
+        self.karaoke_check.setToolTip("말하는 단어에 맞춰 색이 바뀝니다 (번역한 자막에는 적용되지 않습니다)")
         grid.addWidget(self.karaoke_check, 3, 2)
 
-        grid.addWidget(QLabel("형식"), 4, 0)
+        grid.addWidget(QLabel("번역"), 4, 0)
+        self.translator_combo = QComboBox()
+        self.translator_combo.setToolTip("번역 서비스는 내장돼 있지 않습니다. 설치한 번역기 플러그인을 고르거나,\ntranslate(texts, target, source) 함수가 있는 .py 파일을 고르세요 (examples/translators 참고).")
+        self._fill_translators()
+        self.translator_combo.activated.connect(self._on_translator_picked)
+        grid.addWidget(self.translator_combo, 4, 1)
+        translate_row = QHBoxLayout()
+        translate_row.setSpacing(6)
+        self.target_edit = QLineEdit("ko")
+        self.target_edit.setToolTip("번역할 언어 (ko, en …)")
+        self.target_edit.setFixedWidth(46)
+        translate_row.addWidget(self.target_edit)
+        self.bilingual_check = QCheckBox("원문 병기")
+        self.bilingual_check.setToolTip("원문 줄 아래에 번역을 함께 넣습니다")
+        translate_row.addWidget(self.bilingual_check)
+        grid.addLayout(translate_row, 4, 2)
+
+        grid.addWidget(QLabel("용어집"), 5, 0)
+        self.glossary_edit = QLineEdit()
+        self.glossary_edit.setPlaceholderText("(선택) 이름 고정 CSV · JSON")
+        self.glossary_edit.setToolTip("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다.")
+        grid.addWidget(self.glossary_edit, 5, 1)
+        pick_glossary = QPushButton("찾기")
+        pick_glossary.clicked.connect(lambda: self._browse(self.glossary_edit, "Glossary (*.csv *.json);;All files (*)"))
+        grid.addWidget(pick_glossary, 5, 2)
+
+        grid.addWidget(QLabel("형식"), 6, 0)
         self.format_combo = QComboBox()
         for fmt in ("mp4", "webm", "webp", "gif"):
             self.format_combo.addItem(fmt.upper(), fmt)
-        grid.addWidget(self.format_combo, 4, 1)
+        grid.addWidget(self.format_combo, 6, 1)
         self.agency_combo = QComboBox()
         for key in _AGENCIES:
             self.agency_combo.addItem(key or "가이드라인 없음", key)
         self.agency_combo.setToolTip("설명란과 업로드 전 점검에 쓸 기획사 프로필 (체크리스트일 뿐 법적 판단이 아닙니다)")
-        grid.addWidget(self.agency_combo, 4, 2)
+        grid.addWidget(self.agency_combo, 6, 2)
 
-        grid.addWidget(QLabel("저장"), 5, 0)
+        grid.addWidget(QLabel("저장"), 7, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 5, 1)
+        grid.addWidget(self.output_edit, 7, 1)
         pick = QPushButton("폴더")
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 5, 2)
-        grid.setRowStretch(6, 1)
+        grid.addWidget(pick, 7, 2)
+        grid.setRowStretch(8, 1)
         self._on_layout_changed()
         return card
+
+    # ------------------------------------------------------------------ translator choice
+    def _fill_translators(self, chosen: str = "") -> None:
+        """Off, the installed plugins, a file chosen earlier, and "choose a file"."""
+        from ..plugins import translators
+
+        combo = self.translator_combo
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("번역 안 함", "")
+        names = list(translators())
+        for name in names:
+            combo.addItem(name, name)
+        if chosen and chosen not in names:
+            from ..translation import split_translator_spec
+
+            target, attr = split_translator_spec(chosen)
+            label = (Path(target).name if target.lower().endswith(".py") else target) + ("" if attr == "translate" else f":{attr}")
+            combo.addItem(label, chosen)
+        combo.addItem("번역기 파일 고르기… (.py)", _PICK_FILE)
+        combo.setCurrentIndex(max(0, combo.findData(chosen)))
+        combo.blockSignals(False)
+
+    def _on_translator_picked(self, index: int) -> None:
+        if self.translator_combo.itemData(index) != _PICK_FILE:
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "번역기 파일", self.last_dir or str(Path.home()), "Python (*.py)")
+        self.set_translator(path)
+
+    def set_translator(self, spec: str) -> None:
+        """Choose a translator: a plugin name, ``file.py[:function]``, or ``""`` for none."""
+        self._fill_translators(spec)
+
+    def translator_choice(self) -> str:
+        data = self.translator_combo.currentData()
+        return "" if data in (None, _PICK_FILE) else str(data)
+
+    # ------------------------------------------------------------------ remembered settings
+    def _restore(self) -> None:
+        saved = load_section("highlights")
+        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual")):
+            if isinstance(saved.get(key), bool):
+                check.setChecked(saved[key])
+        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.format_combo, "format"), (self.agency_combo, "agency")):
+            index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
+            if index >= 0:
+                combo.setCurrentIndex(index)
+        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.output_edit, "output")):
+            if isinstance(saved.get(key), str) and saved[key]:
+                edit.setText(saved[key])
+        if isinstance(saved.get("top"), int):
+            self.top_spin.setValue(saved["top"])
+        if isinstance(saved.get("threshold"), (int, float)):
+            self.threshold_spin.setValue(float(saved["threshold"]))
+        if isinstance(saved.get("translator"), str) and saved["translator"]:
+            self.set_translator(saved["translator"])
+        if isinstance(saved.get("last_dir"), str):
+            self.last_dir = saved["last_dir"]
+
+    def remember(self) -> None:
+        save_section("highlights", {
+            "audio": self.audio_check.isChecked(), "laughter": self.laughter_check.isChecked(), "singing": self.singing_combo.currentData(),
+            "top": self.top_spin.value(), "threshold": round(self.threshold_spin.value(), 2),
+            "layout": self.layout_combo.currentData(), "subtitles": self.subs_combo.currentData(), "language": self.language_edit.text().strip(),
+            "karaoke": self.karaoke_check.isChecked(), "translator": self.translator_choice(), "target": self.target_edit.text().strip(),
+            "glossary": self.glossary_edit.text().strip(), "bilingual": self.bilingual_check.isChecked(),
+            "format": self.format_combo.currentData(), "agency": self.agency_combo.currentData(), "output": self.output_edit.text().strip(),
+            "last_dir": self.last_dir,
+        })
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+        self.remember()
+        super().closeEvent(event)
 
     def _pick_output(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "저장 폴더", self.output_edit.text())
@@ -556,6 +678,9 @@ class HighlightsWindow(QMainWindow):
             return
         config = HighlightConfig(threshold=self.threshold_spin.value(), top=self.top_spin.value())
         audio = self.audio_check.isChecked()
+        laughter = self.laughter_check.isChecked()
+        singing = self.singing_combo.currentData()
+        self.remember()
         self._set_busy(True, "분석 시작…")
         self.progress.setRange(0, 0)  # busy indicator
 
@@ -568,7 +693,14 @@ class HighlightsWindow(QMainWindow):
 
                 src = source_from_info(load_info(info))
                 source = {"url": src.url, "title": src.title}
-            self._analysed.emit(find_highlights(video, chat=chat or None, info=info or None, audio=audio, config=config, source=source, on_stage=self._stage.emit))
+            result = find_highlights(video, chat=chat or None, info=info or None, audio=audio, laughter=laughter, config=config, source=source, on_stage=self._stage.emit)
+            if singing != "off":
+                from ..audio import singing_sections
+                from ..highlights import mark_singing
+
+                self._stage.emit("singing")
+                mark_singing(result, [(s.start, s.end) for s in singing_sections(video)], drop=singing == "skip")
+            self._analysed.emit(result)
 
         self._run(work)
 
@@ -593,7 +725,8 @@ class HighlightsWindow(QMainWindow):
         count = len(result.highlights)
         chat = f"채팅 {result.messages:,}개 · " if result.messages else ""
         hint = "" if count else " — 임계값을 낮춰 보세요"
-        self._set_busy(False, f"{chat}{_clock(result.duration)} 분석 → 하이라이트 {count}개{hint}")
+        sung = f" · 노래 구간 {len(result.songs)}곳" if result.songs is not None else ""
+        self._set_busy(False, f"{chat}{_clock(result.duration)} 분석 → 하이라이트 {count}개{sung}{hint}")
         self.set_mood("laugh" if count else "wink")
         self.refresh_preview()
 
@@ -696,6 +829,14 @@ class HighlightsWindow(QMainWindow):
         info_path = self.info_edit.text().strip()
         agency = self.agency_combo.currentData()
         out_dir = self.output_edit.text().strip() or str(default_clip_dir())
+        translator_spec = self.translator_choice()
+        target = self.target_edit.text().strip() or "ko"
+        glossary_path = self.glossary_edit.text().strip()
+        bilingual = self.bilingual_check.isChecked()
+        if translator_spec and not subs_path and model is None:
+            self._on_failed("번역하려면 자막이 필요합니다. 자막 파일을 고르거나 받아쓰기를 켜세요.")
+            return
+        self.remember()
         self._set_busy(True, f"클립 {len(chosen)}개 내보내는 중…")
         self.progress.setRange(0, len(chosen))
         self.progress.setValue(0)
@@ -710,8 +851,15 @@ class HighlightsWindow(QMainWindow):
             transcriber = FasterWhisperTranscriber(model) if model else None
             source = source_from_info(load_info(info_path)) if info_path else None
             profile = get_profile(agency) if (agency or source) else None
+            subtitle_translator = glossary = None
+            if translator_spec:
+                from ..translation import Glossary, get_translator
+
+                subtitle_translator = get_translator(translator_spec)
+                glossary = Glossary.load(glossary_path) if glossary_path else None
             results = make_clips(
                 video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
+                subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
                 source=source, profile=profile,
                 on_progress=lambda i, n, h: self._progress.emit(i - 1, n, f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} – {_clock(h.end)} 인코딩 중…"),
             )
@@ -743,3 +891,32 @@ class HighlightsWindow(QMainWindow):
         where = value[0].path.parent if value else self.output_edit.text()
         self._set_busy(False, f"클립 {len(value)}개 저장됨: {where}{note}")
         self.set_mood("cut")
+
+    # ------------------------------------------------------------------ upload
+    def upload_candidate(self):
+        """The exported clip that goes with the selected row (else the first one), or ``None``."""
+        if not self.last_results:
+            return None
+        index = self.timeline.current
+        if 0 <= index < len(self.timeline.highlights):
+            chosen = self.timeline.highlights[index]
+            for result in self.last_results:
+                if result.highlight is chosen:
+                    return result
+        return self.last_results[0]
+
+    def open_upload(self):
+        """Open the upload form, filled in from the exported clip and its description file."""
+        from .upload import UploadDialog
+
+        clip = self.upload_candidate()
+        video = description = ""
+        if clip is not None:
+            video = str(clip.path)
+            if clip.description is not None and clip.description.is_file():
+                description = clip.description.read_text(encoding="utf-8")
+        title = str((self.result.source or {}).get("title", "")) if self.result is not None else ""
+        self.upload_dialog = UploadDialog(video, title=title, description=description, parent=self)
+        self.upload_dialog.dialogs = self.dialogs
+        self.upload_dialog.show()
+        return self.upload_dialog

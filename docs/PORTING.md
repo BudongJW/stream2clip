@@ -99,7 +99,7 @@ recording.discard()
 
 ## 5. 플러그인: 캡처 백엔드 · OCR · 번역기
 
-포크하지 않고 기능을 넣는 방법은 두 가지입니다.
+포크하지 않고 기능을 넣는 방법은 두 가지입니다. 자막 번역기만 붙일 때는 더 짧은 길이 있습니다 — 아래 (c).
 
 **(a) 실행 중 등록** — 호스트 앱에 넣을 때 가장 간단합니다.
 
@@ -128,6 +128,21 @@ deepl = "my_pkg.deepl:make_translator"
 [project.entry-points."stream2clip.face_detectors"]
 mine = "my_pkg.faces:make_detector"
 ```
+
+**(c) 번역기를 파일 하나로** — 패키지도 등록도 필요 없습니다. 함수가 있는 파일을 가리키기만 합니다.
+
+```python
+# my_translator.py
+def translate(texts, target, source=None):
+    """texts와 같은 길이 · 같은 순서의 번역을 돌려준다."""
+    return [my_service(text, target) for text in texts]
+```
+
+```bash
+stream2clip clips video.mp4 --highlights h.json --subtitles ja.vtt --translate ko --translator my_translator.py
+```
+
+`file.py:이름`이나 `package.module:이름`으로 다른 이름을 고를 수 있고, 이름이 가리키는 것은 함수 · `translate` 메서드가 있는 클래스 · 그런 객체 중 무엇이든 됩니다(`translation.load_translator`). `STREAM2CLIP_TRANSLATOR` 환경 변수는 기본 번역기를 정합니다. 앱의 하이라이트 창에서도 같은 파일을 고를 수 있습니다. 줄 수가 다른 답은 자막 시각이 어긋나므로 오류로 처리합니다. 바로 쓸 수 있는 예제: [`examples/translators/openai_compatible.py`](../examples/translators/openai_compatible.py).
 
 인터페이스는 모두 `typing.Protocol`입니다(상속 불필요).
 

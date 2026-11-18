@@ -151,6 +151,7 @@ class HighlightResult:
     highlights: list[Highlight]
     source: dict[str, Any] = field(default_factory=dict)
     messages: int = 0  # chat messages analysed (not part of the saved JSON)
+    songs: list[tuple[float, float]] | None = None  # singing sections, once looked for (not part of the saved JSON)
 
     @property
     def times(self) -> np.ndarray:
@@ -410,6 +411,7 @@ def mark_singing(result: HighlightResult, sections: Sequence[tuple[float, float]
     guidelines forbid reposting singing parts. With ``drop`` the highlights that are
     ``mostly`` a song are removed and the rest re-ranked.
     """
+    result.songs = [(float(start), float(end)) for start, end in sections]
     kept: list[Highlight] = []
     for h in result.highlights:
         inside = sum(max(0.0, min(h.end, end) - max(h.start, start)) for start, end in sections)

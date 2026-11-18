@@ -2,36 +2,45 @@
 
 from __future__ import annotations
 
+import os
+import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, QUrl, Qt
+from PySide6.QtCore import QTimer, QUrl, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
     QSlider,
+    QSpinBox,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from ..editor import Document
+from ..ffmpeg import ExportOptions
 from . import theme
 from .editor import EditorWindow
 from .hotkeys import GlobalHotkeys
 from .qt import app_icon, mascot, pixmap
 from .recording import RecordController, RecordSettings
+from .settings import load_section, save_section
 
-__all__ = ["LauncherWindow"]
+__all__ = ["LauncherWindow", "ObsDialog"]
 
 _FORMATS = [("gif", "GIF", "어디서나 재생"), ("mp4", "MP4", "가벼운 용량"), ("webp", "WebP", "선명한 화질"), ("webm", "WebM", "투명 영상")]
 _WIDTHS = [("원본 크기", None), ("1280px", 1280), ("960px", 960), ("720px", 720), ("480px", 480), ("320px", 320)]
@@ -41,13 +50,43 @@ def _eyebrow(text: str) -> QLabel:
     return QLabel(text, objectName="Eyebrow")
 
 
+class ObsDialog(QDialog):
+    """Where OBS listens (Tools > WebSocket Server Settings). The password is kept only while the app runs."""
+
+    def __init__(self, host: str, port: int, password: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("OBS 연결")
+        form = QFormLayout(self)
+        self.host_edit = QLineEdit(host)
+        self.port_spin = QSpinBox(minimum=1, maximum=65535, value=port)
+        self.password_edit = QLineEdit(password)
+        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_edit.setPlaceholderText("비워 두면 OBS_WEBSOCKET_PASSWORD 환경 변수")
+        form.addRow("주소", self.host_edit)
+        form.addRow("포트", self.port_spin)
+        form.addRow("비밀번호", self.password_edit)
+        note = QLabel("OBS의 도구 → WebSocket 서버 설정에서 서버를 켜고, 리플레이 버퍼를 시작해 두세요.\n비밀번호는 저장하지 않습니다.", objectName="Muted")
+        note.setWordWrap(True)
+        form.addRow(note)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+
+
 class LauncherWindow(QMainWindow):
+    _replay_done = Signal(str)
+    _replay_failed = Signal(str)
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("stream2clip")
         self.setWindowIcon(app_icon())
         self.editors: list[EditorWindow] = []
         self.settings = RecordSettings()
+        self.obs_host, self.obs_port, self.obs_password = "127.0.0.1", 4455, ""
+        self.replay_busy = False
+        self.dialogs = True  # show failures in a message box too (tests turn this off)
 
         root = QWidget(objectName="Root")
         outer = QVBoxLayout(root)
@@ -81,6 +120,9 @@ class LauncherWindow(QMainWindow):
         footer.addWidget(change)
         outer.addLayout(footer)
         self.setCentralWidget(root)
+        self._restore()
+        self._replay_done.connect(self._on_replay_done)
+        self._replay_failed.connect(self._on_replay_failed)
 
         self.controller = RecordController(lambda: self.settings, self)
         self.controller.stateChanged.connect(self._on_record_state)
@@ -96,7 +138,7 @@ class LauncherWindow(QMainWindow):
         hotkey_note = "F8 영역 캡쳐 · F9 녹화 시작/정지" + ("" if backend != "none" else " (창이 활성일 때)")
         self._idle_status = f"{hotkey_note} · 저장: {self.settings.save_dir}"
         self.status.setText(self._idle_status)
-        self.resize(760, 740)
+        self.resize(760, 780)
 
     # ------------------------------------------------------------------ layout
     def _capture_card(self) -> QWidget:
@@ -117,8 +159,10 @@ class LauncherWindow(QMainWindow):
 
     def _clips_card(self) -> QWidget:
         card = QWidget(objectName="Card")
-        row = QHBoxLayout(card)
-        row.setContentsMargins(16, 12, 16, 12)
+        rows = QVBoxLayout(card)
+        rows.setContentsMargins(16, 12, 16, 12)
+        rows.setSpacing(10)
+        row = QHBoxLayout()
         row.setSpacing(12)
         kiri = QLabel()
         kiri.setPixmap(mascot("wink", 52))
@@ -131,7 +175,81 @@ class LauncherWindow(QMainWindow):
         self.highlights_button.setMinimumHeight(44)
         self.highlights_button.clicked.connect(self.open_highlights)
         row.addWidget(self.highlights_button)
+        rows.addLayout(row)
+
+        replay = QHBoxLayout()
+        replay.setSpacing(8)
+        label = QLabel("OBS 리플레이 → 클립")
+        label.setStyleSheet("font-weight:800;")
+        replay.addWidget(label)
+        replay.addWidget(QLabel("방금 지나간 장면을 위 녹화 형식으로 저장", objectName="Muted"), 1)
+        replay.addWidget(QLabel("마지막"))
+        self.replay_last = QSpinBox(minimum=0, maximum=600, value=15)
+        self.replay_last.setSuffix("초")
+        self.replay_last.setSpecialValueText("전체")
+        self.replay_last.setToolTip("리플레이 버퍼에서 마지막 몇 초만 남길지 (전체 = 버퍼 그대로)")
+        replay.addWidget(self.replay_last)
+        connect = QPushButton("연결 설정")
+        connect.clicked.connect(self.edit_obs)
+        replay.addWidget(connect)
+        self.replay_button = QPushButton("리플레이 저장")
+        self.replay_button.setToolTip("OBS의 리플레이 버퍼를 저장해 클립으로 만듭니다 (OBS 28 이상, WebSocket 서버 켜기)")
+        self.replay_button.clicked.connect(self.save_replay)
+        replay.addWidget(self.replay_button)
+        rows.addLayout(replay)
         return card
+
+    # ------------------------------------------------------------------ OBS replay
+    def edit_obs(self) -> None:
+        dialog = ObsDialog(self.obs_host, self.obs_port, self.obs_password, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.obs_host = dialog.host_edit.text().strip() or "127.0.0.1"
+            self.obs_port = dialog.port_spin.value()
+            self.obs_password = dialog.password_edit.text()
+
+    def obs_client(self):
+        """Connect to OBS with the current settings (tests replace this)."""
+        from ..obs import ObsClient
+
+        return ObsClient(self.obs_host, self.obs_port, self.obs_password or os.environ.get("OBS_WEBSOCKET_PASSWORD") or None)
+
+    def save_replay(self) -> None:
+        if self.replay_busy:
+            return
+        self.replay_busy = True
+        self.replay_button.setEnabled(False)
+        self.status.setText("OBS 리플레이 저장 중…")
+        output = self.settings.save_dir / f"replay_{time.strftime('%Y%m%d_%H%M%S')}.{self.settings.format}"
+        options = ExportOptions(format=self.settings.format, fps=self.settings.fps, width=self.settings.width)
+        last = float(self.replay_last.value()) or None
+
+        def work() -> None:
+            try:
+                from ..obs import replay_to_clip
+
+                output.parent.mkdir(parents=True, exist_ok=True)
+                client = self.obs_client()
+                try:
+                    clip, _replay = replay_to_clip(output, options, last=last, client=client)
+                finally:
+                    client.close()
+                self._replay_done.emit(str(clip))
+            except Exception as exc:  # shown in the status line and a dialog
+                self._replay_failed.emit(str(exc))
+
+        threading.Thread(target=work, name="stream2clip-replay", daemon=True).start()
+
+    def _on_replay_done(self, path: str) -> None:
+        self.replay_busy = False
+        self.replay_button.setEnabled(True)
+        self.status.setText(f"저장됨: {path}  ·  {time.strftime('%H:%M:%S')}")
+
+    def _on_replay_failed(self, message: str) -> None:
+        self.replay_busy = False
+        self.replay_button.setEnabled(True)
+        self.status.setText(f"리플레이 실패: {message.splitlines()[0][:110]}")
+        if self.dialogs and self.isVisible():
+            QMessageBox.warning(self, "OBS 리플레이", message)
 
     def open_highlights(self):
         from .highlights import HighlightsWindow
@@ -230,6 +348,42 @@ class LauncherWindow(QMainWindow):
         return card
 
     # ------------------------------------------------------------------ settings
+    def _restore(self) -> None:
+        """Put back what was chosen last time; anything unreadable is skipped."""
+        saved = load_section("record")
+        if saved.get("format") in self.format_buttons:
+            self._set_format(saved["format"])
+        for combo, key in ((self.fps_combo, "fps"), (self.width_combo, "width")):
+            index = combo.findData(saved.get(key)) if key in saved else -1
+            if index >= 0:
+                combo.setCurrentIndex(index)
+        if isinstance(saved.get("cursor"), bool):
+            self.cursor_check.setChecked(saved["cursor"])
+        if isinstance(saved.get("transparent"), bool):
+            self.transparent_check.setChecked(saved["transparent"] and self.settings.format != "mp4")
+        color = saved.get("key_color")
+        if isinstance(color, str) and len(color) == 7 and color.startswith("#"):
+            self._set_key_color(color)
+        if isinstance(saved.get("similarity"), int) and 1 <= saved["similarity"] <= 50:
+            self.similarity.setValue(saved["similarity"])
+        if isinstance(saved.get("save_dir"), str) and saved["save_dir"]:
+            self.settings.save_dir = Path(saved["save_dir"])
+        obs = load_section("obs")
+        if isinstance(obs.get("host"), str) and obs["host"]:
+            self.obs_host = obs["host"]
+        if isinstance(obs.get("port"), int) and 1 <= obs["port"] <= 65535:
+            self.obs_port = obs["port"]
+        if isinstance(obs.get("last"), int) and 0 <= obs["last"] <= 600:
+            self.replay_last.setValue(obs["last"])
+
+    def remember(self) -> None:
+        save_section("record", {
+            "format": self.settings.format, "fps": self.fps_combo.currentData(), "width": self.width_combo.currentData(),
+            "cursor": self.settings.cursor, "transparent": self.settings.transparent, "key_color": self.settings.key_color,
+            "similarity": self.similarity.value(), "save_dir": str(self.settings.save_dir),
+        })
+        save_section("obs", {"host": self.obs_host, "port": self.obs_port, "last": self.replay_last.value()})  # never the password
+
     def _set_format(self, key: str) -> None:
         self.settings.format = key
         self.format_buttons[key].setChecked(True)
@@ -367,4 +521,5 @@ class LauncherWindow(QMainWindow):
         if self.controller.state == "recording":
             self.controller.cancel()
         self.hotkeys.unregister()
+        self.remember()
         super().closeEvent(event)

@@ -52,7 +52,7 @@ QPushButton#BigAction:hover {{ border-color: {LIVE_PINK}; }}
 QToolButton#Swatch {{ border-radius: 9px; padding: 0; min-width: 18px; max-width: 18px; min-height: 18px; max-height: 18px; }}
 QToolButton#Swatch:checked {{ border: 2px solid {PAPER}; }}
 
-QSpinBox, QComboBox, QLineEdit, QDoubleSpinBox {{
+QSpinBox, QComboBox, QLineEdit, QDoubleSpinBox, QPlainTextEdit {{
     background: {SURFACE_2}; border: 1px solid {BORDER}; border-radius: 8px; padding: 4px 8px;
 }}
 QComboBox QAbstractItemView {{ background: {SURFACE_2}; selection-background-color: {LIVE_PINK}; }}
