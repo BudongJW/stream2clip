@@ -26,7 +26,7 @@ from .subtitles import Cue
 if TYPE_CHECKING:
     from .translate import Translator
 
-__all__ = ["Glossary", "translate_cues", "holodex_names", "get_translator"]
+__all__ = ["Glossary", "translate_cues", "holodex_names", "get_translator", "load_translator", "is_translator_spec", "split_translator_spec"]
 
 HOLODEX_API = "https://holodex.net/api/v2"
 
@@ -111,14 +111,74 @@ def translate_cues(
     return out
 
 
+def split_translator_spec(spec: str) -> tuple[str, str]:
+    """``("file.py" or "package.module", name)``; the name defaults to ``translate``. A drive letter is not a separator."""
+    if spec.lower().endswith(".py"):
+        return spec, "translate"
+    target, _, attr = spec.rpartition(":")
+    return target, attr or "translate"
+
+
+def load_translator(spec: str) -> "Translator":
+    """A translator from your own code: ``file.py``, ``file.py:name`` or ``package.module:name``.
+
+    ``name`` (default ``translate``) may be a function ``fn(texts, target, source) -> list[str]``,
+    a class with a ``translate`` method, or an object that already has one. This is the
+    quick way to connect a translation service without packaging a plugin - see
+    ``examples/translators``.
+    """
+    import importlib
+    import importlib.util
+
+    from .translate import CallableTranslator
+
+    target, attr = split_translator_spec(spec)
+    if target.lower().endswith(".py"):
+        path = Path(target).expanduser()
+        if not path.is_file():
+            raise RuntimeError(f"Translator file not found: {path}")
+        module_spec = importlib.util.spec_from_file_location(f"stream2clip_translator_{path.stem}", path)
+        if module_spec is None or module_spec.loader is None:
+            raise RuntimeError(f"Cannot load {path} as Python code")
+        module = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(module)
+    else:
+        try:
+            module = importlib.import_module(target)
+        except ImportError as exc:
+            raise RuntimeError(f"Cannot import translator module {target!r}: {exc}") from exc
+    found = getattr(module, attr, None)
+    if found is None:
+        raise RuntimeError(f"{target} has no {attr!r}")
+    if isinstance(found, type):
+        found = found()
+    if hasattr(found, "translate"):
+        return found
+    if not callable(found):
+        raise RuntimeError(f"{target}:{attr} is neither a function nor a translator")
+    return CallableTranslator(found)
+
+
+def is_translator_spec(name: str) -> bool:
+    """``file.py``, ``file.py:name`` or ``module:name`` rather than the name of an installed plugin."""
+    return name.lower().endswith(".py") or ":" in name
+
+
 def get_translator(name: str | None = None) -> "Translator":
-    """A registered translator plugin by name (or the first one)."""
+    """A translator by plugin name, from your own code (:func:`load_translator`), or the first plugin installed.
+
+    Without a name the ``STREAM2CLIP_TRANSLATOR`` environment variable is used if set.
+    """
     from .plugins import translators
 
+    name = name or os.environ.get("STREAM2CLIP_TRANSLATOR") or None
     available = translators()
+    if name is not None and name not in available and is_translator_spec(name):
+        return load_translator(name)
     if not available:
         raise RuntimeError(
-            "No translator is installed. stream2clip has no built-in translation service: register one "
+            "No translator is installed. stream2clip has no built-in translation service: point at your own code "
+            "(--translator file.py, see examples/translators), register one "
             "(stream2clip.plugins.register_translator) or install a plugin - see docs/PORTING.md."
         )
     if name is None:

@@ -11,6 +11,14 @@ HAS_FFMPEG = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is n
 needs_ffmpeg = pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg/ffprobe not installed")
 
 
+@pytest.fixture(autouse=True)
+def isolated_settings(tmp_path_factory, monkeypatch):
+    """The app remembers its settings in a file: tests get an empty folder, never the user's own."""
+    folder = tmp_path_factory.mktemp("config")
+    monkeypatch.setenv("STREAM2CLIP_CONFIG_DIR", str(folder))
+    return folder
+
+
 @pytest.fixture
 def green_screen_video(tmp_path: Path) -> Path:
     """2 s, 160x120, 10 fps: a red square moving over a pure green background."""

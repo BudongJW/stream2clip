@@ -75,6 +75,16 @@ jobs:
 
           Check "singing sections of the test video" { & "$app\stream2clip.exe" singing "$work\t.mp4" }
 
+          # The example translator ships next to the programs and loads inside the bundle: nothing listens on port 1,
+          # so "Cannot reach the translation endpoint" is the right answer.
+          if (-not (Test-Path "$app\translators\openai_compatible.py")) { throw "the example translator was not copied" }
+          Set-Content "$work\h.json" '{"highlights": [{"rank": 1, "start": 0.0, "end": 2.0}]}' -Encoding utf8
+          Set-Content "$work\s.srt" "1`n00:00:00,100 --> 00:00:01,500`nhello`n" -Encoding utf8
+          $env:S2C_TRANSLATE_URL = "http://127.0.0.1:1/v1/chat/completions"
+          $out = & "$app\stream2clip.exe" clips "$work\t.mp4" --highlights "$work\h.json" --subtitles "$work\s.srt" --translate ko --translator "$app\translators\openai_compatible.py" --layout none -f gif -o "$work\tr" 2>&1 | Out-String
+          Write-Host $out
+          if ($out -notmatch "Cannot reach the translation endpoint") { throw "the example translator did not run inside the bundle" }
+
           # The desktop app must start and stay up.
           $gui = Start-Process "$app\stream2clip-gui.exe" -PassThru
           Start-Sleep -Seconds 8

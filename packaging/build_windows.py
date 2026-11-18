@@ -96,6 +96,17 @@ def copy_ffmpeg(ffmpeg: str, folder: Path) -> list[Path]:
     return copied
 
 
+def copy_examples(folder: Path) -> list[Path]:
+    """Put the example translators next to the programs, so ``--translator translators/openai_compatible.py`` works."""
+    target = folder / "translators"
+    target.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for source in sorted((ROOT / "examples" / "translators").glob("*.py")):
+        shutil.copy2(source, target / source.name)
+        copied.append(target / source.name)
+    return copied
+
+
 def make_zip(folder: Path, name: str) -> Path:
     return Path(shutil.make_archive(str(folder.parent / name), "zip", root_dir=folder.parent, base_dir=folder.name))
 
@@ -130,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.ffmpeg:
         for path in copy_ffmpeg(args.ffmpeg, folder):
             print(f"added  {path.name}  ({path.stat().st_size / 1e6:.0f} MB)")
+    for path in copy_examples(folder):
+        print(f"added  translators/{path.name}")
     if not args.no_zip:
         archive = make_zip(folder, archive_name(project_version()))
         print(f"zip    {archive}  ({archive.stat().st_size / 1e6:.0f} MB)")

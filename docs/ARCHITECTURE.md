@@ -103,6 +103,9 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 - **타임라인**: 막대는 보이는 시간 범위를 균등하게 나눠 그 구간의 최고 점수를 그립니다(시간축과 어긋나지 않게). 긴 방송에서는 클립 하나가 몇 픽셀밖에 안 되므로 확대(휠 · 더블클릭)가 있고, 잡는 영역은 가장자리가 바깥쪽으로 넓어 좁은 구간도 가운데를 잡아 옮길 수 있습니다.
 - **스레드**: 분석 · 미리보기 · 아바타 찾기 · 내보내기는 `threading.Thread`에서 돌고 결과는 Qt 시그널로 GUI 스레드에 돌아옵니다. 미리보기는 요청 번호를 붙여, 늦게 끝난 이전 요청이 화면을 덮지 않게 합니다.
 - **미리보기**는 레이아웃만 입힌 정지 화면입니다. 자막은 내보낸 클립에서 확인합니다.
+- **번역 · 노래 · 웃음**: 창은 고른 값을 코어에 넘기기만 합니다 — `find_highlights(laughter=…)`, `audio.singing_sections` → `highlights.mark_singing`, `translation.get_translator(이름 또는 file.py)` → `make_clips(subtitle_translator=…)`.
+- **업로드 창** (`gui/upload.py`)은 `upload.video_resource`로 본문을 만들고 작업 스레드에서 `upload.upload_video`를 부릅니다. 공개 범위는 저장하지 않아 매번 비공개에서 시작합니다. 런처의 리플레이 버튼은 `obs.replay_to_clip`을 부릅니다.
+- **설정 기억** (`gui/settings.py`): 창마다 한 구역을 가진 JSON 파일 하나입니다. 읽을 때는 값의 형식 · 범위를 확인해 쓸 수 없는 값은 건너뛰고, 파일이 깨졌거나 폴더에 쓸 수 없어도 앱은 기본값으로 동작합니다. 비밀번호는 쓰지 않습니다. 테스트는 `STREAM2CLIP_CONFIG_DIR`로 빈 폴더를 씁니다.
 - **마스코트**: 상태 줄 옆의 키리는 창의 상태(`set_mood`: wink · focus · laugh · cut · surprised)를, 목록의 얼굴은 `mood_for(highlight)`가 `stats["react_*"]`에서 가장 많은 반응을 골라 보여 줍니다. 이미지는 `gui/qt.py`의 `mascot()`이 화면 배율에 맞춰 불러옵니다.
 
 ### VOD → 클립 (`stream2clip convert`)

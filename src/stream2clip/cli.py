@@ -345,7 +345,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--language", help="speech language for --transcribe (ja, ko, en ...)")
     s.add_argument("--no-karaoke", action="store_true", help="plain captions instead of word-by-word highlighting")
     s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
-    s.add_argument("--translator", metavar="NAME", help="which translator plugin to use (default: the first one installed)")
+    s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
     s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
     s.add_argument("--bilingual", action="store_true", help="keep the original line above the translation")
     c = p.add_argument_group("description & guideline check")
