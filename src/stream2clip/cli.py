@@ -258,6 +258,9 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--chat-format", choices=["youtube", "chat-downloader", "twitch", "chzzk", "soop", "csv", "jsonl", "json"], help="force the chat format")
     g.add_argument("--info", help="yt-dlp info JSON (most-replayed heatmap, title/URL for descriptions)")
     g.add_argument("--audio", action="store_true", help="also use the video's loudness")
+    g.add_argument("--laughter", action="store_true", help="experimental: also score laughter-like bursts in the audio")
+    g.add_argument("--mark-singing", action="store_true", help="find the songs in the video and say which highlights overlap one")
+    g.add_argument("--skip-singing", action="store_true", help="like --mark-singing, and leave out highlights that are mostly a song")
     g.add_argument("--top", type=int, default=10, help="maximum number of highlights (default 10)")
     g.add_argument("--threshold", type=float, default=2.0, help="robust z-score needed for a peak (default 2.0)")
     g.add_argument("--window", type=float, default=5.0, help="analysis bucket in seconds (default 5)")
@@ -279,8 +282,15 @@ def _detect(args: argparse.Namespace, video: str | None):
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
                           min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings)
     src = _source(args)
-    result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, config=cfg,
+    result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), config=cfg,
                              source={"url": src.url, "title": src.title} if src else {})
+    if video and (args.mark_singing or args.skip_singing):
+        from .audio import singing_sections
+        from .highlights import mark_singing
+
+        songs = singing_sections(video)
+        print(f"singing  {len(songs)} sections" + (": " + ", ".join(f"{_clock(s.start)}-{_clock(s.end)}" for s in songs) if songs else ""))
+        mark_singing(result, [(s.start, s.end) for s in songs], drop=args.skip_singing)
     print(f"analysed {result.messages} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
     for h in result.highlights:
         print(f"  #{h.rank:02d}  {_clock(h.start)} - {_clock(h.end)}  score {h.score:5.1f}  {' / '.join(h.reasons)}")
@@ -334,6 +344,10 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--transcribe", metavar="MODEL", help='transcribe each clip with faster-whisper (e.g. "small", "large-v3")')
     s.add_argument("--language", help="speech language for --transcribe (ja, ko, en ...)")
     s.add_argument("--no-karaoke", action="store_true", help="plain captions instead of word-by-word highlighting")
+    s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
+    s.add_argument("--translator", metavar="NAME", help="which translator plugin to use (default: the first one installed)")
+    s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
+    s.add_argument("--bilingual", action="store_true", help="keep the original line above the translation")
     c = p.add_argument_group("description & guideline check")
     c.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")
     c.add_argument("--source-url", help="original stream URL (default: from --info)")
@@ -363,11 +377,20 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
     transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
+    subtitle_translator = glossary = None
+    if args.translate:
+        from .translation import Glossary, get_translator
+
+        if cues is None and transcriber is None:
+            raise ValueError("--translate needs subtitles: give --subtitles or --transcribe")
+        subtitle_translator = get_translator(args.translator)
+        glossary = Glossary.load(args.glossary) if args.glossary else None
     source = _source(args)
     profile = get_profile(args.agency) if (args.agency or source) else None
     results = make_clips(
         args.video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
         karaoke=not args.no_karaoke, source=source, profile=profile, registered=True if args.registered else None,
+        subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
     )
     for r in results:
@@ -420,6 +443,79 @@ def cmd_auto(args: argparse.Namespace) -> int:
     result = _detect(args, args.video)
     result.save(out / "highlights.json")
     return _make_clips(args, result.highlights)
+
+
+def cmd_replay(args: argparse.Namespace) -> int:
+    import os
+
+    from .obs import replay_to_clip
+
+    output = Path(args.output)
+    options = _export_options(args, output)
+    password = args.password or os.environ.get("OBS_WEBSOCKET_PASSWORD")
+    clip, replay = replay_to_clip(output, options, last=args.last, host=args.host, port=args.port, password=password, start_buffer=args.start_buffer)
+    print(f"replay {replay}")
+    print(f"saved  {clip}")
+    return 0
+
+
+def cmd_upload(args: argparse.Namespace) -> int:
+    from .export import probe
+    from .upload import load_credentials, shorts_problems, upload_video, video_resource, video_url
+
+    description = Path(args.description_file).read_text(encoding="utf-8") if args.description_file else (args.description or "")
+    tags = [t for t in (args.tags or "").split(",") if t.strip()]
+    resource = video_resource(
+        args.title, description, tags=tags, category_id=args.category, privacy=args.privacy, made_for_kids=args.made_for_kids,
+        synthetic_media=True if args.synthetic_media else None, language=args.language, shorts=args.shorts,
+    )
+    if args.shorts:
+        info = probe(args.video)
+        for problem in shorts_problems(info.width, info.height, info.duration):
+            print(f"! {problem}", file=sys.stderr)
+    if args.dry_run:
+        print(json.dumps(resource, ensure_ascii=False, indent=2))
+        print("dry run: nothing was uploaded")
+        return 0
+    if not args.client_secrets:
+        raise ValueError("--client-secrets is required to upload (your own OAuth client file); use --dry-run to only see what would be sent")
+    credentials = load_credentials(args.client_secrets, args.token)
+    print(f"uploading {args.video} as {args.privacy} ...", flush=True)
+    response = upload_video(args.video, resource, credentials=credentials, on_progress=lambda f: print(f"  {f:4.0%}", flush=True))
+    print(f"uploaded {video_url(response['id'])}  ({response.get('status', {}).get('privacyStatus', args.privacy)})")
+    return 0
+
+
+def cmd_singing(args: argparse.Namespace) -> int:
+    from .audio import singing_sections
+
+    songs = singing_sections(args.video, min_length=args.min_length)
+    for index, song in enumerate(songs, start=1):
+        print(f"  #{index:02d}  {_clock(song.start)} - {_clock(song.end)}  ({song.duration:.0f}s, held pitch {song.score:.0%})")
+    print(f"{len(songs)} singing sections, {sum(s.duration for s in songs) / 60:.1f} min in total")
+    if args.output:
+        data = {"schema": "stream2clip.singing/v1", "video": str(args.video), "sections": [{"start": s.start, "end": s.end, "score": s.score} for s in songs]}
+        Path(args.output).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"saved {args.output}")
+    return 0
+
+
+def cmd_glossary(args: argparse.Namespace) -> int:
+    import os
+
+    from .translation import Glossary, holodex_names
+
+    if args.holodex:
+        key = args.api_key or os.environ.get("HOLODEX_API_KEY", "")
+        glossary, notes = holodex_names(args.holodex, key)
+        glossary.save(args.output, notes)
+        print(f"saved {args.output}  ({len(glossary)} names from Holodex; edit the target column to the spelling you want)")
+        return 0
+    glossary = Glossary.load(args.output)
+    print(f"{args.output}: {len(glossary)} terms")
+    if args.text:
+        print(glossary.apply(args.text))
+    return 0
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -534,6 +630,46 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--face-model", help="ONNX face model file (default: downloaded once, 12 MB)")
     p.set_defaults(func=cmd_avatar)
 
+    p = sub.add_parser("replay", help="save OBS's replay buffer and turn it into a clip (obs-websocket)")
+    p.add_argument("-o", "--output", required=True, help="clip to write, e.g. moment.gif / .webp / .mp4")
+    p.add_argument("--last", type=float, help="keep only the last N seconds of the replay")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=4455)
+    p.add_argument("--password", help="WebSocket server password (default: OBS_WEBSOCKET_PASSWORD)")
+    p.add_argument("--start-buffer", action="store_true", help="start the replay buffer if it is not running (then run the command again later)")
+    _add_export_args(p)
+    p.set_defaults(func=cmd_replay)
+
+    p = sub.add_parser("upload", help="upload a clip to YouTube (private unless you say otherwise)")
+    p.add_argument("video")
+    p.add_argument("--title", required=True)
+    p.add_argument("--description", help="description text")
+    p.add_argument("--description-file", help="read the description from a file, e.g. clips/clip_01.txt")
+    p.add_argument("--tags", help="comma separated")
+    p.add_argument("--privacy", choices=["private", "unlisted", "public"], default="private")
+    p.add_argument("--category", default="20", help="YouTube category id (default 20 = Gaming)")
+    p.add_argument("--language", help="default language of the title / description, e.g. ko")
+    p.add_argument("--made-for-kids", action="store_true")
+    p.add_argument("--synthetic-media", action="store_true", help="declare altered or synthetic content (AI voice, AI video ...)")
+    p.add_argument("--shorts", action="store_true", help="add #Shorts and warn when the video is not vertical or longer than 3 minutes")
+    p.add_argument("--client-secrets", help="your Google Cloud OAuth client file (Desktop app)")
+    p.add_argument("--token", help="where to keep the refresh token (default: token.json next to the client file)")
+    p.add_argument("--dry-run", action="store_true", help="print what would be sent and stop")
+    p.set_defaults(func=cmd_upload)
+
+    p = sub.add_parser("singing", help="find the songs in a stream (karaoke / 歌枠) from its audio")
+    p.add_argument("video")
+    p.add_argument("-o", "--output", help="write the sections as JSON")
+    p.add_argument("--min-length", type=float, default=60.0, help="shortest section in seconds (default 60)")
+    p.set_defaults(func=cmd_singing)
+
+    p = sub.add_parser("glossary", help="name glossary for subtitle translation (draft one from Holodex, or check a file)")
+    p.add_argument("output", help="glossary file (CSV source,target or JSON)")
+    p.add_argument("--holodex", metavar="ORG", help='write a draft from Holodex channel names, e.g. "Hololive", "Nijisanji", "VSpo"')
+    p.add_argument("--api-key", help="Holodex API key (default: HOLODEX_API_KEY)")
+    p.add_argument("--text", help="show this text with the glossary applied")
+    p.set_defaults(func=cmd_glossary)
+
     p = sub.add_parser("check", help="pre-upload checklist against an agency's clip guideline")
     p.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")
     p.add_argument("--info", help="yt-dlp info JSON of the source stream")
@@ -583,7 +719,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(raw)
     try:
         return int(args.func(args) or 0)
-    except (ValueError, RuntimeError, FileNotFoundError, IndexError) as exc:
+    except (ValueError, RuntimeError, FileNotFoundError, IndexError, OSError) as exc:
         print(f"stream2clip: error: {exc}", file=sys.stderr)
         return 1
 

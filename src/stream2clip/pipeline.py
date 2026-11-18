@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import TYPE_CHECKING, Callable, Sequence
 
 from .compliance import AgencyProfile, Issue, build_description, check_upload
 from .export import export, probe
@@ -17,6 +17,10 @@ from .highlights import Highlight, HighlightConfig, HighlightResult, detect_high
 from .layouts import VerticalLayout
 from .sources import SourceInfo
 from .subtitles import Cue, SubtitleStyle, Transcriber, slice_cues, write_ass
+
+if TYPE_CHECKING:
+    from .translate import Translator
+    from .translation import Glossary
 
 __all__ = ["ClipResult", "default_clip_options", "find_highlights", "make_clips"]
 
@@ -46,6 +50,7 @@ def find_highlights(
     chat_format: str | None = None,
     info: str | os.PathLike[str] | None = None,
     audio: bool = False,
+    laughter: bool = False,
     config: HighlightConfig | None = None,
     source: dict | None = None,
     on_stage: Callable[[str], None] | None = None,
@@ -55,7 +60,7 @@ def find_highlights(
     This is the first half of ``stream2clip auto``; ``on_stage`` is told which step
     starts ("chat", "audio", "detect") so a UI can show what it is waiting for.
     """
-    from .audio import audio_levels
+    from .audio import audio_levels, laughter_levels
     from .chat import load_chat
     from .sources import heatmap_from_info, load_info
 
@@ -68,15 +73,22 @@ def find_highlights(
     heatmap = heatmap_from_info(load_info(info)) if info else []
     duration = None
     levels = None
+    bursts = None
     if video:
         duration = probe(video).duration
         if audio:
             stage("audio")
             levels = audio_levels(video, window=cfg.window)
+        if laughter:
+            stage("laughter")
+            bursts = laughter_levels(video, window=cfg.window)
     if not messages and levels is None and not heatmap:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
-    return detect_highlights(messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap, config=cfg, source=source or {})
+    return detect_highlights(
+        messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap,
+        laughter=bursts, laughter_window=cfg.window, config=cfg, source=source or {},
+    )
 
 
 def default_clip_options() -> ExportOptions:
@@ -113,6 +125,10 @@ def make_clips(
     options: ExportOptions | None = None,
     cues: Sequence[Cue] | None = None,
     transcriber: Transcriber | None = None,
+    subtitle_translator: "Translator | None" = None,
+    translate_to: str = "ko",
+    glossary: "Glossary | None" = None,
+    bilingual: bool = False,
     language: str | None = None,
     karaoke: bool = True,
     subtitle_style: SubtitleStyle | None = None,
@@ -128,7 +144,7 @@ def make_clips(
     out.mkdir(parents=True, exist_ok=True)
     options = options or default_clip_options()
     play_res = _output_size(video, options)
-    ai = uses_ai if uses_ai is not None else transcriber is not None
+    ai = uses_ai if uses_ai is not None else (transcriber is not None or subtitle_translator is not None)
     results: list[ClipResult] = []
     for index, h in enumerate(highlights, start=1):
         if on_progress is not None:
@@ -141,6 +157,10 @@ def make_clips(
             with tempfile.TemporaryDirectory(prefix="stream2clip-asr-") as tmp:
                 wav = _extract_audio(video, h.start, h.end, Path(tmp) / "clip.wav")
                 clip_cues = transcriber.transcribe(wav, language=language)
+        if clip_cues and subtitle_translator is not None:
+            from .translation import translate_cues
+
+            clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
         sub_path = None
         if clip_cues:
             sub_path = write_ass(clip_cues, out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke)

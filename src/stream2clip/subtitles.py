@@ -245,11 +245,17 @@ def _cue_line(cue: Cue, style: SubtitleStyle, karaoke: bool) -> str:
                 parts.append(f"{{\\k{dur}}}{sep}{_escape(tokens[i])}")
                 cursor = max(cursor, w.end)
         return "".join(parts)
-    text = cue.text.replace("\n", " ").strip()
-    tokens = text.split(" ") if " " in text else list(text)
-    lines = _wrap(tokens, style.max_chars)
-    joiner = " " if " " in text else ""
-    body = "\\N".join(_escape(joiner.join(tokens[i] for i in idxs)) for idxs in lines)
+    explicit = [line.strip() for line in cue.text.strip().split("\n") if line.strip()]
+    if len(explicit) > 1:
+        # Lines the cue already has (an original above its translation) stay as they are;
+        # re-wrapping by length would break in the middle of one of them.
+        body = "\\N".join(_escape(line) for line in explicit)
+    else:
+        text = cue.text.replace("\n", " ").strip()
+        tokens = text.split(" ") if " " in text else list(text)
+        lines = _wrap(tokens, style.max_chars)
+        joiner = " " if " " in text else ""
+        body = "\\N".join(_escape(joiner.join(tokens[i] for i in idxs)) for idxs in lines)
     # In karaoke mode the style's primary colour is the highlight; cues without word timing stay plain.
     return (f"{{\\1c{_ass_inline_color(style.color)}}}" + body) if karaoke else body
 

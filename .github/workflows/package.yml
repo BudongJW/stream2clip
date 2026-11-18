@@ -35,7 +35,7 @@ jobs:
             if ($attempt -lt 3) { Start-Sleep -Seconds 20 }
           }
           ffmpeg -version
-      - run: pip install -e ".[gui,ingest,detect,build]"
+      - run: pip install -e ".[gui,ingest,detect,obs,build]"
       - name: Build (programs only)
         run: python packaging/build_windows.py
       - name: Run the built programs without Python or ffmpeg on PATH
@@ -67,6 +67,13 @@ jobs:
           $out = & "$app\stream2clip.exe" avatar "$work\t.mp4" 2>&1 | Out-String
           Write-Host $out
           if ($out -notmatch "No avatar found") { throw "avatar did not run the face detector" }
+
+          # The websocket client inside the bundle: nothing listens on port 1, so "Cannot reach OBS" is the right answer.
+          $out = & "$app\stream2clip.exe" replay -o "$work\r.gif" --port 1 2>&1 | Out-String
+          Write-Host $out
+          if ($out -notmatch "Cannot reach OBS") { throw "replay did not load the websocket client" }
+
+          Check "singing sections of the test video" { & "$app\stream2clip.exe" singing "$work\t.mp4" }
 
           # The desktop app must start and stay up.
           $gui = Start-Process "$app\stream2clip-gui.exe" -PassThru

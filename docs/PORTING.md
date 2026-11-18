@@ -146,6 +146,21 @@ class Translator(Protocol):
     def translate(self, texts: Sequence[str], target: str, source: str | None = None) -> list[str]: ...
 ```
 
+자막 번역(`--translate`)도 같은 번역기를 씁니다. 텍스트 목록을 받아 같은 개수의 번역을 돌려주면 됩니다.
+
+```python
+from stream2clip.plugins import register_translator
+from stream2clip.subtitles import load_subtitles
+from stream2clip.translate import CallableTranslator
+from stream2clip.translation import Glossary, translate_cues
+
+translator = CallableTranslator(lambda texts, target, source: my_translate(texts, target))
+register_translator("mine", lambda: translator)                     # 이후 CLI의 --translate ko 가 이 번역기를 씁니다
+
+cues = translate_cues(load_subtitles("clip.vtt"), translator, target="ko", source="ja",
+                      glossary=Glossary({"兎田ぺこら": "우사다 페코라"}), bilingual=True)
+```
+
 편집기의 **번역 (한국어)** 버튼은 등록된 첫 번째 OCR + 번역기 쌍을 사용합니다. 번역 결과는 일반 주석(`rect` 배경 + `text`)으로 들어가므로 수정하거나 되돌리거나 JSON으로 저장할 수 있습니다. stream2clip 자체는 외부 번역 서비스를 호출하지 않습니다.
 
 ## 6. PySide6 / PyQt 앱에 편집기 넣기

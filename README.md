@@ -11,7 +11,7 @@
 캡쳐부터 움짤 녹화까지, 한 프로그램으로
 
 <!-- 프로젝트 -->
-<a href="#️-로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.2.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#️-로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.3.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#️-알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-218-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-243-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -52,6 +52,8 @@
 **stream2clip**은 방송 화면과 다시보기(VOD)에서 장면을 **캡쳐**하고, **바로 편집**하고, **GIF · MP4 · WebP 움짤로 녹화**하는 도구입니다. 그린스크린을 지운 **투명 배경 녹화**도 됩니다. 데스크톱 앱(PySide6)으로 쓸 수 있고, GUI 없이 **다른 오픈소스 영상 프로젝트에 그대로 이식**할 수 있도록 코어를 작은 파이썬 라이브러리로 분리했습니다.
 
 > [!NOTE]
+> **v0.3** — 앱에 **하이라이트 창**이 생겼고, **아바타 위치 자동 찾기**, **CHZZK · SOOP 채팅 수집**, **자막 번역 + 이름 용어집**, **노래 구간 검출**, **OBS 리플레이 버퍼 → 클립**, **YouTube 업로드**, **Windows 실행 파일**이 들어갔습니다. 바뀐 내용은 [CHANGELOG.md](CHANGELOG.md)에 있습니다.
+>
 > **v0.2** — 캡쳐 · 편집 · 움짤 녹화(v0.1)에 더해 **방송 → 클립 자동화**가 들어갔습니다. 채팅 · 음량 · "많이 다시 본 구간"으로 하이라이트를 찾고, 9:16 레이아웃 · 카라오케 자막 · 원본 표기 설명란까지 붙여 클립을 한 번에 뽑습니다. 다음 단계는 [로드맵](#️-로드맵)에 있습니다.
 
 <br>
@@ -171,6 +173,42 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 
 <p align="center"><img src="docs/images/highlights_window.png" alt="하이라이트 창: 입력 파일, 타임라인, 구간 목록, 레이아웃 미리보기, 내보내기 설정과 진행률" width="92%"></p>
 <p align="center"><sub>하이라이트 창 — 키 비주얼로 만든 30분 영상과 합성 채팅 데이터로 실행한 화면 (노란 테두리 = 선택한 구간)</sub></p>
+
+**자막 번역** — 번역기 플러그인이 있으면 클립 자막을 번역해 입힙니다. stream2clip에는 번역 서비스가 들어 있지 않습니다([연결 방법](docs/PORTING.md#5-플러그인-캡처-백엔드--ocr--번역기)).
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --translate ko --glossary names.csv --bilingual -o clips
+```
+
+`--glossary`는 `source,target` CSV(또는 JSON)입니다. 버튜버 이름처럼 번역기가 자주 틀리는 말을 고정합니다 — 번역 전에 한 번, 번역 후 남은 것에 한 번 적용합니다. `--bilingual`은 원문 위에 번역을 한 줄 더 둡니다. 번역된 자막은 단어 시각이 맞지 않아 카라오케 없이 표시됩니다. Holodex API 키가 있으면 이름 목록 초안을 뽑을 수 있습니다(일본어 → 영어 이름이며, 한글 표기는 직접 고쳐 넣어야 합니다).
+
+```bash
+stream2clip glossary names.csv --holodex Hololive --api-key YOUR_KEY
+```
+
+**노래 구간** — 노래 방송(歌枠)에서 노래 부분을 오디오만으로 찾습니다. 음악 저작권이나 가이드라인 때문에 노래 부분을 피해야 할 때 씁니다.
+
+```bash
+stream2clip singing vod/video.mp4 -o singing.json
+```
+
+```bash
+stream2clip auto vod/video.mp4 --chat vod/VIDEO_ID.live_chat.json --audio --skip-singing -o clips
+```
+
+`--mark-singing`은 각 하이라이트가 노래 구간과 얼마나 겹치는지 근거에 적고, `--skip-singing`은 절반 이상 겹치는 하이라이트를 뺍니다. `--laughter`는 웃음소리 같은 소리(크고 초당 4~8번 끊어지는 소리)를 점수에 더하는 실험 기능입니다.
+
+**OBS 리플레이 버퍼** — 방송 중 "방금 그 장면"을 바로 움짤로. OBS의 리플레이 버퍼를 켜 두고(설정 → 출력 → 리플레이 버퍼, 도구 → WebSocket 서버 설정) 실행합니다.
+
+```bash
+stream2clip replay -o moment.gif --last 15 --width 480
+```
+
+**YouTube 업로드** — 본인 Google Cloud 프로젝트의 OAuth 클라이언트 파일(데스크톱 앱)이 필요하고, 처음 한 번 브라우저에서 동의합니다. **기본은 비공개**입니다(API는 지정하지 않으면 공개로 올립니다). `--dry-run`은 보낼 내용만 보여 주고 올리지 않습니다.
+
+```bash
+stream2clip upload clips/clip_01.mp4 --title "레전드 장면" --description-file clips/clip_01.txt --shorts --client-secrets client_secret.json
+```
 
 **아바타 위치 자동 찾기** — `--layout stack`에 `--avatar auto`를 주면 애니메 얼굴 검출로 아바타 박스를 정합니다. 박스만 먼저 확인하려면:
 
@@ -323,7 +361,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 218개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 243개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -335,8 +373,8 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 
 | | 줄 수 |
 |---|---|
-| 라이브러리 + 앱 (`src/`) | 약 7,600 |
-| 테스트 (`tests/`) | 약 2,000 |
+| 라이브러리 + 앱 (`src/`) | 약 8,900 |
+| 테스트 (`tests/`) | 약 3,000 |
 
 | 설치 옵션 | 추가되는 의존성 | 쓰는 곳 |
 |---|---|---|
@@ -349,6 +387,8 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | `[asr]` | faster-whisper | `--transcribe` 자동 받아쓰기 |
 | `[detect]` | onnxruntime | `--avatar auto` · `stream2clip avatar` (아바타 박스 자동 제안) |
 | `[build]` | pyinstaller | `packaging/build_windows.py` (Windows 실행 파일) |
+| `[obs]` | websocket-client | `stream2clip replay` (OBS 리플레이 버퍼 → 클립) |
+| `[upload]` | google-api-python-client, google-auth-oauthlib | `stream2clip upload` (YouTube 업로드) |
 | `[dev]` | pytest, jsonschema, mss, PySide6 | 테스트 |
 
 </details>
@@ -393,15 +433,17 @@ pip install -e ".[gui]"
 | 방송 URL에서 VOD · 채팅 받기 | `pip install -e ".[ingest]"` |
 | 자막 자동 받아쓰기 (Whisper) | `pip install -e ".[asr]"` |
 | 아바타 위치 자동 찾기 | `pip install -e ".[detect]"` |
-| Windows 실행 파일 만들기 | `pip install -e ".[gui,ingest,detect,build]"` |
-| 전부 | `pip install -e ".[gui,hotkey,ingest,asr,detect]"` |
+| Windows 실행 파일 만들기 | `pip install -e ".[gui,ingest,detect,obs,build]"` |
+| OBS 리플레이 버퍼 → 클립 | `pip install -e ".[obs]"` |
+| YouTube 업로드 | `pip install -e ".[upload]"` |
+| 전부 | `pip install -e ".[gui,hotkey,ingest,asr,detect,obs,upload]"` |
 
 ### 🪟 Windows 실행 파일 만들기
 
 파이썬이 없는 PC에서도 쓸 수 있게 [PyInstaller](https://pyinstaller.org)로 폴더 하나에 묶습니다.
 
 ```bash
-pip install -e ".[gui,ingest,detect,build]"
+pip install -e ".[gui,ingest,detect,obs,build]"
 ```
 
 ```bash
@@ -412,7 +454,7 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱 (콘솔 창 없음) |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 — `fetch` · `auto` · `avatar` 등 전부 |
-| `dist/stream2clip-0.2.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.3.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
 
 | 옵션 | 동작 |
 |---|---|
@@ -422,6 +464,7 @@ python packaging/build_windows.py
 
 - 크기(Windows 11에서 빌드): 프로그램 폴더 약 230MB, zip 약 105MB. ffmpeg를 넣으면 그만큼 늘어납니다("full" 빌드는 ffmpeg · ffprobe 합쳐 약 450MB, "essentials" 빌드는 더 작습니다).
 - 아바타 검출 모델(12MB)은 넣지 않고 처음 쓸 때 내려받습니다.
+- YouTube 업로드(`upload`)는 실행 파일에 넣지 않았습니다. 파이썬으로 설치해 쓰세요.
 - Chocolatey · Scoop의 `ffmpeg.exe`는 실제 프로그램을 부르는 작은 연결 파일이라 `--ffmpeg auto`가 거부합니다. 실제 파일 경로를 주세요.
 - 설치 프로그램(.msi · setup.exe)과 코드 서명은 없습니다. 서명이 없어서 SmartScreen 경고가 뜰 수 있고, **Smart App Control이 켜진 PC에서는 실행이 차단될 수 있습니다** — Smart App Control이 켜진 PC에서 세 번 빌드해 보니 `stream2clip.exe`는 매번, `stream2clip-gui.exe`는 한 번 차단됐습니다(두 번은 실행됨). 그래서 두 프로그램의 실행 확인은 GitHub Actions의 Windows 러너에서 빌드해 직접 돌려 보는 것으로 합니다([`package.yml`](.github/workflows/package.yml)).
 
@@ -737,11 +780,13 @@ src/stream2clip/
 - [x] 📦 Windows 실행 파일 — PyInstaller로 GUI + 명령줄을 한 폴더 · zip으로 (`packaging/build_windows.py`)
 - [x] 🇰🇷 CHZZK · SOOP 다시보기 채팅 수집 — `fetch`에 주소만 주면 정규화해서 저장
 - [ ] 🇰🇷 한국 기획사 가이드라인 프로필 — 공식 원문을 확인한 곳부터 (스텔라이브 · 이세계아이돌은 원문 미확보)
-- [ ] 🌐 JP→KR 자막 번역 + 버튜버 이름 용어집 (Holodex 채널 메타)
-- [ ] 😂 웃음소리 검출 · 노래 구간(歌枠) 검출
+- [x] 🌐 자막 번역 + 이름 용어집 — 번역기 플러그인으로 번역, 용어집으로 이름 고정, 원문 + 번역 두 줄 자막, Holodex 이름 초안 <sup>v0.3</sup>
+- [x] 😂 노래 구간(歌枠) 검출 · 웃음소리 신호(실험) <sup>v0.3</sup>
 - [ ] 🧍 아바타 레이어 — Spout2/NDI 알파 레이어 녹화, VMC · VTube Studio 파라미터 기록 후 재렌더
-- [ ] 🔁 OBS 리플레이 버퍼 연동 (obs-websocket `SaveReplayBuffer` → 바로 움짤 변환)
-- [ ] ⬆️ YouTube 업로드 (Data API `videos.insert`) + Shorts 메타데이터
+- [x] 🔁 OBS 리플레이 버퍼 연동 — `stream2clip replay`로 저장 → 바로 움짤 변환 <sup>v0.3</sup>
+- [x] ⬆️ YouTube 업로드 — `stream2clip upload`, 기본 비공개 · Shorts 점검 <sup>v0.3</sup>
+- [ ] 🧪 실제 서비스 검증 — 실제 OBS, 실제 YouTube 업로드, 실제 번역기 · Holodex 키로 확인
+- [ ] 🖥️ 앱에서 번역 · 노래 구간 · 업로드 쓰기 (지금은 명령줄만)
 
 <br>
 
@@ -772,6 +817,9 @@ xvfb-run -a pytest
 | `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT/VTT/ASS, 자막이 정해진 시간에만 보이는지, 가이드라인 점검, 클립 파이프라인 |
 | `test_detect.py` | 얼굴 검출 전처리 · 후처리, 계속 같은 자리에 있는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` · `--avatar auto` (실제 모델은 파일이 있을 때만) |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
+| `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지 · 이름 고정 · 두 줄 자막 · 묶음 전송, Holodex 초안, `--translate` |
+| `test_audio_signals.py` | 웃음소리 신호(크고 끊어지는 소리), 가산 신호가 다른 하이라이트를 줄이지 않는지, 노래 구간 검출(합성 음성 · 노래), 노래 표시 · 제외 |
+| `test_obs_upload.py` | obs-websocket 인증 · 요청 · 이벤트(가짜 서버, 실제 소켓으로도), 리플레이 마지막 N초 변환, 업로드 본문 검증 · 기본 비공개 · 진행률 · `--dry-run` |
 | `test_packaging.py` | 빌드 스크립트(이름 · 명령 · 아이콘 · ffmpeg 복사 · zip), 빌드된 실행 파일이 옆의 ffmpeg를 먼저 쓰는지, yt-dlp 실행 경로 |
 | `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음, 앱 아이콘 크기 구성 · 마스코트 이미지 |
 | `test_gui_highlights.py` | 하이라이트 창: 타임라인 막대가 시간축과 맞는지, 구간 이동 · 가장자리 조정 · 한계, 좁은 구간 확대, 분석 → 미리보기 → 내보내기(끌어서 바꾼 길이로 저장되는지), 아바타 자동 찾기, 실패 표시 |
@@ -791,6 +839,11 @@ xvfb-run -a pytest
 | 🪟 Windows 10 | 🟡 같은 Win32 API를 쓰지만 실기기 미검증 |
 | 🍎 macOS | 🟡 시스템 설정의 화면 기록 권한 필요, 실기기 미검증 |
 | 🌊 Wayland | ❌ 화면 캡쳐(mss)는 X11/XWayland에서만 동작 |
+| 🌐 자막 번역 | 🟡 번역 서비스가 내장되어 있지 않아 대역 번역기로만 확인했습니다. 실제 방송 클립에 원문 + 한글 두 줄 자막이 입혀지는 것은 프레임으로 확인. Holodex 이름 초안은 API 키가 없어 가짜 응답으로만 테스트 |
+| 🎤 노래 구간 검출 | ✅ 실제 노래 방송 1개(94분)에서 노래 구간 11개, 실제 게임 방송 1개(85분)에서 0개. YouTube 자동 자막의 [音楽] 표시 중 86%가 검출 구간 안. 방송 둘로만 본 결과입니다 |
+| 😂 웃음소리 신호 | 🟡 실험 기능(기본 꺼짐). 방송 하나에서 상위 순간 뒤 채팅의 웃음 반응이 평소의 2.1배(음량만 쓰면 1.9배). 실제로 웃음소리를 잡는지는 확인하지 못했습니다 |
+| 🔁 OBS 연동 | 🟡 실제 OBS로 실행해 보지 못했습니다(개발 PC에 OBS 없음). 공식 프로토콜 문서대로 만든 가짜 서버와 실제 소켓으로 테스트 |
+| ⬆️ YouTube 업로드 | 🟡 실제 업로드는 하지 않았습니다(계정 · OAuth 필요, 게시되는 작업). 요청 본문과 진행 처리만 가짜 API로 테스트. 쿼터는 공식 문서 기준(2026-11 확인) |
 | 🇰🇷 CHZZK · SOOP 수집 | ✅ 실제 공개 다시보기 각 1개로 확인: CHZZK 채팅 983개(6초), SOOP 채팅 1,567개(8초, 별풍선 포함) → 하이라이트 검출까지. 영상은 SOOP에서 20초 구간 다운로드를 확인했습니다. CHZZK는 구간 다운로드(`--start` · `--end`)가 실패했고(ffmpeg가 CHZZK의 HLS 목록을 열지 못함) 전체 영상 다운로드는 용량이 커서 시도하지 않았습니다. 비공개 · 성인 인증 · 구독자 전용 다시보기는 확인하지 못했습니다 |
 | 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) |
 

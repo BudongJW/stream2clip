@@ -26,7 +26,7 @@ def build():
 
 def test_names_and_command(build, tmp_path):
     assert build.project_version() == __import__("stream2clip").__version__
-    assert build.archive_name("0.2.0", "AMD64") == "stream2clip-0.2.0-windows-x64"
+    assert build.archive_name("0.3.0", "AMD64") == "stream2clip-0.3.0-windows-x64"
     assert build.archive_name("1.0", "ARM64") == "stream2clip-1.0-windows-arm64"
     cmd = build.pyinstaller_command(tmp_path / "dist", tmp_path / "work", python="py")
     assert cmd[:3] == ["py", "-m", "PyInstaller"] and cmd[-1].endswith("stream2clip.spec") and Path(cmd[-1]).is_file()
@@ -76,8 +76,8 @@ def test_ffmpeg_is_copied_next_to_the_programs_and_zipped(build, tmp_path, monke
     assert sorted(p.name for p in copied) == ["ffmpeg.exe", "ffprobe.exe"] and (folder / "ffprobe.exe").read_bytes() == b"ffprobe"
     assert build.folder_size(folder) == 10 + 6 + 7
 
-    archive = build.make_zip(folder, "stream2clip-0.2.0-windows-x64")
-    assert archive.name == "stream2clip-0.2.0-windows-x64.zip"
+    archive = build.make_zip(folder, "stream2clip-0.3.0-windows-x64")
+    assert archive.name == "stream2clip-0.3.0-windows-x64.zip"
     with zipfile.ZipFile(archive) as z:  # unpacks into one folder
         assert sorted(z.namelist()) == ["stream2clip/", "stream2clip/ffmpeg.exe", "stream2clip/ffprobe.exe", "stream2clip/stream2clip.exe"] or \
             sorted(n for n in z.namelist() if not n.endswith("/")) == ["stream2clip/ffmpeg.exe", "stream2clip/ffprobe.exe", "stream2clip/stream2clip.exe"]
