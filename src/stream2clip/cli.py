@@ -445,6 +445,47 @@ def cmd_auto(args: argparse.Namespace) -> int:
     return _make_clips(args, result.highlights)
 
 
+def cmd_replay(args: argparse.Namespace) -> int:
+    import os
+
+    from .obs import replay_to_clip
+
+    output = Path(args.output)
+    options = _export_options(args, output)
+    password = args.password or os.environ.get("OBS_WEBSOCKET_PASSWORD")
+    clip, replay = replay_to_clip(output, options, last=args.last, host=args.host, port=args.port, password=password, start_buffer=args.start_buffer)
+    print(f"replay {replay}")
+    print(f"saved  {clip}")
+    return 0
+
+
+def cmd_upload(args: argparse.Namespace) -> int:
+    from .export import probe
+    from .upload import load_credentials, shorts_problems, upload_video, video_resource, video_url
+
+    description = Path(args.description_file).read_text(encoding="utf-8") if args.description_file else (args.description or "")
+    tags = [t for t in (args.tags or "").split(",") if t.strip()]
+    resource = video_resource(
+        args.title, description, tags=tags, category_id=args.category, privacy=args.privacy, made_for_kids=args.made_for_kids,
+        synthetic_media=True if args.synthetic_media else None, language=args.language, shorts=args.shorts,
+    )
+    if args.shorts:
+        info = probe(args.video)
+        for problem in shorts_problems(info.width, info.height, info.duration):
+            print(f"! {problem}", file=sys.stderr)
+    if args.dry_run:
+        print(json.dumps(resource, ensure_ascii=False, indent=2))
+        print("dry run: nothing was uploaded")
+        return 0
+    if not args.client_secrets:
+        raise ValueError("--client-secrets is required to upload (your own OAuth client file); use --dry-run to only see what would be sent")
+    credentials = load_credentials(args.client_secrets, args.token)
+    print(f"uploading {args.video} as {args.privacy} ...", flush=True)
+    response = upload_video(args.video, resource, credentials=credentials, on_progress=lambda f: print(f"  {f:4.0%}", flush=True))
+    print(f"uploaded {video_url(response['id'])}  ({response.get('status', {}).get('privacyStatus', args.privacy)})")
+    return 0
+
+
 def cmd_singing(args: argparse.Namespace) -> int:
     from .audio import singing_sections
 
@@ -589,6 +630,33 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--face-model", help="ONNX face model file (default: downloaded once, 12 MB)")
     p.set_defaults(func=cmd_avatar)
 
+    p = sub.add_parser("replay", help="save OBS's replay buffer and turn it into a clip (obs-websocket)")
+    p.add_argument("-o", "--output", required=True, help="clip to write, e.g. moment.gif / .webp / .mp4")
+    p.add_argument("--last", type=float, help="keep only the last N seconds of the replay")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=4455)
+    p.add_argument("--password", help="WebSocket server password (default: OBS_WEBSOCKET_PASSWORD)")
+    p.add_argument("--start-buffer", action="store_true", help="start the replay buffer if it is not running (then run the command again later)")
+    _add_export_args(p)
+    p.set_defaults(func=cmd_replay)
+
+    p = sub.add_parser("upload", help="upload a clip to YouTube (private unless you say otherwise)")
+    p.add_argument("video")
+    p.add_argument("--title", required=True)
+    p.add_argument("--description", help="description text")
+    p.add_argument("--description-file", help="read the description from a file, e.g. clips/clip_01.txt")
+    p.add_argument("--tags", help="comma separated")
+    p.add_argument("--privacy", choices=["private", "unlisted", "public"], default="private")
+    p.add_argument("--category", default="20", help="YouTube category id (default 20 = Gaming)")
+    p.add_argument("--language", help="default language of the title / description, e.g. ko")
+    p.add_argument("--made-for-kids", action="store_true")
+    p.add_argument("--synthetic-media", action="store_true", help="declare altered or synthetic content (AI voice, AI video ...)")
+    p.add_argument("--shorts", action="store_true", help="add #Shorts and warn when the video is not vertical or longer than 3 minutes")
+    p.add_argument("--client-secrets", help="your Google Cloud OAuth client file (Desktop app)")
+    p.add_argument("--token", help="where to keep the refresh token (default: token.json next to the client file)")
+    p.add_argument("--dry-run", action="store_true", help="print what would be sent and stop")
+    p.set_defaults(func=cmd_upload)
+
     p = sub.add_parser("singing", help="find the songs in a stream (karaoke / 歌枠) from its audio")
     p.add_argument("video")
     p.add_argument("-o", "--output", help="write the sections as JSON")
@@ -651,7 +719,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(raw)
     try:
         return int(args.func(args) or 0)
-    except (ValueError, RuntimeError, FileNotFoundError, IndexError) as exc:
+    except (ValueError, RuntimeError, FileNotFoundError, IndexError, OSError) as exc:
         print(f"stream2clip: error: {exc}", file=sys.stderr)
         return 1
 

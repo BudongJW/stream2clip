@@ -35,7 +35,7 @@ jobs:
             if ($attempt -lt 3) { Start-Sleep -Seconds 20 }
           }
           ffmpeg -version
-      - run: pip install -e ".[gui,ingest,detect,build]"
+      - run: pip install -e ".[gui,ingest,detect,obs,build]"
       - name: Build (programs only)
         run: python packaging/build_windows.py
       - name: Run the built programs without Python or ffmpeg on PATH
