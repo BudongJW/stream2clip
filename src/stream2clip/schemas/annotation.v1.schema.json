@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/BudongJW/stream2clip/schemas/annotation.v1.schema.json",
+  "title": "stream2clip annotation document v1",
+  "description": "Non-destructive annotations for an image or video frame. Coordinates are source pixels (origin top-left). Items are applied in order, then the crop.",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "schema": { "const": "stream2clip.annotation/v1" },
+    "canvas": {
+      "type": "object",
+      "description": "Size of the image the coordinates refer to (informative).",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "crop": { "oneOf": [{ "$ref": "#/$defs/rect" }, { "type": "null" }] },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" } }
+  },
+  "$defs": {
+    "point": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 },
+    "rect": {
+      "description": "[x, y, width, height]",
+      "type": "array",
+      "prefixItems": [{ "type": "integer" }, { "type": "integer" }, { "type": "integer", "minimum": 0 }, { "type": "integer", "minimum": 0 }],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$" },
+    "item": {
+      "oneOf": [
+        {
+          "title": "pen (펜)",
+          "type": "object",
+          "required": ["type", "points"],
+          "properties": {
+            "type": { "const": "pen" },
+            "points": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 1 },
+            "color": { "$ref": "#/$defs/color" },
+            "width": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "highlighter (형광펜)",
+          "type": "object",
+          "required": ["type", "points"],
+          "properties": {
+            "type": { "const": "highlighter" },
+            "points": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 1 },
+            "color": { "$ref": "#/$defs/color" },
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "rect (네모)",
+          "type": "object",
+          "required": ["type", "rect"],
+          "properties": {
+            "type": { "const": "rect" },
+            "rect": { "$ref": "#/$defs/rect" },
+            "color": { "$ref": "#/$defs/color" },
+            "width": { "type": "number", "minimum": 0 },
+            "fill": { "oneOf": [{ "$ref": "#/$defs/color" }, { "type": "null" }] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "arrow (화살표)",
+          "type": "object",
+          "required": ["type", "start", "end"],
+          "properties": {
+            "type": { "const": "arrow" },
+            "start": { "$ref": "#/$defs/point" },
+            "end": { "$ref": "#/$defs/point" },
+            "color": { "$ref": "#/$defs/color" },
+            "width": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "text (글자)",
+          "type": "object",
+          "required": ["type", "position", "text"],
+          "properties": {
+            "type": { "const": "text" },
+            "position": { "$ref": "#/$defs/point" },
+            "text": { "type": "string" },
+            "color": { "$ref": "#/$defs/color" },
+            "size": { "type": "number", "exclusiveMinimum": 0 },
+            "background": { "oneOf": [{ "$ref": "#/$defs/color" }, { "type": "null" }] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "mosaic (모자이크)",
+          "type": "object",
+          "required": ["type", "rect"],
+          "properties": {
+            "type": { "const": "mosaic" },
+            "rect": { "$ref": "#/$defs/rect" },
+            "block": { "type": "integer", "minimum": 2 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "transparent (투명 - 영역)",
+          "type": "object",
+          "required": ["type", "rect"],
+          "properties": {
+            "type": { "const": "transparent" },
+            "rect": { "$ref": "#/$defs/rect" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "colorkey (투명 - 색상)",
+          "description": "Same math as ffmpeg colorkey=color:similarity:blend.",
+          "type": "object",
+          "required": ["type", "color"],
+          "properties": {
+            "type": { "const": "colorkey" },
+            "color": { "$ref": "#/$defs/color" },
+            "similarity": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "blend": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
