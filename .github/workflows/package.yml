@@ -1,0 +1,83 @@
+name: Package (Windows)
+
+# Builds the Windows programs with PyInstaller and runs them on a machine that has
+# neither Python nor ffmpeg on PATH. Runs when packaging changes, on version tags
+# and on demand; the zip (programs only, no ffmpeg) is kept as a workflow artifact.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "pyproject.toml"
+      - ".github/workflows/package.yml"
+      - "src/stream2clip/ffmpeg.py"
+      - "src/stream2clip/sources.py"
+      - "src/stream2clip/cli.py"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: ffmpeg
+        shell: pwsh
+        run: |
+          foreach ($attempt in 1..3) {
+            choco install ffmpeg -y --no-progress
+            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
+            Write-Host "ffmpeg is not installed after attempt $attempt"
+            if ($attempt -lt 3) { Start-Sleep -Seconds 20 }
+          }
+          ffmpeg -version
+      - run: pip install -e ".[gui,ingest,detect,build]"
+      - name: Build (programs only)
+        run: python packaging/build_windows.py
+      - name: Run the built programs without Python or ffmpeg on PATH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $app = Resolve-Path "dist\stream2clip"
+          # The real ffmpeg, not Chocolatey's launcher shim, goes next to the programs.
+          $real = Get-ChildItem "C:\ProgramData\chocolatey\lib" -Recurse -Filter ffmpeg.exe | Sort-Object Length -Descending | Select-Object -First 1
+          python packaging/build_windows.py --copy-ffmpeg-only --ffmpeg $real.FullName
+          $work = New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\smoke"
+          $env:PATH = "C:\Windows\System32;C:\Windows"
+
+          function Check($what, [scriptblock]$run) {
+            Write-Host "::group::$what"
+            & $run
+            if ($LASTEXITCODE -ne 0) { throw "$what failed with exit code $LASTEXITCODE" }
+            Write-Host "::endgroup::"
+          }
+
+          Check "version" { & "$app\stream2clip.exe" --version }
+          Check "test video with the bundled ffmpeg" { & "$app\ffmpeg.exe" -v error -y -f lavfi -i "testsrc2=s=160x90:r=10:d=3" -f lavfi -i "sine=frequency=440:duration=3" -pix_fmt yuv420p -shortest "$work\t.mp4" }
+          Check "convert (finds ffmpeg next to the program)" { & "$app\stream2clip.exe" convert "$work\t.mp4" --start 0 --end 1 --width 80 -o "$work\t.gif" }
+          if (-not (Test-Path "$work\t.gif")) { throw "convert wrote no file" }
+          Check "yt-dlp passthrough" { & "$app\stream2clip.exe" yt-dlp --version }
+          Check "highlights from the chat fixture" { & "$app\stream2clip.exe" highlights --chat tests\data\youtube_real_excerpt.live_chat.json }
+
+          # onnxruntime inside the bundle: there is no face in a test pattern, so the right answer is "No avatar found" (exit 1).
+          $out = & "$app\stream2clip.exe" avatar "$work\t.mp4" 2>&1 | Out-String
+          Write-Host $out
+          if ($out -notmatch "No avatar found") { throw "avatar did not run the face detector" }
+
+          # The desktop app must start and stay up.
+          $gui = Start-Process "$app\stream2clip-gui.exe" -PassThru
+          Start-Sleep -Seconds 8
+          if ($gui.HasExited) { throw "stream2clip-gui.exe exited with code $($gui.ExitCode)" }
+          Stop-Process -Id $gui.Id -Force
+          Write-Host "all programs ran"
+          exit 0  # the expected exit code 1 of the avatar check above must not become the step's result
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: stream2clip-windows
+          path: dist/*.zip
+          if-no-files-found: error

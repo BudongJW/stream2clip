@@ -257,9 +257,30 @@ def test_avatar_button_fills_the_box(app, window, stream_files, monkeypatch):
     assert "12/12" in window.status.text()
 
 
+def test_mascot_follows_the_state(app, window):
+    from stream2clip.gui.highlights import mood_for
+    from stream2clip.highlights import Highlight
+
+    assert window.mood == "wink" and not window.mascot_label.pixmap().isNull()
+    window._set_busy(True, "…")
+    assert window.mood == "focus"
+    window._on_analysed(synthetic_result())  # two planted "草" moments
+    assert window.mood == "laugh" and not window.list.item(0).icon().isNull()
+    window._on_exported(("clips", []))
+    assert window.mood == "cut"
+    window._on_failed("boom")
+    assert window.mood == "surprised"
+
+    def face(**stats):
+        return mood_for(Highlight(1, 0, 10, 5, 1.0, stats=stats))
+
+    assert face(react_laugh=9, react_shock=2) == "laugh" and face(react_shock=5, react_laugh=1) == "surprised"
+    assert face(react_cute=3) == "wink" and face(react_hype=4) == "cut" and face() is None and face(react_laugh=0) is None
+
+
 def test_failures_are_reported_in_the_status_line(app, window, tmp_path):
     window.analyse()  # no video picked
-    assert window.status.text().startswith("실패") and not window.busy
+    assert window.status.text().startswith("실패") and not window.busy and window.mood == "surprised"
     window.set_paths(video=str(tmp_path / "nope.mp4"), chat=str(tmp_path / "nope.csv"))
     window.analyse()
     wait(app, lambda: not window.busy)

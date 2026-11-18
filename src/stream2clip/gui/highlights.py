@@ -12,8 +12,8 @@ import threading
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QIcon, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -39,9 +39,9 @@ from ..geometry import Region
 from ..highlights import Highlight, HighlightConfig, HighlightResult
 from ..layouts import LAYOUTS, VerticalLayout
 from . import theme
-from .qt import app_icon, pil_to_qimage
+from .qt import app_icon, mascot, pil_to_qimage
 
-__all__ = ["HighlightsWindow", "TimelineWidget", "default_clip_dir"]
+__all__ = ["HighlightsWindow", "TimelineWidget", "default_clip_dir", "mood_for"]
 
 _LAYOUT_LABELS = {"blur": "blur · 블러 배경", "center": "center · 가운데 채우기", "fit": "fit · 전체 보이기", "stack": "stack · 아바타 위 / 게임 아래", "none": "원본 화면 그대로"}
 _STAGES = {"chat": "채팅 읽는 중…", "audio": "음량 분석 중… (영상 길이에 따라 수십 초)", "detect": "하이라이트 찾는 중…"}
@@ -53,6 +53,15 @@ def default_clip_dir() -> Path:
         if base.is_dir():
             return base / "stream2clip" / "clips"
     return Path.cwd() / "clips"
+
+
+def mood_for(highlight: Highlight) -> str | None:
+    """Which face of the mascot fits a highlight: the reaction the chat showed most."""
+    counts = {name: highlight.stats.get(f"react_{name}", 0) for name in ("laugh", "shock", "cute", "hype")}
+    best = max(counts, key=lambda name: counts[name])
+    if counts[best] <= 0:
+        return None
+    return {"laugh": "laugh", "shock": "surprised", "cute": "wink", "hype": "cut"}[best]
 
 
 def _clock(seconds: float) -> str:
@@ -317,6 +326,7 @@ class HighlightsWindow(QMainWindow):
         self.list.setStyleSheet(f"QListWidget {{ background: {theme.SURFACE}; border: 1px solid {theme.BORDER}; border-radius: 10px; padding: 4px; }}"
                                 f"QListWidget::item:selected {{ background: {theme.SURFACE_2}; }}")
         self.list.setWordWrap(True)
+        self.list.setIconSize(QSize(34, 34))
         self.list.currentRowChanged.connect(self.timeline.select)
         middle.addWidget(self.list, 3)
         self.preview = QLabel("미리보기", objectName="Muted")
@@ -328,6 +338,11 @@ class HighlightsWindow(QMainWindow):
         outer.addLayout(middle, 1)
 
         bottom = QHBoxLayout()
+        self.mascot_label = QLabel()
+        self.mascot_label.setFixedSize(44, 44)
+        bottom.addWidget(self.mascot_label)
+        self.mood = ""
+        self.set_mood("wink")
         self.status = QLabel("영상과 채팅 다시보기를 고르세요", objectName="Muted")
         bottom.addWidget(self.status, 1)
         self.progress = QProgressBar()
@@ -477,8 +492,16 @@ class HighlightsWindow(QMainWindow):
             if value:
                 edit.setText(str(value))
 
+    def set_mood(self, mood: str) -> None:
+        """Kiri next to the status line: wink = ready, focus = working, cut = clips done, surprised = failed."""
+        if mood != self.mood:
+            self.mood = mood
+            self.mascot_label.setPixmap(mascot(mood, 44))
+
     def _set_busy(self, busy: bool, message: str | None = None) -> None:
         self.busy = busy
+        if busy:
+            self.set_mood("focus")
         self.analyse_button.setEnabled(not busy)
         self.avatar_button.setEnabled(not busy and self.layout_combo.currentData() == "stack")
         self.export_button.setEnabled(not busy and bool(self.checked_highlights()))
@@ -496,6 +519,7 @@ class HighlightsWindow(QMainWindow):
 
     def _on_failed(self, message: str) -> None:
         self._set_busy(False, f"실패: {message.splitlines()[0][:120]}")
+        self.set_mood("surprised")
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         if self.dialogs and self.isVisible():
@@ -557,6 +581,9 @@ class HighlightsWindow(QMainWindow):
         self.list.clear()
         for h in result.highlights:
             item = QListWidgetItem(self._item_text(h))
+            face = mood_for(h)
+            if face is not None:
+                item.setIcon(QIcon(mascot(face, 34)))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked)
             self.list.addItem(item)
@@ -567,6 +594,7 @@ class HighlightsWindow(QMainWindow):
         chat = f"채팅 {result.messages:,}개 · " if result.messages else ""
         hint = "" if count else " — 임계값을 낮춰 보세요"
         self._set_busy(False, f"{chat}{_clock(result.duration)} 분석 → 하이라이트 {count}개{hint}")
+        self.set_mood("laugh" if count else "wink")
         self.refresh_preview()
 
     # ------------------------------------------------------------------ selection / preview
@@ -704,6 +732,7 @@ class HighlightsWindow(QMainWindow):
                 return
             self.avatar_edit.setText(str(value.region))
             self._set_busy(False, f"아바타 {value.region} — 프레임 {value.hits}/{value.frames}장에서 확인")
+            self.set_mood("wink")
             self.refresh_preview()
             return
         self.last_results = value
@@ -713,3 +742,4 @@ class HighlightsWindow(QMainWindow):
         note = f" · 가이드라인 확인 필요 {warnings}건 (clips.json)" if warnings else ""
         where = value[0].path.parent if value else self.output_edit.text()
         self._set_busy(False, f"클립 {len(value)}개 저장됨: {where}{note}")
+        self.set_mood("cut")

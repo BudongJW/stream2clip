@@ -361,6 +361,8 @@ def _explain(h: Highlight, raw: dict[str, np.ndarray], chat: dict[str, Any] | No
         cats = {c: int(v[lo:hi].sum()) for c, v in chat["categories"].items()}
         total_react = int(raw["reactions"][lo:hi].sum())
         stats["reactions"] = total_react
+        for name, count in cats.items():
+            stats[f"react_{name}"] = count
         if total_react:
             detail = " · ".join(f"{_LABELS[c]} {n}" for c, n in sorted(cats.items(), key=lambda kv: -kv[1]) if n)
             reasons.append(f"반응 {total_react}개 ({detail})")

@@ -24,6 +24,18 @@ lockup_on-dark.png / lockup_on-light.png   심볼 + 워드마크 가로형 로�
 [ logo/favicon ]
 favicon.ico (16/32/48), favicon_32.png, favicon_512.png, apple-touch-icon_180.png
 
+[ app-icons ]  앱 아이콘 & 파비콘 (자세한 내용은 app-icons/README.txt)
+windows/  stream2clip.ico · stream2clip_kiri.ico  (16~256px 10개 크기 내장)
+macos/    .icns + 1024px PNG
+linux/    PNG 16~512px
+web/      favicon.ico · favicon.svg · apple-touch-icon · android-chrome · site.webmanifest
+심볼형(stream2clip)이 기본, 키리형(stream2clip_kiri)은 마스코트 얼굴. 24px 이하는 단순화 심볼.
+앱은 심볼형을 씁니다: 창 아이콘 = src/stream2clip/gui/assets/icon_*.png, 실행 파일 = windows/stream2clip.ico
+
+[ mascot ]  마스코트 키리 SD 이모트 5종 (자세한 내용은 mascot/README.txt)
+kiri_wink · kiri_laugh · kiri_surprised · kiri_cut · kiri_focus  ×  512 / 112 / 56 / 28px 투명 PNG
+앱(하이라이트 창)은 56 · 112px을 src/stream2clip/gui/assets/kiri_*.png 로 복사해 씁니다.
+
 [ 컬러 ]
 잉크 #15131F · 페이퍼 #F7F4FA · 라이브 핑크 #FF4F8B · 하이라이트 #FFD84D
 

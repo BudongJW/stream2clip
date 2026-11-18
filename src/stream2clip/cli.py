@@ -281,6 +281,19 @@ def _detect(args: argparse.Namespace, video: str | None):
     return result
 
 
+def _run_ytdlp(args: list[str]) -> int:
+    try:
+        import yt_dlp
+    except ImportError:
+        print('stream2clip: error: yt-dlp is not installed: pip install "stream2clip[ingest]"', file=sys.stderr)
+        return 1
+    try:
+        yt_dlp.main(args)
+    except SystemExit as exc:  # yt-dlp always exits; hand its status back
+        return exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+    return 0
+
+
 def _clock(seconds: float) -> str:
     seconds = max(0, int(seconds))
     return f"{seconds // 3600:d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
@@ -530,8 +543,35 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _tolerant_output() -> None:
+    """Never die while printing.
+
+    Results contain Korean, Japanese and emoji (reasons, stream titles). A real console
+    shows them, but redirected output uses the system code page (cp1252, cp949 ...) and
+    ``print`` raised UnicodeEncodeError there. Redirected output becomes UTF-8 unless
+    ``PYTHONIOENCODING`` says otherwise; anything that still cannot be shown is replaced.
+    """
+    import os
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            if stream.isatty() or os.environ.get("PYTHONIOENCODING"):
+                reconfigure(errors="replace")
+            else:
+                reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # closed or exotic stream: leave it alone
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    _tolerant_output()
+    raw = sys.argv[1:] if argv is None else list(argv)
+    if raw[:1] == ["yt-dlp"]:  # `stream2clip yt-dlp ...`: how the built executable runs yt-dlp for `fetch`
+        return _run_ytdlp(raw[1:])
+    args = build_parser().parse_args(raw)
     try:
         return int(args.func(args) or 0)
     except (ValueError, RuntimeError, FileNotFoundError, IndexError) as exc:

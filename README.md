@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-196-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-207-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -306,9 +306,9 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 196개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
-| ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows |
-| 📦 패키징 | `pyproject.toml` · setuptools | 77+ | — | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 207개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
+| 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
 
 <details>
@@ -331,6 +331,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 | `[ingest]` | yt-dlp | `stream2clip fetch` (VOD · 채팅 · info) |
 | `[asr]` | faster-whisper | `--transcribe` 자동 받아쓰기 |
 | `[detect]` | onnxruntime | `--avatar auto` · `stream2clip avatar` (아바타 박스 자동 제안) |
+| `[build]` | pyinstaller | `packaging/build_windows.py` (Windows 실행 파일) |
 | `[dev]` | pytest, jsonschema, mss, PySide6 | 테스트 |
 
 </details>
@@ -375,7 +376,37 @@ pip install -e ".[gui]"
 | 방송 URL에서 VOD · 채팅 받기 | `pip install -e ".[ingest]"` |
 | 자막 자동 받아쓰기 (Whisper) | `pip install -e ".[asr]"` |
 | 아바타 위치 자동 찾기 | `pip install -e ".[detect]"` |
+| Windows 실행 파일 만들기 | `pip install -e ".[gui,ingest,detect,build]"` |
 | 전부 | `pip install -e ".[gui,hotkey,ingest,asr,detect]"` |
+
+### 🪟 Windows 실행 파일 만들기
+
+파이썬이 없는 PC에서도 쓸 수 있게 [PyInstaller](https://pyinstaller.org)로 폴더 하나에 묶습니다.
+
+```bash
+pip install -e ".[gui,ingest,detect,build]"
+```
+
+```bash
+python packaging/build_windows.py
+```
+
+| 결과 | 내용 |
+|---|---|
+| `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱 (콘솔 창 없음) |
+| `dist/stream2clip/stream2clip.exe` | 명령줄 — `fetch` · `auto` · `avatar` 등 전부 |
+| `dist/stream2clip-0.2.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+
+| 옵션 | 동작 |
+|---|---|
+| `--ffmpeg auto` · `--ffmpeg 경로` | `ffmpeg.exe` · `ffprobe.exe`를 폴더에 복사합니다. 실행 파일은 **자기 옆의 ffmpeg를 먼저** 쓰므로 ffmpeg가 없는 PC에서도 동작합니다. 빼면 사용자가 ffmpeg를 PATH에 둬야 합니다 |
+| `--icon kiri` | 실행 파일 아이콘을 키리형으로 (기본은 심볼형) |
+| `--with-asr` | 받아쓰기(`--transcribe`)용 faster-whisper 포함 — 기본은 제외, 용량이 크게 늘어납니다 |
+
+- 크기(Windows 11에서 빌드): 프로그램 폴더 약 230MB, zip 약 105MB. ffmpeg를 넣으면 그만큼 늘어납니다("full" 빌드는 ffmpeg · ffprobe 합쳐 약 450MB, "essentials" 빌드는 더 작습니다).
+- 아바타 검출 모델(12MB)은 넣지 않고 처음 쓸 때 내려받습니다.
+- Chocolatey · Scoop의 `ffmpeg.exe`는 실제 프로그램을 부르는 작은 연결 파일이라 `--ffmpeg auto`가 거부합니다. 실제 파일 경로를 주세요.
+- 설치 프로그램(.msi · setup.exe)과 코드 서명은 없습니다. 서명이 없어서 SmartScreen 경고가 뜰 수 있고, **Smart App Control이 켜진 PC에서는 실행이 차단될 수 있습니다** — Smart App Control이 켜진 PC에서 세 번 빌드해 보니 `stream2clip.exe`는 매번, `stream2clip-gui.exe`는 한 번 차단됐습니다(두 번은 실행됨). 그래서 두 프로그램의 실행 확인은 GitHub Actions의 Windows 러너에서 빌드해 직접 돌려 보는 것으로 합니다([`package.yml`](.github/workflows/package.yml)).
 
 <br>
 
@@ -636,6 +667,8 @@ src/stream2clip/
 | [`logo/favicon/`](assets/brand/logo/favicon) | ico · 32/512px · apple-touch-icon |
 | [`02_concept-image_keyvisual…`](assets/brand/02_concept-image_keyvisual_1920x1080.png) | 키 비주얼 (FHD · `@2x`) |
 | [`03_github-social-preview…`](assets/brand/03_github-social-preview_1280x640.png) | GitHub 소셜 프리뷰 |
+| [`app-icons/`](assets/brand/app-icons) | 앱 아이콘 — Windows `.ico` · macOS `.icns` · Linux PNG · 웹 파비콘 (심볼형 / 키리형) |
+| [`mascot/`](assets/brand/mascot) | 마스코트 키리 이모트 5종 (512 · 112 · 56 · 28px) |
 
 </td>
 </tr>
@@ -643,7 +676,29 @@ src/stream2clip/
 
 <p align="center"><img src="assets/brand/03_github-social-preview_1280x640.png" alt="GitHub 소셜 프리뷰" width="70%"></p>
 
-<sub>데스크톱 앱도 같은 팔레트와 핑크 앱 아이콘을 씁니다. PNG 시안의 영문 워드마크는 Outfit 대신 Poppins로 렌더링되어 원본과 글자 모양이 약간 다릅니다(<a href="assets/brand/README.txt">assets/brand/README.txt</a>). 심볼 · 앱 아이콘 · 파비콘은 순수 도형이라 원본과 같습니다. 소셜 프리뷰는 저장소 Settings → General → Social preview에 업로드하면 적용됩니다.</sub>
+#### 🖼️ 앱 아이콘
+
+<p align="center"><img src="assets/brand/app-icons/preview.png" alt="앱 아이콘 시안: 심볼형과 키리형, 256px부터 16px까지" width="88%"></p>
+
+**심볼형**(기본)과 **키리형** 두 가지입니다. 24px 이하에서는 REC 점과 재생 삼각형을 빼고 선을 굵게 한 단순화 심볼을 씁니다(키리형도 32px 이하는 심볼로 대체). 앱 창과 Windows 실행 파일은 심볼형을 쓰고, 실행 파일 빌드 때 `--icon kiri`로 키리형을 고를 수 있습니다.
+
+#### 🐱 마스코트 키리
+
+<table>
+<tr>
+<td align="center"><img src="assets/brand/mascot/kiri_wink_112.png" alt="키리 윙크" width="84"><br><sub><b>wink</b><br>기본 · 인사</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_laugh_112.png" alt="키리 빵 터짐" width="84"><br><sub><b>laugh</b><br>웃긴 장면</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_surprised_112.png" alt="키리 깜짝" width="84"><br><sub><b>surprised</b><br>반전 · 사고</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_cut_112.png" alt="키리 컷!" width="84"><br><sub><b>cut</b><br>클립 완성</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_focus_112.png" alt="키리 편집 집중" width="84"><br><sub><b>focus</b><br>작업 중</sub></td>
+</tr>
+</table>
+
+앱에서는 하이라이트 창이 키리를 씁니다. 상태 줄 옆 얼굴은 준비(wink) → 분석 · 내보내기 중(focus) → 하이라이트를 찾음(laugh) → 클립 완성(cut), 실패하면 surprised로 바뀌고, 구간 목록에는 그 장면에서 채팅이 가장 많이 보인 반응에 맞는 얼굴이 붙습니다(웃음 = laugh, 놀람 = surprised, 귀여움 = wink, 환호 = cut).
+
+<sub>키리 이모트는 이미지 생성 모델로 만든 컨셉 시안(v0.1)입니다. 배경을 자동으로 지워 가장자리에 연보라색 테두리가 조금 남아 있을 수 있습니다. 방송 플랫폼 이모트로 올릴 때는 각 플랫폼의 이모트 규격과 AI 생성물 정책을 먼저 확인하세요(<a href="assets/brand/mascot/README.txt">mascot/README.txt</a>).</sub>
+
+<sub>데스크톱 앱도 같은 팔레트와 심볼형 앱 아이콘을 씁니다. PNG 시안의 영문 워드마크는 Outfit 대신 Poppins로 렌더링되어 원본과 글자 모양이 약간 다릅니다(<a href="assets/brand/README.txt">assets/brand/README.txt</a>). 심볼 · 앱 아이콘 · 파비콘은 순수 도형이라 원본과 같습니다. 소셜 프리뷰는 저장소 Settings → General → Social preview에 업로드하면 적용됩니다.</sub>
 
 <br>
 
@@ -662,6 +717,7 @@ src/stream2clip/
 - [x] ✅ 기획사 가이드라인 설명란 생성 · 업로드 전 점검 <sup>v0.2</sup>
 - [x] 🤖 아바타 박스 자동 제안 — 애니메 얼굴 검출(deepghs/anime_face_detection)로 `--layout stack --avatar auto`
 - [x] 🖥️ GUI 하이라이트 창 — 타임라인 · 구간 드래그 조정 · 레이아웃 미리보기 · 내보내기 진행률
+- [x] 📦 Windows 실행 파일 — PyInstaller로 GUI + 명령줄을 한 폴더 · zip으로 (`packaging/build_windows.py`)
 - [ ] 🇰🇷 CHZZK · SOOP 채팅 수집기 내장, 한국 기획사 가이드라인 프로필
 - [ ] 🌐 JP→KR 자막 번역 + 버튜버 이름 용어집 (Holodex 채널 메타)
 - [ ] 😂 웃음소리 검출 · 노래 구간(歌枠) 검출
@@ -697,7 +753,8 @@ xvfb-run -a pytest
 | `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT/VTT/ASS, 자막이 정해진 시간에만 보이는지, 가이드라인 점검, 클립 파이프라인 |
 | `test_detect.py` | 얼굴 검출 전처리 · 후처리, 계속 같은 자리에 있는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` · `--avatar auto` (실제 모델은 파일이 있을 때만) |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
-| `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
+| `test_packaging.py` | 빌드 스크립트(이름 · 명령 · 아이콘 · ffmpeg 복사 · zip), 빌드된 실행 파일이 옆의 ffmpeg를 먼저 쓰는지, yt-dlp 실행 경로 |
+| `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음, 앱 아이콘 크기 구성 · 마스코트 이미지 |
 | `test_gui_highlights.py` | 하이라이트 창: 타임라인 막대가 시간축과 맞는지, 구간 이동 · 가장자리 조정 · 한계, 좁은 구간 확대, 분석 → 미리보기 → 내보내기(끌어서 바꾼 길이로 저장되는지), 아바타 자동 찾기, 실패 표시 |
 | `test_gui_flow.py` | (디스플레이 필요) F8 → 편집기, F9 → 녹화 → 투명 GIF. Windows에서는 추가로 실제 F8/F9 입력 → 전역 단축키, 선택 영역 = 창의 물리 픽셀, 테두리 · REC 바가 녹화 영역 밖, 커서 합성 위치 |
 

@@ -85,6 +85,10 @@ def ytdlp_command(*, cookies: str | os.PathLike[str] | None = None, cookies_from
     env = os.environ.get("STREAM2CLIP_YTDLP")
     if env:
         base = [env]
+    elif getattr(sys, "frozen", False):
+        # Built executable: there is no "python -m"; the command line program runs yt-dlp itself.
+        cli = Path(sys.executable).with_name("stream2clip.exe" if os.name == "nt" else "stream2clip")
+        base = [str(cli if cli.is_file() else sys.executable), "yt-dlp"]
     else:
         try:
             import yt_dlp  # noqa: F401

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import shlex
+import sys
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -15,6 +17,32 @@ def test_parse_time():
     assert parse_time("90") == 90
     assert parse_time("1:30") == 90
     assert parse_time("01:02:03.5") == 3723.5
+
+
+def test_output_survives_a_legacy_code_page(monkeypatch):
+    """Found by running the built program on an English Windows runner: printing "채팅 급증" to a pipe crashed."""
+    import io
+
+    from stream2clip.cli import main as cli_main
+
+    monkeypatch.delenv("PYTHONIOENCODING", raising=False)
+    raw = io.BytesIO()
+    piped = io.TextIOWrapper(raw, encoding="cp1252")  # what a redirected stdout looks like there
+    monkeypatch.setattr(sys, "stdout", piped)
+    chat = Path(__file__).parent / "data" / "youtube_real_excerpt.live_chat.json"
+    assert cli_main(["highlights", "--chat", str(chat)]) == 0
+    piped.flush()
+    text = raw.getvalue().decode("utf-8")
+    assert "채팅 급증" in text and "analysed 40 chat messages" in text
+
+    # With an explicit PYTHONIOENCODING the encoding is kept and unknown characters are replaced, not fatal.
+    monkeypatch.setenv("PYTHONIOENCODING", "cp1252")
+    raw = io.BytesIO()
+    piped = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", piped)
+    assert cli_main(["highlights", "--chat", str(chat)]) == 0
+    piped.flush()
+    assert b"analysed 40 chat messages" in raw.getvalue() and b"?" in raw.getvalue()
 
 
 def test_print_command(capsys):

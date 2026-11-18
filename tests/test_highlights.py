@@ -128,6 +128,13 @@ def test_audio_and_heatmap_only():
     assert any("음량" in r for r in h.reasons) and any("많이 다시 본" in r for r in h.reasons)
 
 
+def test_reaction_counts_per_category_are_in_the_stats():
+    found = detect_highlights(stream([(600, "草", 120), (2000, "え？", 90)]), duration=3600).highlights
+    by_time = sorted(found, key=lambda h: h.start)
+    assert by_time[0].stats["react_laugh"] >= 100 and by_time[0].stats["react_shock"] == 0
+    assert by_time[1].stats["react_shock"] >= 70 and by_time[1].stats["react_laugh"] == 0
+
+
 def test_paid_signal_reported():
     msgs = stream([(900, "ナイス", 80)], seed=5) + [ChatMessage(910, "ナイス", "sc", kind="paid", amount=1000, currency="¥")]
     res = detect_highlights(sorted(msgs, key=lambda m: m.time), duration=1800)
