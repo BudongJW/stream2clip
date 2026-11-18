@@ -163,7 +163,8 @@ def load_stream(folder: str | os.PathLike[str], *, min_votes: int = 1) -> Stream
         raise ValueError(f"{root}: no chat replay (*.live_chat.json, *.chat.jsonl)")
     if not infos:
         raise ValueError(f"{root}: no info.json")
-    info = json.loads(infos[0].read_text(encoding="utf-8"))
+    loaded = [json.loads(path.read_text(encoding="utf-8")) for path in infos]
+    info = next((data for data in loaded if data.get("comments")), loaded[0])  # the one fetched with --comments, if there are several
     messages = load_chat(chats[0])
     duration = float(info.get("duration") or (max((m.time for m in messages), default=0.0)))
     labels = labels_from_comments(info.get("comments") or [], duration=duration, min_votes=min_votes)
