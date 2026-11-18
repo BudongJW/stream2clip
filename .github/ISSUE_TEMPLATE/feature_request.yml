@@ -1,0 +1,36 @@
+name: 기능 제안
+description: 이런 기능이 있으면 좋겠습니다
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어떤 작업을 하다가 필요했나요
+      description: 지금은 어떻게 하고 있고, 무엇이 불편한지 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 바라는 동작
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 관련 영역
+      options:
+        - 캡쳐 · 편집
+        - 움짤 녹화
+        - 하이라이트 검출
+        - 세로 클립 · 자막 · 번역
+        - 방송 플랫폼 (YouTube · Twitch · CHZZK · SOOP)
+        - 기획사 가이드라인
+        - OBS · 업로드
+        - 설치 · 실행 파일
+        - 기타
+  - type: textarea
+    id: source
+    attributes:
+      label: 참고 자료
+      description: 기획사 가이드라인을 제안할 때는 공식 원문 주소와 개정일을 꼭 적어 주세요.

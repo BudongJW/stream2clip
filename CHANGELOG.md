@@ -13,6 +13,11 @@
 - 리플레이 버퍼가 설정에서 꺼져 있을 때(새로 설치한 OBS의 기본값) `604` 코드만 보여 주던 것을, 어디서 켜는지 안내하도록 바꿨습니다.
 - `--start-buffer`가 OBS의 "ok" 응답만 믿고 "시작했습니다"라고 하던 문제: 장면이 비어 있으면 OBS는 "소스 없음" 확인 창을 띄우고 시작하지 않습니다. 이제 실제로 시작됐는지 확인합니다.
 
+### 저장소
+- 린트(ruff)를 추가하고 CI에서 확인합니다. 리눅스 테스트는 Python 3.10 · 3.12 · 3.14에서 돕니다(이전에는 3.12만).
+- GitHub Actions를 Node 24 기반 버전으로 올렸습니다.
+- `CONTRIBUTING.md`, `SECURITY.md`, 이슈 · PR 양식을 추가했습니다.
+
 ### 번역기 연결
 - `--translator file.py[:함수]` / `module:함수`, 환경 변수 `STREAM2CLIP_TRANSLATOR`: 플러그인 패키지를 만들지 않고 파이썬 파일 하나로 번역기를 연결합니다.
 - `examples/translators/openai_compatible.py`: OpenAI 호환 주소(기본은 로컬 Ollama)를 쓰는 예제. 표준 라이브러리만 쓰며 Windows 실행 파일 묶음에도 들어갑니다.

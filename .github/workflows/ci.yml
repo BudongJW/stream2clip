@@ -6,14 +6,35 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  linux:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - run: pip install "ruff>=0.6"
+      - run: ruff check .
+
+  linux:
+    name: linux (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the oldest version pyproject.toml promises, the one the Windows build uses, and the newest
+        python-version: ["3.10", "3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
       # Hosted runners sometimes stall here for many minutes on a slow package mirror.
       # Each attempt gets 4 minutes, then it is retried instead of hanging the job.
       - name: System packages (ffmpeg, Xvfb, Qt runtime, CJK fonts)
@@ -37,8 +58,8 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       # The Chocolatey feed sometimes answers 504 and choco still exits 0. Without

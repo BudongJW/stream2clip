@@ -27,7 +27,7 @@ detect = ["onnxruntime>=1.16"]
 build = ["pyinstaller>=6.10"]
 obs = ["websocket-client>=1.6"]
 upload = ["google-api-python-client>=2.100", "google-auth-oauthlib>=1.1"]
-dev = ["pytest>=8", "mss>=9", "PySide6>=6.6", "jsonschema>=4", "websocket-client>=1.6", "websockets>=13"]
+dev = ["pytest>=8", "ruff>=0.6", "mss>=9", "PySide6>=6.6", "jsonschema>=4", "websocket-client>=1.6", "websockets>=13"]
 
 [project.scripts]
 stream2clip = "stream2clip.cli:main"
@@ -43,3 +43,14 @@ stream2clip = ["py.typed", "schemas/*.json", "gui/assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 200
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = [
+    "E501",  # long lines are accepted in this code base
+    "B905",  # zip() without strict= is intended where it is used
+]
