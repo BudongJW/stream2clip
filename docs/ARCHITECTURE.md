@@ -12,7 +12,7 @@
 
 ```
             ┌──────────────────────────── gui/ (PySide6) ───────────────────────────┐
-            │ launcher  selector  editor/canvas  recording(F9)  hotkeys  theme       │
+            │ launcher  selector  editor/canvas  recording(F9)  hotkeys  highlights  │
             └───────┬──────────┬───────────┬──────────────┬─────────────────────────┘
                     │          │           │              │
    cli.py ──────────┤          │           │              │
@@ -80,6 +80,25 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 - **자막 경로**: `filter_path()`가 ffmpeg의 두 단계 이스케이프(옵션 · 필터그래프)를 처리합니다. Windows `C:\` 경로와 `' [ ] , ; :`가 들어간 경로도 테스트합니다.
 - **자막 크기**: 스타일 값은 짧은 변 1080px 기준이며 출력 크기에 비례해 조정됩니다. 세로 화면에서는 쇼츠 하단 UI를 피해 아래에서 약 20% 위에 둡니다.
 
+### 하이라이트 창 (`gui/highlights.py`)
+
+`stream2clip auto`와 같은 일을 창에서 합니다. 창은 설정을 모으고 그리기만 하며, 계산은 전부 코어 함수가 합니다.
+
+```
+파일 선택 ─► pipeline.find_highlights (작업 스레드: 채팅 읽기 → 음량 → 검출)
+                     │ HighlightResult
+                     ▼
+   TimelineWidget ── 구간 끌기 ──► Highlight.start / end 를 직접 수정
+        │ 선택                              │
+        ▼                                  ▼
+ export.grab_frames(layout=…)      pipeline.make_clips(체크한 구간, on_progress)
+   레이아웃을 입힌 프레임 1장          진행률 → QProgressBar
+```
+
+- **타임라인**: 막대는 보이는 시간 범위를 균등하게 나눠 그 구간의 최고 점수를 그립니다(시간축과 어긋나지 않게). 긴 방송에서는 클립 하나가 몇 픽셀밖에 안 되므로 확대(휠 · 더블클릭)가 있고, 잡는 영역은 가장자리가 바깥쪽으로 넓어 좁은 구간도 가운데를 잡아 옮길 수 있습니다.
+- **스레드**: 분석 · 미리보기 · 아바타 찾기 · 내보내기는 `threading.Thread`에서 돌고 결과는 Qt 시그널로 GUI 스레드에 돌아옵니다. 미리보기는 요청 번호를 붙여, 늦게 끝난 이전 요청이 화면을 덮지 않게 합니다.
+- **미리보기**는 레이아웃만 입힌 정지 화면입니다. 자막은 내보낸 클립에서 확인합니다.
+
 ### VOD → 클립 (`stream2clip convert`)
 
 `ExportOptions(start, end, crop, fps, width/height, transparent, ...)` → `build_export_command()` → ffmpeg 한 번. 필터 순서는 `crop → fps → scale → (format=rgba, colorkey) → 포맷별 처리(GIF 팔레트 / 픽셀 포맷)`입니다. yuv420 계열(MP4/WebM)은 짝수 크기로 맞춥니다.
@@ -98,6 +117,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 ## 스레드
 
 - GUI 스레드: Qt 이벤트, 캔버스 렌더, 커서 좌표 갱신(33ms 타이머)
+- 하이라이트 창 작업 스레드: 분석, 미리보기 프레임, 아바타 찾기, 클립 내보내기(한 번에 하나, 미리보기만 따로)
 - 녹화 스레드: 프레임 캡처 + ffmpeg stdin 쓰기 (mss 핸들은 스레드마다 따로 생성)
 - 인코딩 스레드: 정지 후 내보내기. 결과는 Qt 시그널(`finished`/`failed`)로 GUI 스레드에 돌아옵니다.
 
@@ -114,4 +134,5 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 | `tests/test_detect.py` | letterbox · YOLO 출력 해석 · NMS, 같은 자리에 남는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` 명령과 `--avatar auto` |
 | `tests/test_cli.py` | CLI 명령 (`auto` · `check` 포함) |
 | `tests/test_gui.py` | 편집기 도구를 실제 마우스 이벤트로 조작, HiDPI 좌표 환산(소수 배율에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
+| `tests/test_gui_highlights.py` | 하이라이트 창: 타임라인 막대 · 구간 끌기 · 확대, 분석 → 미리보기 → 내보내기, 아바타 자동 찾기, 실패 표시 |
 | `tests/test_gui_flow.py` | (디스플레이 필요) F8 캡쳐 → 편집기, F9 영역 선택 → 녹화 → 투명 GIF 결과 검증. Windows: OS 수준 F8/F9 입력으로 전역 단축키, `GetWindowRect`로 선택 영역 · 테두리 · REC 바의 물리 좌표, `SetCursorPos`로 커서 합성 위치 |
