@@ -318,8 +318,8 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 
 | | 줄 수 |
 |---|---|
-| 라이브러리 + 앱 (`src/`) | 약 6,200 |
-| 테스트 (`tests/`) | 약 1,200 |
+| 라이브러리 + 앱 (`src/`) | 약 7,600 |
+| 테스트 (`tests/`) | 약 2,000 |
 
 | 설치 옵션 | 추가되는 의존성 | 쓰는 곳 |
 |---|---|---|
