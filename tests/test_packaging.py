@@ -83,6 +83,12 @@ def test_ffmpeg_is_copied_next_to_the_programs_and_zipped(build, tmp_path, monke
             sorted(n for n in z.namelist() if not n.endswith("/")) == ["stream2clip/ffmpeg.exe", "stream2clip/ffprobe.exe", "stream2clip/stream2clip.exe"]
 
 
+def test_example_translators_ship_with_the_build(build, tmp_path):
+    copied = build.copy_examples(tmp_path)
+    assert [p.name for p in copied] == ["openai_compatible.py"] and (tmp_path / "translators" / "openai_compatible.py").is_file()
+    assert build.copy_examples(tmp_path) == copied  # building twice over the same folder is fine
+
+
 def test_built_program_prefers_the_ffmpeg_beside_it(tmp_path, monkeypatch):
     monkeypatch.delenv("STREAM2CLIP_FFMPEG", raising=False)
     monkeypatch.delenv("STREAM2CLIP_FFPROBE", raising=False)
