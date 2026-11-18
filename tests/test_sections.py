@@ -38,6 +38,16 @@ def test_section_command_can_pass_options_to_ffmpeg():
     assert "--downloader-args" not in whole  # a whole download does not go through ffmpeg's HLS reader
 
 
+def test_sections_prefer_hls_formats():
+    """Seen on a real YouTube archive: a 64 s section took over 6 minutes from the DASH formats and 13 s from HLS."""
+    whole = build_section_command("URL", "v.mp4", max_height=480, ytdlp=["yt-dlp"])
+    assert whole[whole.index("-f") + 1] == "bv*[height<=480]+ba/b[height<=480]/b"
+    part = build_section_command("URL", "v.mp4", start=10, end=20, max_height=480, ytdlp=["yt-dlp"])
+    choice = part[part.index("-f") + 1].split("/")
+    assert choice[:2] == ["bv*[protocol*=m3u8][height<=480]+ba[protocol*=m3u8]", "b[protocol*=m3u8][height<=480]"]
+    assert choice[2:] == ["bv*[height<=480]+ba", "b[height<=480]", "b"]  # sites without HLS still work as before
+
+
 def test_hls_switch_is_only_used_when_ffmpeg_has_it(monkeypatch):
     answers = {"new": "  -extension_picky   <boolean>  .D... Be picky with all extensions matching (default true)", "old": "  -allowed_extensions <string>"}
     asked = []
