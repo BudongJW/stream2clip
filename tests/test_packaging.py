@@ -38,10 +38,13 @@ def test_names_and_command(build, tmp_path):
 
 def test_launcher_shims_are_not_copied(build, tmp_path):
     # Chocolatey / Scoop put a small launcher on PATH; copying that instead of ffmpeg ships a broken app.
-    (tmp_path / "ffmpeg.exe").write_bytes(b"x" * 30_000)
-    (tmp_path / "ffprobe.exe").write_bytes(b"x" * 30_000)
+    suffix = ".exe" if sys.platform == "win32" else ""
+    (tmp_path / f"ffmpeg{suffix}").write_bytes(b"x" * 30_000)
+    (tmp_path / f"ffprobe{suffix}").write_bytes(b"x" * 30_000)
     with pytest.raises(ValueError, match="shim"):
         build.find_ffmpeg_pair(str(tmp_path))  # a folder is accepted too
+    with pytest.raises(ValueError, match="shim"):
+        build.find_ffmpeg_pair(str(tmp_path / f"ffmpeg{suffix}"))
     with pytest.raises(FileNotFoundError):
         build.find_ffmpeg_pair(str(tmp_path / "missing" / "ffmpeg.exe"))
 
