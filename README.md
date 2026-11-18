@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-265-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-266-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -204,7 +204,7 @@ stream2clip auto vod/video.mp4 --chat vod/VIDEO_ID.live_chat.json --audio --skip
 
 `--mark-singing`은 각 하이라이트가 노래 구간과 얼마나 겹치는지 근거에 적고, `--skip-singing`은 절반 이상 겹치는 하이라이트를 뺍니다. `--laughter`는 웃음소리 같은 소리(크고 초당 4~8번 끊어지는 소리)를 점수에 더하는 실험 기능입니다.
 
-**OBS 리플레이 버퍼** — 방송 중 "방금 그 장면"을 바로 움짤로. OBS의 리플레이 버퍼를 켜 두고(설정 → 출력 → 리플레이 버퍼, 도구 → WebSocket 서버 설정) 실행합니다. 앱에서는 런처의 **리플레이 저장** 버튼이 같은 일을 합니다(형식 · 크기는 녹화 설정을 따르고, 비밀번호는 저장하지 않습니다).
+**OBS 리플레이 버퍼** — 방송 중 "방금 그 장면"을 바로 움짤로. OBS의 리플레이 버퍼를 켜 두고(설정 → 출력 → 리플레이 버퍼, 도구 → WebSocket 서버 설정) 실행합니다. 앱에서는 런처의 **리플레이 저장** 버튼이 같은 일을 합니다(형식 · 크기는 녹화 설정을 따르고, 비밀번호는 저장하지 않습니다). 새로 설치한 OBS는 리플레이 버퍼가 꺼져 있으니 설정 → 출력에서 먼저 켜세요. `--start-buffer`는 버퍼가 실제로 돌기 시작했는지 확인하며, 장면이 비어 있어 OBS가 "소스 없음"을 묻고 있으면 그렇게 알려 줍니다.
 
 ```bash
 stream2clip replay -o moment.gif --last 15 --width 480
@@ -367,7 +367,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 265개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 266개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -801,7 +801,8 @@ src/stream2clip/
 - [x] ⬆️ YouTube 업로드 — `stream2clip upload`, 기본 비공개 · Shorts 점검 <sup>v0.3</sup>
 - [x] 🖥️ 앱에서 번역 · 노래 구간 · 웃음소리 · 업로드 · OBS 리플레이 쓰기, 설정 기억
 - [x] 🔌 번역기를 파일 하나로 연결 (`--translator file.py`) + OpenAI 호환 예제 — 로컬 Ollama로 확인
-- [ ] 🧪 실제 서비스 검증 — 실제 OBS, 실제 YouTube 업로드, Holodex 키로 확인
+- [x] 🧪 실제 OBS로 리플레이 버퍼 확인 (OBS 33.0.1)
+- [ ] 🧪 실제 서비스 검증 — 실제 YouTube 업로드, Holodex 키로 확인
 
 <br>
 
@@ -859,7 +860,7 @@ xvfb-run -a pytest
 | 🌐 자막 번역 | ✅ 예제 번역기를 로컬 Ollama(qwen2.5:7b)에 연결해 실제 방송의 일본어 자동 자막 20초 구간을 한국어로 번역, 원문 + 번역 두 줄 자막 클립까지 확인(약 40초). 이 모델로는 한 줄에 영어 · 중국어가 섞여 나온 곳이 있었습니다 — 연결은 확인됐고 품질은 모델에 달려 있습니다. 유료 번역 서비스로는 확인하지 않았습니다. Holodex 이름 초안은 API 키가 없어 가짜 응답으로만 테스트 |
 | 🎤 노래 구간 검출 | ✅ 실제 노래 방송 1개(94분)에서 노래 구간 11개, 실제 게임 방송 1개(85분)에서 0개. YouTube 자동 자막의 [音楽] 표시 중 86%가 검출 구간 안. 방송 둘로만 본 결과입니다 |
 | 😂 웃음소리 신호 | 🟡 실험 기능(기본 꺼짐). 방송 하나에서 상위 순간 뒤 채팅의 웃음 반응이 평소의 2.1배(음량만 쓰면 1.9배). 실제로 웃음소리를 잡는지는 확인하지 못했습니다 |
-| 🔁 OBS 연동 | 🟡 실제 OBS로 실행해 보지 못했습니다(개발 PC에 OBS 없음). 공식 프로토콜 문서대로 만든 가짜 서버와 실제 소켓으로 테스트. 앱의 리플레이 저장 버튼도 같은 가짜 서버로만 확인 |
+| 🔁 OBS 연동 | ✅ 실제 OBS Studio 33.0.1(obs-websocket 5.7.6, Windows 11)로 확인: 비밀번호 인증(틀린 · 빠진 비밀번호 거절), 리플레이 버퍼 시작 → 저장 → 마지막 5초 GIF(명령줄), 마지막 3초 MP4(앱의 리플레이 저장 버튼). 이때 알게 된 두 가지를 안내 문구에 반영했습니다 — 새로 설치한 OBS는 리플레이 버퍼가 꺼져 있고(설정 → 출력에서 켜야 함), 장면에 소스가 없으면 OBS가 "소스 없음" 확인 창을 띄우고 버퍼를 시작하지 않습니다. OBS 28~32, 다른 PC의 OBS(원격)는 확인하지 못했습니다 |
 | ⬆️ YouTube 업로드 | 🟡 실제 업로드는 하지 않았습니다(계정 · OAuth 필요, 게시되는 작업). 요청 본문과 진행 처리만 가짜 API로 테스트(앱의 업로드 창 포함). 쿼터는 공식 문서 기준(2026-11 확인) |
 | 🇰🇷 CHZZK · SOOP 수집 | ✅ 실제 공개 다시보기 각 1개로 확인: CHZZK 채팅 983개(6초), SOOP 채팅 1,567개(8초, 별풍선 포함) → 하이라이트 검출까지. 영상은 SOOP에서 20초 구간 다운로드를 확인했습니다. CHZZK는 구간 다운로드(`--start` · `--end`)가 실패했고(ffmpeg가 CHZZK의 HLS 목록을 열지 못함) 전체 영상 다운로드는 용량이 커서 시도하지 않았습니다. 비공개 · 성인 인증 · 구독자 전용 다시보기는 확인하지 못했습니다 |
 | 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) |

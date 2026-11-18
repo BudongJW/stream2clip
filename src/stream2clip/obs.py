@@ -33,7 +33,14 @@ RPC_VERSION = 1
 
 
 class ObsError(RuntimeError):
-    pass
+    """Anything OBS refused or could not do; ``code`` is obs-websocket's request status when there is one."""
+
+    def __init__(self, message: str, code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+NOT_AVAILABLE = 604  # RequestStatus::InvalidResourceState, e.g. the replay buffer is switched off in the settings
 
 
 class Connection(Protocol):
@@ -136,7 +143,7 @@ class ObsClient:
             elif message.get("op") == OP_RESPONSE and body.get("requestId") == request_id:
                 status = body.get("requestStatus", {})
                 if not status.get("result"):
-                    raise ObsError(f"{request_type} failed ({status.get('code')}): {status.get('comment') or 'no details'}")
+                    raise ObsError(f"{request_type} failed ({status.get('code')}): {status.get('comment') or 'no details'}", status.get("code"))
                 return body.get("responseData") or {}
 
     def wait_event(self, event_type: str, timeout: float) -> dict[str, Any] | None:
@@ -157,10 +164,31 @@ class ObsClient:
 
     # ------------------------------------------------------------------ replay buffer
     def replay_buffer_active(self) -> bool:
-        return bool(self.request("GetReplayBufferStatus").get("outputActive"))
+        try:
+            return bool(self.request("GetReplayBufferStatus").get("outputActive"))
+        except ObsError as exc:
+            if exc.code == NOT_AVAILABLE:  # what a freshly installed OBS answers
+                raise ObsError(
+                    "OBS has no replay buffer yet: switch it on in Settings > Output > Replay Buffer (Enable Replay Buffer), "
+                    "then start it (Controls > Start Replay Buffer).", exc.code,
+                ) from exc
+            raise
 
-    def start_replay_buffer(self) -> None:
+    def start_replay_buffer(self, *, wait: float = 5.0) -> bool:
+        """Ask OBS to start the replay buffer; ``True`` once it is really running.
+
+        OBS answers "ok" as soon as it has passed the request to its window, which may then
+        still ask the user something (an empty scene brings up a "No sources" question) or
+        fail to start the output. So the status is checked for up to ``wait`` seconds.
+        """
         self.request("StartReplayBuffer")
+        deadline = time.monotonic() + wait
+        while True:
+            if self.replay_buffer_active():
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(min(0.2, max(0.01, wait / 5)))
 
     def save_replay(self, *, wait: float = 15.0) -> Path:
         """Save the replay buffer and return the path of the file OBS wrote."""
@@ -186,6 +214,7 @@ def replay_to_clip(
     password: str | None = None,
     start_buffer: bool = False,
     settle: float = 0.5,
+    start_wait: float = 5.0,
 ) -> tuple[Path, Path]:
     """Save OBS's replay buffer and convert it; returns ``(clip, replay file)``.
 
@@ -200,7 +229,11 @@ def replay_to_clip(
     client = client or ObsClient(host, port, password)
     try:
         if start_buffer and not client.replay_buffer_active():
-            client.start_replay_buffer()
+            if not client.start_replay_buffer(wait=start_wait):
+                raise ObsError(
+                    "OBS accepted the request, but the replay buffer did not start. Look at the OBS window: it may be asking "
+                    "a question (an empty scene brings up \"No sources\"), or the output failed to start."
+                )
             raise ObsError("The replay buffer was not running; it is started now. Run the command again when the moment has happened.")
         replay = client.save_replay()
     finally:

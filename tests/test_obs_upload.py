@@ -22,8 +22,9 @@ from .conftest import needs_ffmpeg
 class FakeObs:
     """Speaks the server side of obs-websocket 5 over an in-memory 'socket'."""
 
-    def __init__(self, *, password=None, active=True, replay="replay.mkv", send_event=True, last_path=True):
+    def __init__(self, *, password=None, active=True, replay="replay.mkv", send_event=True, last_path=True, available=True, starts=True):
         self.password, self.active, self.replay, self.send_event, self.last_path = password, active, replay, send_event, last_path
+        self.available, self.starts = available, starts  # as real OBS: buffer switched off in the settings / asks a question instead of starting
         self.salt, self.challenge = "c2FsdA==", "Y2hhbGxlbmdl"
         hello = {"obsStudioVersion": "31.0.0", "obsWebSocketVersion": "5.5.4", "rpcVersion": 1}
         if password:
@@ -48,10 +49,12 @@ class FakeObs:
             d = message["d"]
             self.requests.append(d["requestType"])
             ok, data, comment = True, None, None
-            if d["requestType"] == "GetReplayBufferStatus":
+            if d["requestType"] in ("GetReplayBufferStatus", "StartReplayBuffer") and not self.available:
+                ok, comment = False, "Replay buffer is not available."
+            elif d["requestType"] == "GetReplayBufferStatus":
                 data = {"outputActive": self.active}
             elif d["requestType"] == "StartReplayBuffer":
-                self.active = True
+                self.active = self.starts  # the answer is "ok" either way
             elif d["requestType"] == "SaveReplayBuffer":
                 if self.send_event:  # the event may arrive before the response
                     self.outbox.append(json.dumps({"op": 5, "d": {"eventType": "ReplayBufferSaved", "eventIntent": 64, "eventData": {"savedReplayPath": self.replay}}}))
@@ -62,7 +65,7 @@ class FakeObs:
                     ok, comment = False, "No replay has been saved yet."
             else:
                 ok, comment = False, "unknown request"
-            status = {"result": ok, "code": 100 if ok else 600}
+            status = {"result": ok, "code": 100 if ok else 604 if comment == "Replay buffer is not available." else 600}
             if comment:
                 status["comment"] = comment
             reply = {"requestType": d["requestType"], "requestId": d["requestId"], "requestStatus": status}
@@ -136,6 +139,33 @@ def test_replay_to_clip_keeps_the_last_seconds(green_screen_video, tmp_path):
     with pytest.raises(ObsError, match="started now"):
         replay_to_clip(tmp_path / "x.gif", client=ObsClient(connect=stopped.connect), start_buffer=True)
     assert "StartReplayBuffer" in stopped.requests
+
+
+def test_what_real_obs_does_when_the_buffer_cannot_start(tmp_path):
+    """Both seen with OBS 33: a fresh install has the replay buffer switched off, and an empty scene makes OBS ask
+    "No sources" in its window after it has already answered ok."""
+    off = FakeObs(available=False)
+    with ObsClient(connect=off.connect) as client:
+        with pytest.raises(ObsError, match="Settings > Output > Replay Buffer") as caught:
+            client.save_replay()
+        assert caught.value.code == 604
+    with pytest.raises(ObsError, match="Enable Replay Buffer"):
+        replay_to_clip(tmp_path / "x.gif", client=ObsClient(connect=FakeObs(available=False).connect), start_buffer=True)
+
+    asking = FakeObs(active=False, starts=False)
+    with ObsClient(connect=asking.connect) as client:
+        assert client.start_replay_buffer(wait=0.05) is False  # ok was answered, nothing runs
+    asking = FakeObs(active=False, starts=False)
+    with pytest.raises(ObsError, match="did not start"):
+        replay_to_clip(tmp_path / "x.gif", client=ObsClient(connect=asking.connect), start_buffer=True, start_wait=0.05)
+    assert asking.requests.count("GetReplayBufferStatus") >= 2  # it kept checking instead of believing the answer
+
+    with ObsClient(connect=FakeObs(active=False).connect) as client:
+        assert client.start_replay_buffer(wait=0.05) is True
+    with ObsClient(connect=FakeObs().connect) as client:
+        with pytest.raises(ObsError, match="unknown request") as caught:
+            client.request("NoSuchRequest")
+        assert caught.value.code == 600
 
 
 def test_over_a_real_websocket(tmp_path):
