@@ -158,6 +158,21 @@ def test_record_settings_mp4_has_no_alpha():
     assert RecordSettings(format="webp", transparent=True).export_options().transparent is True
 
 
+def test_app_icon_and_mascot(app):
+    from PySide6.QtCore import QSize
+
+    from stream2clip.gui.qt import ICON_SIZES, MOODS, app_icon, mascot
+
+    icon = app_icon()
+    sizes = {s.width() for s in icon.availableSizes()}
+    assert sizes == set(ICON_SIZES) and {16, 256} <= sizes  # small sizes have their own simplified drawing
+    assert not icon.pixmap(QSize(16, 16)).isNull()
+    for mood in MOODS:
+        pix = mascot(mood, 44)
+        assert not pix.isNull() and round(pix.height() / pix.devicePixelRatio()) == 44
+    assert mascot("no-such-mood", 20).toImage() == mascot("wink", 20).toImage()
+
+
 def test_launcher_builds(app):
     from stream2clip.gui.launcher import LauncherWindow
 

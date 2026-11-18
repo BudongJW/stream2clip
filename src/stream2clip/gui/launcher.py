@@ -28,7 +28,7 @@ from ..editor import Document
 from . import theme
 from .editor import EditorWindow
 from .hotkeys import GlobalHotkeys
-from .qt import app_icon, pixmap
+from .qt import app_icon, mascot, pixmap
 from .recording import RecordController, RecordSettings
 
 __all__ = ["LauncherWindow"]
@@ -120,6 +120,9 @@ class LauncherWindow(QMainWindow):
         row = QHBoxLayout(card)
         row.setContentsMargins(16, 12, 16, 12)
         row.setSpacing(12)
+        kiri = QLabel()
+        kiri.setPixmap(mascot("wink", 52))
+        row.addWidget(kiri)
         text = QVBoxLayout()
         text.addWidget(QLabel("방송 → 클립", objectName="Title"))
         text.addWidget(QLabel("채팅 반응으로 하이라이트를 찾아 구간을 다듬고 9:16 클립으로 내보냅니다.", objectName="Muted"))

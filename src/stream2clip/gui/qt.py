@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import QRect
+from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QGuiApplication, QIcon, QImage, QPixmap
 
 ASSETS = Path(__file__).with_name("assets")
@@ -15,8 +15,30 @@ def asset(name: str) -> str:
     return str(ASSETS / name)
 
 
+#: Sizes of the app icon shipped with the app. 24 px and below use the simplified symbol
+#: (no REC dot / play triangle, thicker lines), so the title bar and taskbar stay legible.
+ICON_SIZES = (16, 24, 32, 48, 64, 128, 256)
+#: Kiri, the mascot: wink (default), laugh (funny scene), surprised (twist / something went
+#: wrong), cut (clip finished), focus (working).
+MOODS = ("wink", "laugh", "surprised", "cut", "focus")
+
+
 def app_icon() -> QIcon:
-    return QIcon(asset("app-icon.png"))
+    icon = QIcon()
+    for size in ICON_SIZES:
+        icon.addFile(asset(f"icon_{size}.png"), QSize(size, size))
+    return icon
+
+
+def mascot(mood: str = "wink", size: int = 56) -> QPixmap:
+    """Kiri in the given mood, ``size`` logical pixels tall (sharp on HiDPI screens)."""
+    name = mood if mood in MOODS else "wink"
+    screen = QGuiApplication.primaryScreen()
+    ratio = screen.devicePixelRatio() if screen is not None else 1.0
+    source = QPixmap(asset(f"kiri_{name}_112.png"))
+    pix = source.scaledToHeight(max(1, round(size * ratio)), Qt.TransformationMode.SmoothTransformation)
+    pix.setDevicePixelRatio(ratio)
+    return pix
 
 
 def pixmap(name: str) -> QPixmap:

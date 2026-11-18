@@ -12,9 +12,25 @@ from .theme import STYLE_SHEET
 __all__ = ["create_app", "main"]
 
 
+APP_ID = "BudongJW.stream2clip"
+
+
+def _claim_taskbar_identity() -> None:
+    """Windows groups taskbar buttons by app id; without our own, a Python-run app shows Python's icon."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+    except Exception:  # pragma: no cover - cosmetic only
+        pass
+
+
 def create_app(argv: list[str] | None = None) -> QApplication:
     app = QApplication.instance()
     if app is None:
+        _claim_taskbar_identity()
         app = QApplication(argv if argv is not None else sys.argv[:1])
     app.setApplicationName("stream2clip")
     app.setApplicationDisplayName("stream2clip")
