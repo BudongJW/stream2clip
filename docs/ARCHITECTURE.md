@@ -32,7 +32,7 @@
 ### 영역 캡쳐 → 편집
 
 1. `ScreenSelector`가 가상 화면 전체를 mss로 **먼저 캡쳐**해 멈춘 화면 위에서 드래그를 받습니다(보이는 그대로 캡쳐).
-2. Qt 논리 좌표의 선택 영역을 스크린샷/가상 화면 비율로 **물리 픽셀** `Region`으로 바꿉니다(HiDPI 대응).
+2. Qt 논리 좌표의 선택 영역을 스크린샷/가상 화면 비율로 **물리 픽셀** `Region`으로 바꿉니다(HiDPI 대응). 위치와 크기를 따로, `n.5`는 올림으로 반올림합니다. Qt가 소수 배율(125% · 150%)에서 창을 놓는 방식과 같아서 선택 크기가 위치에 따라 달라지지 않고, 창의 논리 영역을 고르면 그 창의 물리 픽셀과 정확히 맞습니다(Windows 125% 실기기에서 `GetWindowRect`와 비교해 확인).
 3. 잘라낸 PIL 이미지로 `Document`를 만들고 `EditorWindow`에 넘깁니다.
 4. 캔버스는 확정된 주석을 Pillow로 렌더링해 캐시하고, 드래그 중인 도형만 QPainter로 미리 그립니다. 마우스를 놓으면 `Document.add()`로 새 상태가 히스토리에 쌓입니다.
 
@@ -50,7 +50,8 @@ F9 ─► Recorder.stop() ─► Recording ─► export(GIF/WebP/MP4/WebM/MOV/A
 - **타이밍**: 캡처 루프는 벽시계 기준입니다. 캡처가 느리면 직전 프레임을 반복해 재생 속도가 실제와 같게 유지됩니다.
 - **중간 파일**: FFV1/Matroska로 알파를 보존한 채 녹화하고, 정지 후 원하는 포맷으로 변환합니다. 녹화 중에는 GIF 팔레트를 계산할 필요가 없고, 같은 녹화본을 여러 포맷으로 다시 내보낼 수 있습니다. VOD 변환과 같은 `export()` 경로를 씁니다.
 - **녹화 테두리**: 영역 **바깥**에 불투명한 얇은 창 4개로 그립니다. 반투명 창 하나로 덮으면 컴포지터가 없는 X11에서는 검게 칠해지고, 일부 캡처 API에서는 녹화 결과에 섞이기 때문입니다.
-- **커서**: 화면 캡처 API는 대부분 커서를 빼므로 직접 합성합니다. Windows는 `GetCursorPos`, 그 외에는 GUI 스레드가 `QCursor.pos()`를 물리 좌표로 바꿔 공유합니다.
+- **커서**: 화면 캡처 API는 대부분 커서를 빼므로 직접 합성합니다. Windows는 `GetCursorPos`, 그 외에는 GUI 스레드가 `QCursor.pos()`를 물리 좌표로 바꿔 공유합니다. 화살표 크기는 `Recorder(cursor_scale=)`로 화면 배율(1.25, 1.5 …)에 맞춥니다.
+- **전역 단축키**: Windows는 `RegisterHotKey(NULL, …)`로 등록하고 Qt 네이티브 이벤트 필터에서 스레드 메시지 `WM_HOTKEY`를 받습니다. 런처가 숨겨져 있고 다른 프로그램이 앞에 있어도 F9로 정지됩니다(실기기에서 OS 수준 키 입력으로 확인).
 
 ### 방송 → 클립 자동화 (`stream2clip auto`)
 
@@ -109,5 +110,5 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 | `tests/test_highlights.py` | 반응 분류, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `tests/test_clips.py` | 레이아웃 4종, 필터 경로 이스케이프, SRT/VTT/ASS, 자막 시간, 가이드라인 점검, 클립 파이프라인 |
 | `tests/test_cli.py` | CLI 명령 (`auto` · `check` 포함) |
-| `tests/test_gui.py` | 편집기 도구를 실제 마우스 이벤트로 조작, HiDPI 좌표 환산, 녹화 테두리가 영역을 덮지 않음 |
-| `tests/test_gui_flow.py` | (디스플레이 필요) F8 캡쳐 → 편집기, F9 영역 선택 → 녹화 → 투명 GIF 결과 검증 |
+| `tests/test_gui.py` | 편집기 도구를 실제 마우스 이벤트로 조작, HiDPI 좌표 환산(소수 배율에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
+| `tests/test_gui_flow.py` | (디스플레이 필요) F8 캡쳐 → 편집기, F9 영역 선택 → 녹화 → 투명 GIF 결과 검증. Windows: OS 수준 F8/F9 입력으로 전역 단축키, `GetWindowRect`로 선택 영역 · 테두리 · REC 바의 물리 좌표, `SetCursorPos`로 커서 합성 위치 |

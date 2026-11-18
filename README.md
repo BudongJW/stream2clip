@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-120%20passed-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-128-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -247,7 +247,7 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 | 💬 자막 | **libass** (ffmpeg) · **faster-whisper** | — · 1.0+ | ffmpeg 6.1 내장 | 카라오케 ASS 입히기, 받아쓰기는 `[asr]` |
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 120개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 128개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows |
 | 📦 패키징 | `pyproject.toml` · setuptools | 77+ | — | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -625,8 +625,11 @@ xvfb-run -a pytest
 | `test_highlights.py` | 반응 어휘 분류, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT/VTT/ASS, 자막이 정해진 시간에만 보이는지, 가이드라인 점검, 클립 파이프라인 |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
-| `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표, 녹화 테두리가 영역을 덮지 않음 |
-| `test_gui_flow.py` | (디스플레이 필요) F8 → 편집기, F9 → 녹화 → 투명 GIF |
+| `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
+| `test_gui_flow.py` | (디스플레이 필요) F8 → 편집기, F9 → 녹화 → 투명 GIF. Windows에서는 추가로 실제 F8/F9 입력 → 전역 단축키, 선택 영역 = 창의 물리 픽셀, 테두리 · REC 바가 녹화 영역 밖, 커서 합성 위치 |
+
+> [!NOTE]
+> Windows에서 `pytest`를 그냥 실행하면 `test_gui_flow.py`가 화면 왼쪽 위에 창을 띄우고, F8/F9를 실제로 누르고, 마우스 커서를 몇 초 동안 옮깁니다(끝나면 제자리로). 건너뛰려면 `QT_QPA_PLATFORM=offscreen`으로 실행하세요. 다른 프로그램이 F8/F9를 전역 단축키로 쓰고 있으면 그 테스트는 건너뜁니다.
 
 <br>
 
@@ -635,12 +638,15 @@ xvfb-run -a pytest
 | 환경 | 상태 |
 |---|---|
 | 🐧 Linux (X11) | ✅ Xvfb에서 전체 흐름 테스트 |
-| 🪟 Windows 10 · 11 | 🟡 전역 단축키(RegisterHotKey) · 커서 위치는 Win32 API로 구현, 실기기 미검증 (CI에서 GUI 제외 테스트) |
+| 🪟 Windows 11 | ✅ 실기기(1920×1080, 배율 125%, 모니터 1대)에서 전역 단축키 F8/F9(앱이 숨겨진 상태 포함) · 커서 합성 · 선택 영역과 캡쳐/녹화 결과 일치 · GIF/MP4/WebP/WebM · 투명 배경 · 클립보드 복사 확인. 100% · 150% · 175%는 같은 기기에서 Qt 배율 계수(`QT_SCALE_FACTOR`)로만 확인했고, 모니터 2대(배율 혼합)는 미검증 |
+| 🪟 Windows 10 | 🟡 같은 Win32 API를 쓰지만 실기기 미검증 |
 | 🍎 macOS | 🟡 시스템 설정의 화면 기록 권한 필요, 실기기 미검증 |
 | 🌊 Wayland | ❌ 화면 캡쳐(mss)는 X11/XWayland에서만 동작 |
 | 📺 YouTube 수집 | 🟡 이 저장소의 테스트 서버에서는 YouTube가 봇 확인으로 막아 실제 다운로드는 검증하지 못했습니다. 채팅 파서는 yt-dlp `live_chat.json` 구조로 만든 샘플로 테스트했습니다 |
 
 - 배율이 다른 다중 모니터에서는 논리↔물리 좌표를 가상 화면 전체 비율로 환산하므로 선택 영역이 조금 어긋날 수 있습니다.
+- 125% · 150% 같은 소수 배율에서는 선택 영역의 위치와 크기를 따로 반올림합니다(Qt가 창을 놓는 방식과 같음). 같은 크기로 드래그하면 어디서든 같은 픽셀 크기가 나오고, 화면 픽셀과의 차이는 최대 1px입니다.
+- 녹화에 그려 넣는 커서는 화살표 모양 하나이며 화면 배율에 맞춰 크기만 조정합니다(손가락 · I빔 같은 실제 커서 모양은 따라가지 않음).
 - GIF 투명도는 1비트입니다. 부드러운 가장자리가 필요하면 WebP · WebM · MOV를 쓰세요.
 
 <br>
