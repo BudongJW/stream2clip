@@ -1,0 +1,5 @@
+{"replayChatItemAction": {"actions": [{"addChatItemAction": {"item": {"liveChatTextMessageRenderer": {"message": {"runs": [{"text": "草"}, {"emoji": {"emojiId": "UCx/kusa", "shortcuts": [":_kusa:"], "isCustomEmoji": true}}]}, "authorName": {"simpleText": "Alice"}, "authorExternalChannelId": "UC_alice", "timestampUsec": "1700000000000000"}}}}], "videoOffsetTimeMsec": "12500"}}
+{"replayChatItemAction": {"actions": [{"addChatItemAction": {"item": {"liveChatPaidMessageRenderer": {"message": {"runs": [{"text": "ナイス！"}]}, "purchaseAmountText": {"simpleText": "¥1,000"}, "authorName": {"simpleText": "Bob"}, "authorExternalChannelId": "UC_bob"}}}}], "videoOffsetTimeMsec": "15000"}}
+{"replayChatItemAction": {"actions": [{"addChatItemAction": {"item": {"liveChatMembershipItemRenderer": {"headerSubtext": {"simpleText": "Welcome!"}, "authorExternalChannelId": "UC_carol"}}}}], "videoOffsetTimeMsec": "16000"}}
+{"replayChatItemAction": {"actions": [{"addLiveChatTickerItemAction": {}}], "videoOffsetTimeMsec": "17000"}}
+not json at all

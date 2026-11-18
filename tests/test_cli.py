@@ -52,3 +52,32 @@ def test_annotate(tmp_path):
 def test_unknown_extension(bad):
     with pytest.raises(SystemExit):
         main(bad)
+
+
+@needs_ffmpeg
+def test_auto_pipeline(green_screen_video, tmp_path, capsys):
+    import random
+
+    rng = random.Random(0)
+    rows = ["time,author,text"]
+    rows += [f"{rng.random() * 2:.2f},u{i % 7},hi" for i in range(10)]
+    rows += [f"{1.0 + rng.random() * 0.3:.2f},r{i},草" for i in range(40)]
+    chat = tmp_path / "chat.csv"
+    chat.write_text("\n".join(rows), encoding="utf-8")
+    out = tmp_path / "out"
+    code = main(["auto", str(green_screen_video), "--chat", str(chat), "--window", "0.25", "--delay", "0", "--lead", "0.2",
+                 "--tail", "0.2", "--min-length", "0.5", "--max-length", "1.5", "--threshold", "1.5",
+                 "--size", "90x160", "--fps", "10", "--source-url", "https://youtu.be/x", "--source-title", "t", "--agency", "hololive", "-o", str(out)])
+    text = capsys.readouterr().out
+    assert code == 0, text
+    assert (out / "highlights.json").exists() and (out / "timeline.png").exists() and (out / "clip_01.mp4").exists()
+    assert "https://youtu.be/x" in (out / "clip_01.txt").read_text(encoding="utf-8")
+
+
+def test_check_command(tmp_path, capsys):
+    assert main(["check", "--list"]) == 0
+    assert "hololive" in capsys.readouterr().out
+    assert main(["check", "--agency", "hololive", "--source-url", "https://youtu.be/x", "--source-title", "t"]) == 0
+    desc = tmp_path / "d.txt"
+    desc.write_text("no link", encoding="utf-8")
+    assert main(["check", "--agency", "hololive", "--source-url", "https://youtu.be/x", "--description", str(desc)]) == 1

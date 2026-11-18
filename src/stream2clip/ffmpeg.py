@@ -10,11 +10,16 @@ lives in :mod:`stream2clip.export`.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
 from .chroma import DEFAULT_KEY_COLOR, colorkey_filter
 from .geometry import Region
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .layouts import VerticalLayout
 
 __all__ = [
     "FORMATS",
@@ -28,6 +33,7 @@ __all__ = [
     "build_export_command",
     "build_capture_command",
     "extension_for",
+    "filter_path",
 ]
 
 #: Output formats understood by :func:`build_export_command`.
@@ -104,6 +110,10 @@ class ExportOptions:
     dither: str = "sierra2_4a"
     audio: bool = True
     extra_filters: tuple[str, ...] = field(default_factory=tuple)
+    #: 9:16 (or any) layout applied after crop/fps (see :mod:`stream2clip.layouts`).
+    layout: "VerticalLayout | None" = None
+    #: Subtitle file (.ass/.srt/.vtt) burned in after the layout, timed from the clip start.
+    subtitles: "str | os.PathLike[str] | None" = None
 
     def __post_init__(self) -> None:
         if self.format not in FORMATS:
@@ -168,17 +178,31 @@ def _scale_filter(options: ExportOptions) -> str | None:
     return f"scale={w}:{h}:flags=lanczos"
 
 
+def filter_path(path: str | os.PathLike[str]) -> str:
+    """Escape a file path for use as a filter option inside a filtergraph (two ffmpeg escaping levels)."""
+    value = os.fspath(path).replace("\\", "/")
+    value = re.sub(r"([\\':])", r"\\\1", value)  # option level
+    return re.sub(r"([\\'\[\],;])", r"\\\1", value)  # graph level
+
+
 def build_video_filter(options: ExportOptions) -> str:
     """Return a ``-filter_complex`` graph reading ``[0:v]`` and writing ``[v]``."""
-    chain: list[str] = []
+    pre: list[str] = []
     if options.crop is not None:
         c = options.crop
-        chain.append(f"crop={c.width}:{c.height}:{c.x}:{c.y}")
+        pre.append(f"crop={c.width}:{c.height}:{c.x}:{c.y}")
     if options.fps is not None:
-        chain.append(f"fps={options.fps:g}")
+        pre.append(f"fps={options.fps:g}")
     scale = _scale_filter(options)
-    if scale:
-        chain.append(scale)
+    prefix, src = "", "[0:v]"
+    if options.layout is not None:
+        prefix = f"[0:v]{','.join(pre) or 'null'}[pre];{options.layout.graph('[pre]', '[lay]')};"
+        src = "[lay]"
+        chain: list[str] = [scale] if scale and (options.width or options.height) else []
+    else:
+        chain = pre + ([scale] if scale else [])
+    if options.subtitles is not None:
+        chain.append(f"subtitles=filename={filter_path(options.subtitles)}")
     chain.extend(options.extra_filters)
     if options.transparent:
         chain.append("format=rgba")
@@ -194,7 +218,7 @@ def build_video_filter(options: ExportOptions) -> str:
             palettegen = f"palettegen=max_colors={options.max_colors}:stats_mode=diff"
             paletteuse = f"paletteuse=dither={options.dither}:diff_mode=rectangle"
         head = ",".join(chain) if chain else "null"
-        return f"[0:v]{head},split[s0][s1];[s0]{palettegen}[p];[s1][p]{paletteuse}[v]"
+        return f"{prefix}{src}{head},split[s0][s1];[s0]{palettegen}[p];[s1][p]{paletteuse}[v]"
 
     pix_fmt = {
         ("webp", False): "yuv420p",
@@ -208,7 +232,7 @@ def build_video_filter(options: ExportOptions) -> str:
         ("apng", True): "rgba",
     }[(fmt, options.transparent)]
     chain.append(f"format={pix_fmt}")
-    return f"[0:v]{','.join(chain)}[v]"
+    return f"{prefix}{src}{','.join(chain)}[v]"
 
 
 def _codec_args(options: ExportOptions) -> list[str]:

@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-INK = "#15131F"
-PAPER = "#F7F4FA"
-LIVE_PINK = "#FF4F8B"
-HIGHLIGHT = "#FFD84D"
+from ..brand import HIGHLIGHT, INK, LIVE_PINK, PAPER
+
+__all__ = ["INK", "PAPER", "LIVE_PINK", "HIGHLIGHT", "STYLE_SHEET"]
 
 SURFACE = "#1D1A29"
 SURFACE_2 = "#26223A"
