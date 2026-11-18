@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QWidget
 from ..capture import CaptureBackend
 from ..color import to_hex
 from ..frames import to_image
-from ..geometry import Region
+from ..geometry import Region, round_half_up
 from . import theme
 from .qt import pil_to_qimage, virtual_geometry
 
@@ -72,9 +72,16 @@ class ScreenSelector(QWidget):
         return QRect(self._start, self._current).normalized()
 
     def _to_physical(self, rect: QRect) -> Region:
-        local = Region.from_points(rect.left() * self._sx, rect.top() * self._sy, (rect.right() + 1) * self._sx, (rect.bottom() + 1) * self._sy)
-        local = local.clamp(self._image.width, self._image.height) or Region(0, 0, 1, 1)
-        return local
+        # Origin and size are rounded separately, the way Qt places windows at
+        # fractional scaling (125%, 150%): a selection keeps its pixel size wherever
+        # it is dragged, and selecting a window's logical rect gives its exact pixels.
+        local = Region(
+            round_half_up(rect.left() * self._sx),
+            round_half_up(rect.top() * self._sy),
+            max(1, round_half_up(rect.width() * self._sx)),
+            max(1, round_half_up(rect.height() * self._sy)),
+        )
+        return local.clamp(self._image.width, self._image.height) or Region(0, 0, 1, 1)
 
     def _pixel_hex(self, pos: QPoint) -> str:
         x = min(self._image.width - 1, max(0, int(pos.x() * self._sx)))

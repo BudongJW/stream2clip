@@ -219,8 +219,10 @@ class RecordController(QObject):
             cursor = self._cursor_provider()
         else:
             cursor = None
+        # Physical pixels per logical pixel, so the drawn cursor is as big as the real one.
+        scale = round(self._mapping[2], 2) if self._mapping is not None else 1.0
         try:
-            self._recorder = Recorder(region, fps=settings.fps, cursor=cursor)
+            self._recorder = Recorder(region, fps=settings.fps, cursor=cursor, cursor_scale=scale)
             self._recorder.start()
         except Exception as exc:
             self._recorder = None

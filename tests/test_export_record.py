@@ -134,6 +134,37 @@ def test_cursor_overlay_clips_at_edges():
     assert draw_cursor(frame, 50, 50) is frame
 
 
+def test_cursor_scales_with_display_scaling():
+    def arrow_pixels(scale):
+        frame = np.zeros((80, 80, 4), np.uint8)
+        frame[..., 3] = 255
+        return int((draw_cursor(frame, 10, 10, scale=scale)[..., 0] > 200).sum())
+
+    assert arrow_pixels(1.5) > arrow_pixels(1.25) > arrow_pixels(1.0) > 0
+
+
+def test_recorder_draws_cursor_at_scale():
+    seen = {}
+
+    def keep(frame):
+        seen.setdefault("frame", frame.copy())
+        return frame
+
+    gray = np.full((300, 200, 3), 100, np.uint8)  # a "screen"; the recorded region is offset inside it
+    for scale in (1.0, 2.0):
+        seen.clear()
+        recorder = Recorder(
+            Region(100, 200, 60, 60), fps=10, backend_factory=lambda: ArrayBackend(gray), cursor=lambda: (110, 210), cursor_scale=scale, frame_filter=keep, max_duration=0.2
+        )
+        recorder.start()
+        recorder.wait(timeout=10)
+        recorder.stop().discard()
+        arrow = np.argwhere(np.abs(seen["frame"][..., 0].astype(int) - 100) > 60)  # white fill + black outline
+        # hotspot stays at the cursor position (region-local 10, 10); only the size changes
+        assert arrow.min(axis=0).tolist() == pytest.approx([11, 11], abs=2)
+        assert arrow.max(axis=0)[0] - arrow.min(axis=0)[0] == pytest.approx(18 * scale, abs=3)
+
+
 def test_source_alpha_is_preserved_without_keying(tmp_path):
     def frame(t):
         f = np.zeros((32, 48, 4), np.uint8)

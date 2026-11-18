@@ -117,6 +117,31 @@ def test_selector_maps_to_physical_pixels(app):
     assert got and got[0][0] == Region(10, 20, 40, 30) and got[0][1] == (40, 30)
 
 
+@pytest.mark.parametrize("scale", [1.25, 1.5, 1.75])
+def test_selector_keeps_size_at_fractional_scaling(app, scale):
+    from stream2clip.geometry import round_half_up
+    from stream2clip.gui.selector import ScreenSelector
+
+    sel = ScreenSelector("region", screenshot=Image.new("RGB", (1000, 800), "red"), physical=Region(0, 0, 1000, 800))
+    sel._sx = sel._sy = scale
+    # Found on a real 125% Windows display: (41, 43, 201, 119) came out 1px short because
+    # both edges were rounded to even. The size must not depend on where the drag starts.
+    sizes = {(r.width, r.height) for r in (sel._to_physical(QRect(x, y, 201, 119)) for x in range(30, 50) for y in range(30, 50))}
+    assert sizes == {(round_half_up(201 * scale), round_half_up(119 * scale))}
+    assert sel._to_physical(QRect(41, 43, 201, 119)).to_list()[:2] == [round_half_up(41 * scale), round_half_up(43 * scale)]
+    sel.close()
+
+
+def test_copy_to_clipboard(editor, app):
+    if os.environ.get("QT_QPA_PLATFORM") != "offscreen":
+        pytest.skip("would overwrite the real clipboard")
+    from PySide6.QtGui import QGuiApplication
+
+    editor.copy_to_clipboard()
+    image = QGuiApplication.clipboard().image()
+    assert (image.width(), image.height()) == editor.doc.size
+
+
 def test_recording_frame_never_covers_region(app):
     from stream2clip.gui.recording import RecordingFrame
 

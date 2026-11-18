@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
-__all__ = ["Region"]
+__all__ = ["Region", "round_half_up"]
 
 _CSV = re.compile(r"^\s*(-?\d+)\s*[, ]\s*(-?\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)\s*$")
 _GEOMETRY = re.compile(r"^\s*(\d+)x(\d+)([+-]\d+)([+-]\d+)\s*$")
+
+
+def round_half_up(value: float) -> int:
+    """Round to the nearest integer with ``n.5`` going up (``round()`` goes to even)."""
+    return math.floor(value + 0.5)
 
 
 @dataclass(frozen=True)
@@ -26,9 +32,14 @@ class Region:
 
     @classmethod
     def from_points(cls, x0: float, y0: float, x1: float, y1: float) -> "Region":
-        """Build a normalized region from two arbitrary corner points."""
-        left, right = sorted((round(x0), round(x1)))
-        top, bottom = sorted((round(y0), round(y1)))
+        """Build a normalized region from two arbitrary corner points.
+
+        Halves round up (not to even like :func:`round`), so edges that land on
+        ``n.5`` at 125% / 150% display scaling always move the same way and a
+        region keeps its size wherever it is on the screen.
+        """
+        left, right = sorted((round_half_up(x0), round_half_up(x1)))
+        top, bottom = sorted((round_half_up(y0), round_half_up(y1)))
         return cls(left, top, right - left, bottom - top)
 
     @classmethod

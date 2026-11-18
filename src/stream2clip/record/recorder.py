@@ -71,6 +71,9 @@ class Recorder:
 
     The capture loop keeps wall-clock timing: if a grab is slow, the previous
     frame is repeated so the clip plays back at real speed.
+
+    ``cursor_scale`` sizes the composited arrow; pass the display scale factor
+    (1.25, 1.5, ...) so it matches the real cursor on HiDPI screens.
     """
 
     def __init__(
@@ -80,6 +83,7 @@ class Recorder:
         fps: float = 15.0,
         backend_factory: BackendFactory | None = None,
         cursor: CursorProvider | None = None,
+        cursor_scale: float = 1.0,
         frame_filter: FrameFilter | None = None,
         output: str | os.PathLike[str] | None = None,
         max_duration: float | None = None,
@@ -94,6 +98,7 @@ class Recorder:
         self.fps = float(fps)
         self._backend_factory = backend_factory or default_backend
         self._cursor = cursor
+        self._cursor_scale = max(0.5, float(cursor_scale))
         self._filter = frame_filter
         self._max_duration = max_duration
         self._ffmpeg = ffmpeg
@@ -164,7 +169,7 @@ class Recorder:
         if self._cursor is not None:
             pos = self._cursor()
             if pos is not None:
-                frame = draw_cursor(frame, pos[0] - self.region.x, pos[1] - self.region.y)
+                frame = draw_cursor(frame, pos[0] - self.region.x, pos[1] - self.region.y, scale=self._cursor_scale)
         if self._filter is not None:
             frame = ensure_rgba(self._filter(frame))
         return frame
