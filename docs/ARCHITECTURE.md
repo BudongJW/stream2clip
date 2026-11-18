@@ -52,6 +52,31 @@ F9 ─► Recorder.stop() ─► Recording ─► export(GIF/WebP/MP4/WebM/MOV/A
 - **녹화 테두리**: 영역 **바깥**에 불투명한 얇은 창 4개로 그립니다. 반투명 창 하나로 덮으면 컴포지터가 없는 X11에서는 검게 칠해지고, 일부 캡처 API에서는 녹화 결과에 섞이기 때문입니다.
 - **커서**: 화면 캡처 API는 대부분 커서를 빼므로 직접 합성합니다. Windows는 `GetCursorPos`, 그 외에는 GUI 스레드가 `QCursor.pos()`를 물리 좌표로 바꿔 공유합니다.
 
+### 방송 → 클립 자동화 (`stream2clip auto`)
+
+```
+fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.mp4
+                     │              │                   │
+                     ▼              ▼                   │
+             heatmap/SourceInfo   chat.load_chat        │      audio.audio_levels(video)
+                     └──────┬───────┘                   │                │
+                            ▼                           │                │
+              highlights.detect_highlights ◄────────────┼────────────────┘
+               (robust z · 가중합 · 이동평균 · 봉우리 · 채팅 지연 보정 · 병합 · 길이 제한)
+                            │
+                            ▼
+              pipeline.make_clips ── 클립마다: slice_cues → write_ass(PlayRes = 출력 크기)
+                            │                 ExportOptions(start, end, layout, subtitles)
+                            │                 build_description + check_upload
+                            ▼
+            clip_XX.mp4 · clip_XX.ass · clip_XX.txt · clips.json
+```
+
+- **필터 순서**: `crop → fps → [layout 그래프] → scale → subtitles → extra → colorkey → 포맷별 처리`. 레이아웃은 `[pre] → [lay]` 레이블을 쓰는 서브그래프라 GIF 팔레트 등 뒤 단계와 그대로 이어집니다.
+- **자막 시간**: `-ss`를 입력 옵션으로 쓰므로 필터가 보는 시간은 0부터 시작합니다. 그래서 자막은 `slice_cues`로 클립 기준 시간으로 옮겨서 씁니다(테스트로 자막이 정해진 시간에만 보이는지 확인).
+- **자막 경로**: `filter_path()`가 ffmpeg의 두 단계 이스케이프(옵션 · 필터그래프)를 처리합니다. Windows `C:\` 경로와 `' [ ] , ; :`가 들어간 경로도 테스트합니다.
+- **자막 크기**: 스타일 값은 짧은 변 1080px 기준이며 출력 크기에 비례해 조정됩니다. 세로 화면에서는 쇼츠 하단 UI를 피해 아래에서 약 20% 위에 둡니다.
+
 ### VOD → 클립 (`stream2clip convert`)
 
 `ExportOptions(start, end, crop, fps, width/height, transparent, ...)` → `build_export_command()` → ffmpeg 한 번. 필터 순서는 `crop → fps → scale → (format=rgba, colorkey) → 포맷별 처리(GIF 팔레트 / 픽셀 포맷)`입니다. yuv420 계열(MP4/WebM)은 짝수 크기로 맞춥니다.
@@ -80,6 +105,9 @@ F9 ─► Recorder.stop() ─► Recording ─► export(GIF/WebP/MP4/WebM/MOV/A
 | `tests/test_core.py` | Region/색/프레임, 크로마키, ffmpeg 빌더 |
 | `tests/test_editor.py` | 도형별 렌더링, 직렬화 왕복, JSON 스키마, 되돌리기, 히트 테스트, 오버레이 |
 | `tests/test_export_record.py` | 6개 포맷 내보내기, 구간·크롭, 투명 GIF/WebP/APNG 잔상 없음, WebM 알파, numpy↔ffmpeg 크로마키 일치, 실시간 녹화 |
-| `tests/test_cli.py` | CLI 명령 |
+| `tests/test_chat_sources.py` | 채팅 형식 4종, 금액, yt-dlp 명령 · 쿠키, info · heatmap, 음량 곡선 |
+| `tests/test_highlights.py` | 반응 분류, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
+| `tests/test_clips.py` | 레이아웃 4종, 필터 경로 이스케이프, SRT/VTT/ASS, 자막 시간, 가이드라인 점검, 클립 파이프라인 |
+| `tests/test_cli.py` | CLI 명령 (`auto` · `check` 포함) |
 | `tests/test_gui.py` | 편집기 도구를 실제 마우스 이벤트로 조작, HiDPI 좌표 환산, 녹화 테두리가 영역을 덮지 않음 |
 | `tests/test_gui_flow.py` | (디스플레이 필요) F8 캡쳐 → 편집기, F9 영역 선택 → 녹화 → 투명 GIF 결과 검증 |

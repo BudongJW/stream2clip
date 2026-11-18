@@ -160,9 +160,43 @@ app.exec()
 
 `EditorCanvas(document, ToolState())`는 툴바 없이 캔버스만 쓰고 싶을 때 씁니다. 변경되면 `changed` 시그널이 나옵니다.
 
-## 7. 라이선스 메모
+## 7. 하이라이트 · 레이아웃 · 자막만 가져가기 (v0.2)
+
+이미 다운로드와 편집을 하는 프로젝트(autoclip, FunClip, biliup 등)라면 **구간 찾기**나 **세로 레이아웃**만 떼어 쓸 수 있습니다.
+
+```python
+from stream2clip.chat import load_chat
+from stream2clip.highlights import HighlightConfig, detect_highlights
+
+msgs = load_chat("VIDEO_ID.live_chat.json")          # 또는 CSV: time,author,text[,amount]
+result = detect_highlights(msgs, duration=3 * 3600, config=HighlightConfig(top=5, chat_delay=10))
+for h in result.highlights:
+    print(h.rank, h.start, h.end, h.reasons)        # 다른 파이프라인의 컷 리스트로 사용
+```
+
+```python
+from stream2clip.ffmpeg import build_video_filter, ExportOptions
+from stream2clip.geometry import Region
+from stream2clip.layouts import VerticalLayout
+
+layout = VerticalLayout("stack", avatar=Region(1280, 0, 640, 720))
+print(layout.graph("[0:v]", "[v]"))  # 9:16 필터그래프 조각만
+print(build_video_filter(ExportOptions(format="mp4", layout=layout, subtitles="clip.ass")))
+```
+
+```python
+from stream2clip.subtitles import load_subtitles, slice_cues, write_ass
+
+cues = slice_cues(load_subtitles("VIDEO_ID.ja.vtt"), 3723, 3778)   # 클립 기준 시간으로
+write_ass(cues, "clip.ass", play_res=(1080, 1920))                  # 카라오케 \k 태그
+```
+
+LLM 기반 하이라이트 판정을 쓰는 프로젝트라면 `HighlightResult.signals`(신호별 z-점수 배열)와 각 구간의 `reasons`를 프롬프트 재료로 넘기면 됩니다.
+
+## 8. 라이선스 메모
 
 - stream2clip: Apache-2.0. 코어(`gui` 제외)는 numpy(BSD) + Pillow(MIT-CMU)만 씁니다.
 - GUI: PySide6는 LGPLv3입니다. 동적 링크(pip 설치)로 쓰면 호스트 프로젝트 라이선스에 제약이 생기지 않습니다.
 - ffmpeg: 바이너리를 외부 프로세스로 호출만 합니다. 배포할 때는 쓰는 ffmpeg 빌드(LGPL/GPL, libx264는 GPL)의 조건을 따르세요.
+- 선택 의존성: yt-dlp(Unlicense), faster-whisper(MIT, 모델 가중치는 각 모델 라이선스), libass(ISC, ffmpeg에 포함).
 - 레퍼런스 조사에서 AGPL로 확인된 클리퍼(supoclip, Clips Kitty, hotclip)나 ultralytics YOLO의 코드는 가져오지 않았습니다.
