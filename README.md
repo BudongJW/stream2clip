@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-207-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-218-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -202,7 +202,23 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 </details>
 
 > [!TIP]
-> YouTube가 "Sign in to confirm you're not a bot"으로 막으면 `fetch`에 `--cookies-from-browser chrome`(또는 `firefox`, `edge`)이나 `--cookies cookies.txt`를 붙이세요. CHZZK · SOOP 채팅은 다른 수집기로 받은 뒤 `time,author,text` CSV로 넘기면 됩니다.
+> YouTube가 "Sign in to confirm you're not a bot"으로 막으면 `fetch`에 `--cookies-from-browser chrome`(또는 `firefox`, `edge`)이나 `--cookies cookies.txt`를 붙이세요.
+
+**CHZZK · SOOP 다시보기** — 같은 `fetch`에 다시보기 주소를 주면 채팅을 각 플랫폼의 다시보기 API에서 직접 받아 옵니다(로그인 불필요, 공개 다시보기 기준).
+
+```bash
+stream2clip fetch "https://chzzk.naver.com/video/VIDEO_NO" -o vod --video
+```
+
+```bash
+stream2clip fetch "https://vod.sooplive.co.kr/player/TITLE_NO" -o vod --video
+```
+
+```bash
+stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/info.json --audio -o clips
+```
+
+채팅은 `chzzk_<번호>.chat.jsonl` · `soop_<번호>.chat.jsonl`로 저장됩니다. 한 줄에 메시지 하나(`time` · `text` · `author` · `kind` · `amount`)인 정규화 형식이고, **닉네임과 사용자 ID는 저장하지 않고** 해시만 남깁니다. 치즈 후원 · 별풍선 · 애드벌룬은 후원 신호로, 팬클럽 가입 · 구독은 멤버십으로 셉니다. 오래된 CHZZK 다시보기는 채팅이 남아 있지 않을 수 있습니다.
 
 <details>
 <summary><b>🔬 하이라이트 점수는 이렇게 계산합니다</b></summary>
@@ -258,7 +274,8 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 | YouTube 채팅 다시보기 | yt-dlp `*.live_chat.json` (일반 채팅 · 슈퍼챗 · 스티커 · 멤버십 · 선물) |
 | chat-downloader | xenova/chat-downloader JSON |
 | Twitch | TwitchDownloader 채팅 JSON (비트 포함) |
-| CHZZK · SOOP · 기타 | `time,author,text[,amount]` CSV / JSONL (`1:02:03` 같은 시각도 가능) |
+| CHZZK · SOOP | `fetch`가 받아 정규화한 `*.chat.jsonl`. 직접 받은 CHZZK 다시보기 채팅 API 응답(JSON)과 SOOP 채팅 XML도 그대로 읽습니다 |
+| 기타 | `time,author,text[,amount]` CSV / JSONL (`1:02:03` 같은 시각도 가능) |
 | 자막 | SRT · WebVTT(YouTube 자동 자막의 단어별 시각 포함) · Whisper JSON · `--transcribe`로 faster-whisper 직접 실행 |
 
 | 출력 | 내용 |
@@ -272,7 +289,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 </details>
 
 > [!CAUTION]
-> 기획사 프로필(hololive 2026-08-31 개정, にじさんじ 2025-05-23 개정 등)은 [레퍼런스 조사](reports/버튜버%20영상%20작업%20프로젝트%20레퍼런스.md) 시점의 **체크리스트**일 뿐 법적 판단이 아닙니다. 가이드라인은 바뀌고 탤런트마다 추가 규칙이 있으니 업로드 전에 원문을 꼭 확인하세요. 한국 기획사 가이드라인은 아직 확보하지 못해 `generic` 프로필만 있습니다.
+> 기획사 프로필(hololive 2026-08-31 개정, にじさんじ 2025-05-23 개정 등)은 [레퍼런스 조사](reports/버튜버%20영상%20작업%20프로젝트%20레퍼런스.md) 시점의 **체크리스트**일 뿐 법적 판단이 아닙니다. 가이드라인은 바뀌고 탤런트마다 추가 규칙이 있으니 업로드 전에 원문을 꼭 확인하세요. ぶいすぽっ!는 공식 가이드라인(2026-09-17 개정)을 확인해 반영했습니다. 한국 기획사(스텔라이브 · 이세계아이돌 등)는 공식 원문을 찾지 못해 프로필을 만들지 않았고 `generic`을 씁니다.
 
 <br>
 
@@ -301,12 +318,12 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 | 🖥️ 화면 캡처 | **mss** | 9+ | 10.2 | Windows GDI · macOS CoreGraphics · X11, 스레드별 핸들 |
 | 🖼️ 이미지 처리 | **Pillow** · **NumPy** | 10.1+ · 1.24+ | 13.0 · 2.5 | 렌더링(3배 슈퍼샘플링 안티에일리어싱), 크로마키 |
 | 🎞️ 인코딩 | **FFmpeg** (외부 바이너리) | 5+ 권장 | 6.1 · 8.1 | `gif` · `libwebp_anim` · `libx264` · `libvpx-vp9` · `prores_ks` · `apng` · `ffv1` |
-| 📥 VOD · 채팅 수집 | **yt-dlp** | 2024.1+ | 2026.10 | 선택 설치 `[ingest]`, 구간 다운로드 · 채팅 다시보기 · heatmap |
+| 📥 VOD · 채팅 수집 | **yt-dlp** · CHZZK/SOOP 다시보기 API | 2024.1+ | 2026.10 | 선택 설치 `[ingest]`, 구간 다운로드 · 채팅 다시보기 · heatmap. CHZZK · SOOP 채팅은 표준 라이브러리만으로 수집 |
 | 💬 자막 | **libass** (ffmpeg) · **faster-whisper** | — · 1.0+ | ffmpeg 내장 · 1.2.1 | 카라오케 ASS 입히기, 받아쓰기는 `[asr]` (오디오는 ffmpeg로 직접 디코딩해 넘김) |
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 207개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 218개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -718,7 +735,8 @@ src/stream2clip/
 - [x] 🤖 아바타 박스 자동 제안 — 애니메 얼굴 검출(deepghs/anime_face_detection)로 `--layout stack --avatar auto`
 - [x] 🖥️ GUI 하이라이트 창 — 타임라인 · 구간 드래그 조정 · 레이아웃 미리보기 · 내보내기 진행률
 - [x] 📦 Windows 실행 파일 — PyInstaller로 GUI + 명령줄을 한 폴더 · zip으로 (`packaging/build_windows.py`)
-- [ ] 🇰🇷 CHZZK · SOOP 채팅 수집기 내장, 한국 기획사 가이드라인 프로필
+- [x] 🇰🇷 CHZZK · SOOP 다시보기 채팅 수집 — `fetch`에 주소만 주면 정규화해서 저장
+- [ ] 🇰🇷 한국 기획사 가이드라인 프로필 — 공식 원문을 확인한 곳부터 (스텔라이브 · 이세계아이돌은 원문 미확보)
 - [ ] 🌐 JP→KR 자막 번역 + 버튜버 이름 용어집 (Holodex 채널 메타)
 - [ ] 😂 웃음소리 검출 · 노래 구간(歌枠) 검출
 - [ ] 🧍 아바타 레이어 — Spout2/NDI 알파 레이어 녹화, VMC · VTube Studio 파라미터 기록 후 재렌더
@@ -749,6 +767,7 @@ xvfb-run -a pytest
 | `test_editor.py` | 도형별 렌더링, 직렬화 왕복, JSON 스키마, 되돌리기, 오버레이 |
 | `test_export_record.py` | 6개 포맷, 구간 · 크롭, 투명 잔상 없음, WebM 알파, numpy↔ffmpeg 크로마키 일치, 실시간 녹화 |
 | `test_chat_sources.py` | 채팅 형식 4종 파싱, 실제 YouTube 다시보기 발췌본(익명화), 대기실 채팅 제거, 금액 파싱, yt-dlp 명령, info · heatmap, 음량 곡선, 받아쓰기용 오디오 디코딩 |
+| `test_kr_chat.py` | CHZZK · SOOP 다시보기 채팅: 실제 응답의 익명화 발췌본 파싱(후원 · 별풍선 · 이모티콘 · 가려진 메시지), 주소 해석, 페이지 따라가기, 여러 파일로 나뉜 VOD의 시간 보정, 이름 없이 저장되는지 |
 | `test_highlights.py` | 반응 어휘 분류(실제 채팅 어휘 포함), 인사 · 작별 제외, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT/VTT/ASS, 자막이 정해진 시간에만 보이는지, 가이드라인 점검, 클립 파이프라인 |
 | `test_detect.py` | 얼굴 검출 전처리 · 후처리, 계속 같은 자리에 있는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` · `--avatar auto` (실제 모델은 파일이 있을 때만) |
@@ -772,6 +791,7 @@ xvfb-run -a pytest
 | 🪟 Windows 10 | 🟡 같은 Win32 API를 쓰지만 실기기 미검증 |
 | 🍎 macOS | 🟡 시스템 설정의 화면 기록 권한 필요, 실기기 미검증 |
 | 🌊 Wayland | ❌ 화면 캡쳐(mss)는 X11/XWayland에서만 동작 |
+| 🇰🇷 CHZZK · SOOP 수집 | ✅ 실제 공개 다시보기 각 1개로 확인: CHZZK 채팅 983개(6초), SOOP 채팅 1,567개(8초, 별풍선 포함) → 하이라이트 검출까지. 비공개 · 성인 인증 · 구독자 전용 다시보기와 영상 다운로드는 확인하지 못했습니다 |
 | 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) |
 
 - 배율이 다른 다중 모니터에서는 논리↔물리 좌표를 가상 화면 전체 비율로 환산하므로 선택 영역이 조금 어긋날 수 있습니다.

@@ -173,7 +173,7 @@ app.exec()
 from stream2clip.chat import load_chat
 from stream2clip.highlights import HighlightConfig, detect_highlights
 
-msgs = load_chat("VIDEO_ID.live_chat.json")          # 또는 CSV: time,author,text[,amount]
+msgs = load_chat("VIDEO_ID.live_chat.json")          # 또는 CSV: time,author,text[,amount] / CHZZK · SOOP 다시보기 채팅
 result = detect_highlights(msgs, duration=3 * 3600, config=HighlightConfig(top=5, chat_delay=10))
 for h in result.highlights:
     print(h.rank, h.start, h.end, h.reasons)        # 다른 파이프라인의 컷 리스트로 사용
