@@ -5,6 +5,8 @@ Supported inputs (auto-detected by :func:`load_chat`):
 * yt-dlp YouTube live chat replay (``*.live_chat.json``, one JSON action per line)
 * chat-downloader (xenova) JSON output (a list of message dicts)
 * TwitchDownloader chat JSON (``{"comments": [...]}``)
+* CHZZK replay chat (the ``videoChats`` pages of its API) and SOOP replay chat XML -
+  ``stream2clip fetch`` collects both and saves them already normalized
 * generic CSV / JSONL with at least ``time`` and ``text`` columns
   (``author``, ``amount``, ``currency``, ``kind`` optional) - handy for CHZZK /
   SOOP collectors or any custom scraper.
@@ -24,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-__all__ = ["ChatMessage", "load_chat", "parse_amount", "save_chat_jsonl", "author_key"]
+__all__ = ["ChatMessage", "load_chat", "parse_amount", "parse_chzzk", "parse_soop", "save_chat_jsonl", "author_key"]
 
 
 @dataclass(frozen=True)
@@ -246,6 +248,83 @@ def _load_twitch_downloader(data: dict[str, Any]) -> list[ChatMessage]:
     return out
 
 
+# --------------------------------------------------------------------------- CHZZK / SOOP replays
+
+_CHZZK_EMOJI = re.compile(r"\{:([^:{}\s]+):\}")
+_SOOP_SESSION = re.compile(r"\(\d+\)$")
+
+
+def _json_object(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    try:
+        value = json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def parse_chzzk(data: Any) -> list[ChatMessage]:
+    """CHZZK replay chat: one API page (``{"content": {"videoChats": [...]}}``) or a list of pages.
+
+    ``playerMessageTime`` is the offset in the replay (ms). Emoji tokens ``{:name:}`` become
+    ``:name:``, donations (``messageTypeCode`` 10) carry ``payAmount`` in won, and messages
+    hidden by moderation are skipped.
+    """
+    pages = data if isinstance(data, list) else [data]
+    out: list[ChatMessage] = []
+    for page in pages:
+        content = page.get("content", page) if isinstance(page, dict) else {}
+        for m in content.get("videoChats") or []:
+            if m.get("messageStatusType", "NORMAL") != "NORMAL" or m.get("playerMessageTime") is None:
+                continue
+            extras = _json_object(m.get("extras"))
+            raw = m.get("content") or ""
+            amount = float(extras.get("payAmount") or 0)
+            paid = m.get("messageTypeCode") == 10 or amount > 0
+            out.append(
+                ChatMessage(
+                    time=max(0.0, float(m["playerMessageTime"]) / 1000),
+                    text=_CHZZK_EMOJI.sub(lambda g: f":{g.group(1)}:", raw),
+                    author=author_key(str(m.get("userIdHash") or "")),
+                    kind="paid" if paid else "text",
+                    amount=amount,
+                    currency="KRW" if amount else None,
+                    emotes=tuple(f":{name}:" for name in _CHZZK_EMOJI.findall(raw)),
+                )
+            )
+    return out
+
+
+def parse_soop(text: str, *, offset: float = 0.0) -> list[ChatMessage]:
+    """SOOP replay chat XML (one ``ChatLoadSplit`` response).
+
+    ``<t>`` is seconds into the file; ``offset`` is added for VODs split into several files.
+    Star balloons and ad balloons are paid events with the balloon count as the amount,
+    OGQ stickers are stickers, fan club joins and subscriptions are membership events.
+    The same viewer on two devices (``id(2)``) counts as one chatter.
+    """
+    import xml.etree.ElementTree as ET
+
+    out: list[ChatMessage] = []
+    for el in ET.fromstring(text):
+        stamp = el.findtext("t")
+        if stamp is None:
+            continue
+        time = max(0.0, float(stamp) + offset)
+        author = author_key(_SOOP_SESSION.sub("", el.findtext("u") or el.findtext("s") or ""))
+        if el.tag == "chat":
+            out.append(ChatMessage(time, el.findtext("m") or "", author))
+        elif el.tag in ("balloon", "adballoon", "vodballoon"):
+            count = float(el.findtext("c") or 0)
+            out.append(ChatMessage(time, el.findtext("m") or "", author, kind="paid", amount=count, currency="애드벌룬" if el.tag == "adballoon" else "별풍선"))
+        elif el.tag == "ogq":
+            out.append(ChatMessage(time, el.findtext("m") or "", author, kind="sticker"))
+        elif el.tag in ("fanclub", "subscription", "follow"):
+            out.append(ChatMessage(time, "", author, kind="member"))
+    return out
+
+
 def _parse_time(value: Any) -> float:
     if isinstance(value, (int, float)):
         return float(value)
@@ -292,7 +371,8 @@ def load_chat(path: str | os.PathLike[str], *, format: str | None = None) -> lis
     """Load and normalize a chat archive; messages are returned sorted by time.
 
     ``format``: ``"youtube"`` (yt-dlp live_chat), ``"chat-downloader"``,
-    ``"twitch"`` (TwitchDownloader), ``"csv"``, ``"jsonl"`` or ``None`` to detect.
+    ``"twitch"`` (TwitchDownloader), ``"chzzk"``, ``"soop"``, ``"csv"``, ``"jsonl"``
+    or ``None`` to detect.
     """
     p = Path(path)
     text = p.read_text(encoding="utf-8-sig")
@@ -303,6 +383,10 @@ def load_chat(path: str | os.PathLike[str], *, format: str | None = None) -> lis
         msgs = _load_chat_downloader(json.loads(text))
     elif fmt == "twitch":
         msgs = _load_twitch_downloader(json.loads(text))
+    elif fmt == "chzzk":
+        msgs = parse_chzzk(json.loads(text))
+    elif fmt == "soop":
+        msgs = parse_soop(text)
     elif fmt == "csv":
         msgs = _load_generic(csv.DictReader(io.StringIO(text)))
     elif fmt == "jsonl":
@@ -321,6 +405,10 @@ def _detect(path: Path, text: str) -> str:
         return "csv"
     if "replayChatItemAction" in head or "addChatItemAction" in head:
         return "youtube"
+    if '"videoChats"' in head and "playerMessageTime" in text[:200000]:
+        return "chzzk"
+    if head.startswith("<") and "<root" in head and ("<chat>" in text or "<balloon>" in text):
+        return "soop"
     if head.startswith("{") and '"comments"' in head and "content_offset_seconds" in text[:200000]:
         return "twitch"
     if head.startswith("["):
