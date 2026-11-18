@@ -20,6 +20,14 @@ class TestRegion:
     def test_from_points_normalizes(self):
         assert Region.from_points(50, 40, 10, 5) == Region(10, 5, 40, 35)
 
+    def test_from_points_rounds_halves_up(self):
+        # At 150% display scaling every odd logical coordinate lands on n.5; round() would
+        # send 61.5 up and 64.5 down, so the same selection changed size as it moved.
+        assert Region.from_points(61.5, 64.5, 211.5, 214.5) == Region(62, 65, 150, 150)
+        assert Region.from_points(64.5, 61.5, 214.5, 211.5) == Region(65, 62, 150, 150)
+        assert Region.from_points(-1.5, -0.5, 1.5, 0.5) == Region(-1, 0, 3, 1)
+        assert Region(41, 43, 3, 3).scale(1.5) == Region(62, 65, 4, 4)
+
     def test_clamp_and_intersect(self):
         r = Region(-10, -10, 50, 50)
         assert r.clamp(30, 30) == Region(0, 0, 30, 30)
