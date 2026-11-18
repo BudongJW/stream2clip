@@ -37,6 +37,7 @@ __all__ = [
     "HighlightResult",
     "classify_reactions",
     "detect_highlights",
+    "mark_singing",
     "load_highlights",
     "robust_z",
     "render_timeline",
@@ -77,7 +78,9 @@ ROUTINE: list[str] = [
 ]
 _ROUTINE = re.compile("|".join(ROUTINE), re.IGNORECASE)
 _LABELS = {"laugh": "웃음", "hype": "환호", "cute": "귀여움", "shock": "놀람"}
-SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap")
+SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap", "laughter")
+#: Experimental signals: added on top of the score instead of averaged into it.
+BONUS_SIGNALS = ("laughter",)
 
 
 def classify_reactions(text: str, emotes: Sequence[str] = ()) -> set[str]:
@@ -107,7 +110,7 @@ class HighlightConfig:
     #: Leave greetings / goodbyes out of the chat signals (paid events still count).
     skip_greetings: bool = True
     weights: dict[str, float] = field(
-        default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15}
+        default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15, "laughter": 0.15}
     )
 
     def __post_init__(self) -> None:
@@ -238,10 +241,15 @@ def detect_highlights(
     audio: np.ndarray | None = None,
     audio_window: float | None = None,
     heatmap: Sequence[HeatmapPoint] = (),
+    laughter: np.ndarray | None = None,
+    laughter_window: float | None = None,
     config: HighlightConfig | None = None,
     source: dict[str, Any] | None = None,
 ) -> HighlightResult:
-    """Find the most exciting moments. Any subset of chat / audio / heatmap may be given."""
+    """Find the most exciting moments. Any subset of chat / audio / heatmap may be given.
+
+    ``laughter`` is the optional, experimental :func:`stream2clip.audio.laughter_levels` curve.
+    """
     cfg = config or HighlightConfig()
     w = cfg.window
     candidates = [duration or 0.0]
@@ -263,6 +271,8 @@ def detect_highlights(
             raw[key] = chat[key]
     if audio is not None and len(audio):
         raw["audio"] = _resample(np.asarray(audio, dtype=np.float64), audio_window or w, n, w)
+    if laughter is not None and len(laughter):
+        raw["laughter"] = _resample(np.asarray(laughter, dtype=np.float64), laughter_window or w, n, w)
     if heatmap:
         centers = (np.arange(n) + 0.5) * w
         hm_centers = np.array([(p.start + p.end) / 2 for p in heatmap])
@@ -270,10 +280,13 @@ def detect_highlights(
 
     signals = {key: robust_z(values) for key, values in raw.items()}
     weights = {k: v for k, v in cfg.weights.items() if k in signals and v > 0}
+    # Bonus signals can lift a moment but never count against one that lacks them: they are
+    # left out of the divisor, so switching one on does not thin out the other highlights.
+    core = sum(v for k, v in weights.items() if k not in BONUS_SIGNALS)
     if not weights:
         score = np.zeros(n)
     else:
-        score = sum(signals[k] * v for k, v in weights.items()) / sum(weights.values())
+        score = sum(signals[k] * v for k, v in weights.items()) / (core or sum(weights.values()))
     score = _smooth(np.asarray(score, dtype=np.float64), cfg.smooth)
 
     highlights = _pick(score, cfg, total)
@@ -377,12 +390,40 @@ def _explain(h: Highlight, raw: dict[str, np.ndarray], chat: dict[str, Any] | No
         stats["audio_db_above"] = delta
         if delta >= 3:
             reasons.append(f"음량 +{delta:.0f} dB")
+    if "laughter" in raw:
+        burst = float(signals["laughter"][max(0, peak_i - 2) : peak_i + 2].max())
+        stats["laughter_z"] = burst
+        if burst >= 2:
+            reasons.append("웃음소리 같은 소리 (추정)")
     if "heatmap" in raw:
         value = float(raw["heatmap"][lo:hi].max())
         stats["heatmap"] = value
         if signals["heatmap"][lo:hi].max() >= 1:
             reasons.append(f"많이 다시 본 구간 ({value:.2f})")
     return reasons, stats
+
+
+def mark_singing(result: HighlightResult, sections: Sequence[tuple[float, float]], *, drop: bool = False, mostly: float = 0.5) -> HighlightResult:
+    """Note on every highlight how much of it is inside a singing section (``stats["singing"]``, 0..1).
+
+    Songs matter for clipping: music rights are separate from the stream, and some agency
+    guidelines forbid reposting singing parts. With ``drop`` the highlights that are
+    ``mostly`` a song are removed and the rest re-ranked.
+    """
+    kept: list[Highlight] = []
+    for h in result.highlights:
+        inside = sum(max(0.0, min(h.end, end) - max(h.start, start)) for start, end in sections)
+        fraction = min(1.0, inside / max(h.duration, 1e-9))
+        h.stats["singing"] = fraction
+        if fraction > 0 and not any("노래 구간" in reason for reason in h.reasons):
+            h.reasons.append(f"노래 구간과 {fraction:.0%} 겹침")
+        if not (drop and fraction >= mostly):
+            kept.append(h)
+    if drop:
+        for rank, h in enumerate(sorted(kept, key=lambda h: -h.score), start=1):
+            h.rank = rank
+        result.highlights = sorted(kept, key=lambda h: h.rank)
+    return result
 
 
 def load_highlights(path: str | os.PathLike[str]) -> list[Highlight]:

@@ -258,6 +258,9 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--chat-format", choices=["youtube", "chat-downloader", "twitch", "chzzk", "soop", "csv", "jsonl", "json"], help="force the chat format")
     g.add_argument("--info", help="yt-dlp info JSON (most-replayed heatmap, title/URL for descriptions)")
     g.add_argument("--audio", action="store_true", help="also use the video's loudness")
+    g.add_argument("--laughter", action="store_true", help="experimental: also score laughter-like bursts in the audio")
+    g.add_argument("--mark-singing", action="store_true", help="find the songs in the video and say which highlights overlap one")
+    g.add_argument("--skip-singing", action="store_true", help="like --mark-singing, and leave out highlights that are mostly a song")
     g.add_argument("--top", type=int, default=10, help="maximum number of highlights (default 10)")
     g.add_argument("--threshold", type=float, default=2.0, help="robust z-score needed for a peak (default 2.0)")
     g.add_argument("--window", type=float, default=5.0, help="analysis bucket in seconds (default 5)")
@@ -279,8 +282,15 @@ def _detect(args: argparse.Namespace, video: str | None):
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
                           min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings)
     src = _source(args)
-    result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, config=cfg,
+    result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), config=cfg,
                              source={"url": src.url, "title": src.title} if src else {})
+    if video and (args.mark_singing or args.skip_singing):
+        from .audio import singing_sections
+        from .highlights import mark_singing
+
+        songs = singing_sections(video)
+        print(f"singing  {len(songs)} sections" + (": " + ", ".join(f"{_clock(s.start)}-{_clock(s.end)}" for s in songs) if songs else ""))
+        mark_singing(result, [(s.start, s.end) for s in songs], drop=args.skip_singing)
     print(f"analysed {result.messages} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
     for h in result.highlights:
         print(f"  #{h.rank:02d}  {_clock(h.start)} - {_clock(h.end)}  score {h.score:5.1f}  {' / '.join(h.reasons)}")
@@ -435,6 +445,20 @@ def cmd_auto(args: argparse.Namespace) -> int:
     return _make_clips(args, result.highlights)
 
 
+def cmd_singing(args: argparse.Namespace) -> int:
+    from .audio import singing_sections
+
+    songs = singing_sections(args.video, min_length=args.min_length)
+    for index, song in enumerate(songs, start=1):
+        print(f"  #{index:02d}  {_clock(song.start)} - {_clock(song.end)}  ({song.duration:.0f}s, held pitch {song.score:.0%})")
+    print(f"{len(songs)} singing sections, {sum(s.duration for s in songs) / 60:.1f} min in total")
+    if args.output:
+        data = {"schema": "stream2clip.singing/v1", "video": str(args.video), "sections": [{"start": s.start, "end": s.end, "score": s.score} for s in songs]}
+        Path(args.output).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"saved {args.output}")
+    return 0
+
+
 def cmd_glossary(args: argparse.Namespace) -> int:
     import os
 
@@ -564,6 +588,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--size", type=_size, default=(1080, 1920), help="layout canvas WxH (default 1080x1920)")
     p.add_argument("--face-model", help="ONNX face model file (default: downloaded once, 12 MB)")
     p.set_defaults(func=cmd_avatar)
+
+    p = sub.add_parser("singing", help="find the songs in a stream (karaoke / 歌枠) from its audio")
+    p.add_argument("video")
+    p.add_argument("-o", "--output", help="write the sections as JSON")
+    p.add_argument("--min-length", type=float, default=60.0, help="shortest section in seconds (default 60)")
+    p.set_defaults(func=cmd_singing)
 
     p = sub.add_parser("glossary", help="name glossary for subtitle translation (draft one from Holodex, or check a file)")
     p.add_argument("output", help="glossary file (CSV source,target or JSON)")

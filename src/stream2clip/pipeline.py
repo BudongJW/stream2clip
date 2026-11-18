@@ -50,6 +50,7 @@ def find_highlights(
     chat_format: str | None = None,
     info: str | os.PathLike[str] | None = None,
     audio: bool = False,
+    laughter: bool = False,
     config: HighlightConfig | None = None,
     source: dict | None = None,
     on_stage: Callable[[str], None] | None = None,
@@ -59,7 +60,7 @@ def find_highlights(
     This is the first half of ``stream2clip auto``; ``on_stage`` is told which step
     starts ("chat", "audio", "detect") so a UI can show what it is waiting for.
     """
-    from .audio import audio_levels
+    from .audio import audio_levels, laughter_levels
     from .chat import load_chat
     from .sources import heatmap_from_info, load_info
 
@@ -72,15 +73,22 @@ def find_highlights(
     heatmap = heatmap_from_info(load_info(info)) if info else []
     duration = None
     levels = None
+    bursts = None
     if video:
         duration = probe(video).duration
         if audio:
             stage("audio")
             levels = audio_levels(video, window=cfg.window)
+        if laughter:
+            stage("laughter")
+            bursts = laughter_levels(video, window=cfg.window)
     if not messages and levels is None and not heatmap:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
-    return detect_highlights(messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap, config=cfg, source=source or {})
+    return detect_highlights(
+        messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap,
+        laughter=bursts, laughter_window=cfg.window, config=cfg, source=source or {},
+    )
 
 
 def default_clip_options() -> ExportOptions:
