@@ -144,3 +144,41 @@ def test_audio_levels(tmp_path):
     levels = audio_levels(wav, window=1.0)
     assert len(levels) == 6
     assert levels[2] - levels[0] > 30 and abs(levels[0] - levels[5]) < 3
+
+
+@needs_ffmpeg
+def test_whisper_transcriber_decodes_audio_itself(tmp_path, monkeypatch):
+    """faster-whisper 1.2.1 could not open files with PyAV 19; we pass decoded samples instead."""
+    import subprocess
+    import sys
+    import types
+
+    import numpy as np
+
+    from stream2clip.audio import decode_pcm
+    from stream2clip.subtitles import FasterWhisperTranscriber
+
+    wav = tmp_path / "speech.wav"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=2:r=44100", "-ac", "2", str(wav)], check=True)
+    samples = decode_pcm(wav)
+    assert samples.dtype == np.float32 and len(samples) == pytest.approx(2 * 16000, abs=200)  # 16 kHz mono
+    assert 0.05 < float(np.abs(samples).max()) <= 1.0
+    with pytest.raises(RuntimeError, match="could not decode"):
+        decode_pcm(tmp_path / "missing.wav")
+
+    seen = {}
+
+    class FakeModel:
+        def __init__(self, model, **kwargs):
+            seen["model"] = model
+
+        def transcribe(self, audio, **kwargs):
+            seen["audio"], seen["kwargs"] = audio, kwargs
+            word = types.SimpleNamespace(start=0.2, end=0.6, word=" こんにちは")
+            return iter([types.SimpleNamespace(start=0.2, end=0.6, text=" こんにちは", words=[word])]), None
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=FakeModel))
+    cues = FasterWhisperTranscriber("small").transcribe(wav, language="ja")
+    assert isinstance(seen["audio"], np.ndarray) and len(seen["audio"]) == len(samples)  # samples, not a path
+    assert seen["kwargs"]["language"] == "ja" and seen["kwargs"]["word_timestamps"] is True
+    assert cues[0].text == "こんにちは" and cues[0].words[0].text == "こんにちは" and cues[0].words[0].end == 0.6

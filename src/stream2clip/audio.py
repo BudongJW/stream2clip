@@ -9,7 +9,7 @@ import numpy as np
 
 from .ffmpeg import find_ffmpeg
 
-__all__ = ["audio_levels"]
+__all__ = ["audio_levels", "decode_pcm"]
 
 
 def audio_levels(path: str | os.PathLike[str], *, window: float = 10.0, sample_rate: int = 8000, ffmpeg: str | None = None) -> np.ndarray:
@@ -46,6 +46,18 @@ def audio_levels(path: str | os.PathLike[str], *, window: float = 10.0, sample_r
     if code != 0:
         raise RuntimeError(f"ffmpeg could not decode audio from {path}: {stderr.strip()[-400:]}")
     return np.array(levels, dtype=np.float64)
+
+
+def decode_pcm(path: str | os.PathLike[str], *, sample_rate: int = 16000, ffmpeg: str | None = None) -> np.ndarray:
+    """Decode a media file to mono float32 samples in -1..1 (what speech models take as input)."""
+    cmd = [
+        ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin",
+        "-i", os.fspath(path), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "f32le", "-",
+    ]
+    proc = subprocess.run(cmd, capture_output=True, check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg could not decode audio from {path}: {proc.stderr.decode('utf-8', 'replace').strip()[-400:]}")
+    return np.frombuffer(proc.stdout[: len(proc.stdout) - len(proc.stdout) % 4], dtype=np.float32)
 
 
 def _rms_db(samples: np.ndarray) -> float:

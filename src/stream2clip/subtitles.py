@@ -325,8 +325,13 @@ class FasterWhisperTranscriber:
         self._model = WhisperModel(model, device=device, compute_type=compute_type)
         self._vad = vad
 
-    def transcribe(self, path: str | os.PathLike[str], *, language: str | None = None) -> list[Cue]:  # pragma: no cover - needs model weights
-        segments, _info = self._model.transcribe(os.fspath(path), language=language, word_timestamps=True, vad_filter=self._vad)
+    def transcribe(self, path: str | os.PathLike[str], *, language: str | None = None) -> list[Cue]:
+        # Decode with our own ffmpeg and hand over samples: faster-whisper's file reader
+        # goes through PyAV, and faster-whisper 1.2.1 with PyAV 19 fails in av.open().
+        from .audio import decode_pcm
+
+        samples = decode_pcm(path, sample_rate=16000)
+        segments, _info = self._model.transcribe(samples, language=language, word_timestamps=True, vad_filter=self._vad)
         cues = []
         for seg in segments:
             words = tuple(Word(float(w.start), float(w.end), w.word.strip()) for w in (seg.words or []))
