@@ -12,6 +12,9 @@ points (``pyproject.toml``)::
     [project.entry-points."stream2clip.text_detectors"]
     paddle = "my_pkg.ocr:make_detector"         # -> stream2clip.translate.TextDetector
 
+    [project.entry-points."stream2clip.face_detectors"]
+    mine = "my_pkg.faces:make_detector"         # -> stream2clip.detect.FaceDetector
+
 Host applications can also register factories at runtime with the
 ``register_*`` helpers, which is the easiest route when embedding.
 """
@@ -25,9 +28,11 @@ __all__ = [
     "capture_backends",
     "translators",
     "text_detectors",
+    "face_detectors",
     "register_capture_backend",
     "register_translator",
     "register_text_detector",
+    "register_face_detector",
 ]
 
 Factory = Callable[[], Any]
@@ -35,6 +40,7 @@ _RUNTIME: dict[str, dict[str, Factory]] = {
     "stream2clip.capture_backends": {},
     "stream2clip.translators": {},
     "stream2clip.text_detectors": {},
+    "stream2clip.face_detectors": {},
 }
 
 
@@ -72,3 +78,11 @@ def register_translator(name: str, factory: Factory) -> None:
 
 def register_text_detector(name: str, factory: Factory) -> None:
     _RUNTIME["stream2clip.text_detectors"][name] = factory
+
+
+def face_detectors() -> dict[str, Factory]:
+    return _collect("stream2clip.face_detectors")
+
+
+def register_face_detector(name: str, factory: Factory) -> None:
+    _RUNTIME["stream2clip.face_detectors"][name] = factory

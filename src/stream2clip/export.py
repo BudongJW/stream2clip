@@ -7,10 +7,14 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Sequence
 
 from .ffmpeg import ExportOptions, build_export_command, find_ffprobe
 
-__all__ = ["FFmpegError", "MediaInfo", "export", "probe", "run_ffmpeg"]
+if TYPE_CHECKING:
+    import numpy as np
+
+__all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "probe", "run_ffmpeg"]
 
 
 class FFmpegError(RuntimeError):
@@ -59,6 +63,26 @@ def export(
     out.parent.mkdir(parents=True, exist_ok=True)
     run_ffmpeg(build_export_command(input_path, out, options, ffmpeg=ffmpeg), timeout=timeout)
     return out
+
+
+def grab_frames(path: str | os.PathLike[str], times: Sequence[float], *, ffmpeg: str | None = None) -> "list[np.ndarray]":
+    """Decode one frame per timestamp as ``(h, w, 4)`` uint8 RGBA arrays (fast seek, source size)."""
+    import numpy as np
+
+    from .ffmpeg import find_ffmpeg
+
+    info = probe(path)
+    frames = []
+    for t in times:
+        cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-ss", f"{max(0.0, t):.3f}", "-i", os.fspath(path),
+               "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]
+        proc = subprocess.run(cmd, capture_output=True, check=False)
+        if proc.returncode != 0:
+            raise FFmpegError(cmd, proc.returncode, proc.stderr.decode("utf-8", "replace"))
+        if len(proc.stdout) < info.width * info.height * 4:
+            continue  # past the end of the file
+        frames.append(np.frombuffer(proc.stdout[: info.width * info.height * 4], dtype=np.uint8).reshape(info.height, info.width, 4).copy())
+    return frames
 
 
 def _fraction(value: str | None) -> float | None:

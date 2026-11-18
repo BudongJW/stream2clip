@@ -37,6 +37,10 @@ def _region(text: str) -> Region:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
+def _avatar(text: str) -> "Region | str":
+    return "auto" if text.strip().lower() == "auto" else _region(text)
+
+
 def _format_for(path: Path, explicit: str | None) -> str:
     if explicit:
         return explicit
@@ -305,7 +309,9 @@ def cmd_highlights(args: argparse.Namespace) -> int:
 def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("clip output")
     g.add_argument("--layout", default="blur", choices=["blur", "center", "fit", "stack", "none"], help="9:16 layout (default blur); 'none' keeps the original framing")
-    g.add_argument("--avatar", type=_region, help="stack layout: avatar box x,y,w,h in source pixels")
+    g.add_argument("--avatar", type=_avatar, help="stack layout: avatar box x,y,w,h in source pixels, or 'auto' to find it with anime face detection")
+    g.add_argument("--face-model", help="--avatar auto: ONNX face model file (default: downloaded once, 12 MB)")
+    g.add_argument("--avatar-samples", type=int, default=12, help="--avatar auto: frames to look at (default 12)")
     g.add_argument("--game", type=_region, help="stack layout: game box x,y,w,h (default: whole frame)")
     g.add_argument("--split", type=float, default=0.42, help="stack layout: avatar panel height fraction")
     g.add_argument("--size", type=_size, default=(1080, 1920), help="layout canvas WxH (default 1080x1920)")
@@ -340,7 +346,10 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         return 0
     layout = None
     if args.layout != "none":
-        layout = VerticalLayout(args.layout, args.size[0], args.size[1], avatar=args.avatar, game=args.game, split=args.split)
+        avatar = args.avatar
+        if avatar == "auto":
+            avatar = _find_avatar(args.video, aspect=args.size[0] / (args.size[1] * args.split), model=args.face_model, samples=args.avatar_samples).region if args.layout == "stack" else None
+        layout = VerticalLayout(args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split)
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
     transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
@@ -360,6 +369,31 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             print(f"  {issue}")
     print(f"index {Path(args.output) / 'clips.json'}")
     return 1 if any(i.level == "error" for i in problems) and args.strict else 0
+
+
+def _find_avatar(video: str, *, aspect: float, model: str | None, samples: int):
+    from .detect import OnnxFaceDetector, default_detector, suggest_avatar_for_video
+
+    detector = OnnxFaceDetector(model) if model else default_detector()
+    suggestion = suggest_avatar_for_video(video, detector, samples=samples, aspect=aspect)
+    if suggestion is None:
+        raise ValueError("No avatar found: no anime face stays in one place in the sampled frames. Give the box yourself with --avatar x,y,w,h")
+    print(f"avatar {suggestion.region}  (face {suggestion.face}, in {suggestion.hits}/{suggestion.frames} frames, score {suggestion.score:.2f})")
+    return suggestion
+
+
+def cmd_avatar(args: argparse.Namespace) -> int:
+    suggestion = _find_avatar(args.video, aspect=args.size[0] / (args.size[1] * args.split), model=args.face_model, samples=args.samples)
+    if args.preview:
+        from .detect import draw_suggestion, sample_times
+        from .export import grab_frames, probe
+
+        times = sample_times(probe(args.video).duration or 0.0, 3)
+        frames = grab_frames(args.video, times[1:2])
+        if frames:
+            draw_suggestion(frames[0], suggestion).save(args.preview)
+            print(f"preview {args.preview}")
+    return 0
 
 
 def cmd_clips(args: argparse.Namespace) -> int:
@@ -480,6 +514,15 @@ def build_parser() -> argparse.ArgumentParser:
     _add_highlight_args(p)
     _add_clip_args(p)
     p.set_defaults(func=cmd_auto)
+
+    p = sub.add_parser("avatar", help="suggest the avatar box for --layout stack (anime face detection)")
+    p.add_argument("video")
+    p.add_argument("--preview", help="save a frame with the suggested box drawn on it")
+    p.add_argument("--samples", type=int, default=12, help="frames to look at (default 12)")
+    p.add_argument("--split", type=float, default=0.42, help="avatar panel height fraction the box is shaped for")
+    p.add_argument("--size", type=_size, default=(1080, 1920), help="layout canvas WxH (default 1080x1920)")
+    p.add_argument("--face-model", help="ONNX face model file (default: downloaded once, 12 MB)")
+    p.set_defaults(func=cmd_avatar)
 
     p = sub.add_parser("check", help="pre-upload checklist against an agency's clip guideline")
     p.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")
