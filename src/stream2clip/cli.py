@@ -334,6 +334,10 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--transcribe", metavar="MODEL", help='transcribe each clip with faster-whisper (e.g. "small", "large-v3")')
     s.add_argument("--language", help="speech language for --transcribe (ja, ko, en ...)")
     s.add_argument("--no-karaoke", action="store_true", help="plain captions instead of word-by-word highlighting")
+    s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
+    s.add_argument("--translator", metavar="NAME", help="which translator plugin to use (default: the first one installed)")
+    s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
+    s.add_argument("--bilingual", action="store_true", help="keep the original line above the translation")
     c = p.add_argument_group("description & guideline check")
     c.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")
     c.add_argument("--source-url", help="original stream URL (default: from --info)")
@@ -363,11 +367,20 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
     transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
+    subtitle_translator = glossary = None
+    if args.translate:
+        from .translation import Glossary, get_translator
+
+        if cues is None and transcriber is None:
+            raise ValueError("--translate needs subtitles: give --subtitles or --transcribe")
+        subtitle_translator = get_translator(args.translator)
+        glossary = Glossary.load(args.glossary) if args.glossary else None
     source = _source(args)
     profile = get_profile(args.agency) if (args.agency or source) else None
     results = make_clips(
         args.video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
         karaoke=not args.no_karaoke, source=source, profile=profile, registered=True if args.registered else None,
+        subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
     )
     for r in results:
@@ -420,6 +433,24 @@ def cmd_auto(args: argparse.Namespace) -> int:
     result = _detect(args, args.video)
     result.save(out / "highlights.json")
     return _make_clips(args, result.highlights)
+
+
+def cmd_glossary(args: argparse.Namespace) -> int:
+    import os
+
+    from .translation import Glossary, holodex_names
+
+    if args.holodex:
+        key = args.api_key or os.environ.get("HOLODEX_API_KEY", "")
+        glossary, notes = holodex_names(args.holodex, key)
+        glossary.save(args.output, notes)
+        print(f"saved {args.output}  ({len(glossary)} names from Holodex; edit the target column to the spelling you want)")
+        return 0
+    glossary = Glossary.load(args.output)
+    print(f"{args.output}: {len(glossary)} terms")
+    if args.text:
+        print(glossary.apply(args.text))
+    return 0
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -533,6 +564,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--size", type=_size, default=(1080, 1920), help="layout canvas WxH (default 1080x1920)")
     p.add_argument("--face-model", help="ONNX face model file (default: downloaded once, 12 MB)")
     p.set_defaults(func=cmd_avatar)
+
+    p = sub.add_parser("glossary", help="name glossary for subtitle translation (draft one from Holodex, or check a file)")
+    p.add_argument("output", help="glossary file (CSV source,target or JSON)")
+    p.add_argument("--holodex", metavar="ORG", help='write a draft from Holodex channel names, e.g. "Hololive", "Nijisanji", "VSpo"')
+    p.add_argument("--api-key", help="Holodex API key (default: HOLODEX_API_KEY)")
+    p.add_argument("--text", help="show this text with the glossary applied")
+    p.set_defaults(func=cmd_glossary)
 
     p = sub.add_parser("check", help="pre-upload checklist against an agency's clip guideline")
     p.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")
