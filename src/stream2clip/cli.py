@@ -262,29 +262,17 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
 
 
 def _detect(args: argparse.Namespace, video: str | None):
-    from .audio import audio_levels
-    from .chat import load_chat
-    from .highlights import HighlightConfig, detect_highlights, render_timeline
-    from .sources import heatmap_from_info, load_info
+    from .highlights import HighlightConfig, render_timeline
+    from .pipeline import find_highlights
 
-    messages = load_chat(args.chat, format=args.chat_format) if args.chat else []
-    heatmap = heatmap_from_info(load_info(args.info)) if args.info else []
-    duration = None
-    audio = None
-    if video:
-        from .export import probe
-
-        duration = probe(video).duration
-        if args.audio:
-            audio = audio_levels(video, window=args.window)
-    if not messages and audio is None and not heatmap:
+    if not args.chat and not args.info and not (video and args.audio):
         raise ValueError("Give --chat, --info (heatmap) or --audio with a video")
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
                           min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings)
     src = _source(args)
-    result = detect_highlights(messages, duration=duration, audio=audio, audio_window=args.window, heatmap=heatmap, config=cfg,
-                               source={"url": src.url, "title": src.title} if src else {})
-    print(f"analysed {len(messages)} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
+    result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, config=cfg,
+                             source={"url": src.url, "title": src.title} if src else {})
+    print(f"analysed {result.messages} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
     for h in result.highlights:
         print(f"  #{h.rank:02d}  {_clock(h.start)} - {_clock(h.end)}  score {h.score:5.1f}  {' / '.join(h.reasons)}")
     if args.plot:
