@@ -54,9 +54,16 @@ PROFILES: dict[str, AgencyProfile] = {
     "vspo": AgencyProfile(
         key="vspo",
         name="ぶいすぽっ!",
+        guideline_url="https://vspo.jp/en/guide/",
+        revised="2026-09-17",
         permission_number=True,
         registration="required",
-        notes=("허가 번호(許諾番号) 표기 관행이 있음 — 공식 원문은 미확인, 직접 확인 필요",),
+        notes=(
+            "영상 클립은 사전 신청·허가 필요, 설명란에 원본 URL과 발급받은 허가 번호 표기",
+            "방송 종료 후 YouTube는 1시간, Twitch는 24시간 지난 뒤 게시",
+            "노래 방송·3D 라이브의 노래 부분 전재 금지",
+            "원본을 잘라 붙이기만 한(창작성이 없는) 영상 금지",
+        ),
     ),
     "aogiri": AgencyProfile(
         key="aogiri",
@@ -172,7 +179,7 @@ def check_upload(
     elif profile.registration == "recommended" and registered is not True:
         issues.append(Issue("warning", f"{profile.name}: 클립 채널 등록을 권장합니다."))
     if profile.permission_number and not permission_number:
-        issues.append(Issue("warning", "허가 번호(許諾番号)를 설명란에 표기하는 관행이 있습니다. 확인하세요."))
+        issues.append(Issue("warning", "발급받은 허가 번호(許諾番号)를 설명란에 표기해야 합니다."))
     if profile.ai_label_required and uses_ai and (description is None or "AI" not in description):
         issues.append(Issue("error", "AI를 사용한 2차 창작물에는 AI 사용 표기가 필요합니다."))
     for note in profile.notes:

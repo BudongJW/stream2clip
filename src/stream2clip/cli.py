@@ -218,18 +218,27 @@ def _source(args: argparse.Namespace):
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    from .sources import download_chat, download_section, download_subs, fetch_info, ytdlp_command
+    from .sources import download_chat, download_replay_chat, download_section, download_subs, fetch_info, platform_of, ytdlp_command
 
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
+    korean = platform_of(args.url)  # CHZZK / SOOP: chat comes from their own replay API, not yt-dlp
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
-    info = fetch_info(args.url, ytdlp=ytdlp)
-    (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-    print(f"info   {out / 'info.json'}  ({info.get('title', '')})")
+    try:
+        info = fetch_info(args.url, ytdlp=ytdlp)
+        (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+        print(f"info   {out / 'info.json'}  ({info.get('title', '')})")
+    except RuntimeError as exc:
+        if not korean:
+            raise
+        print(f"info   (skipped) {exc}", file=sys.stderr)
     if not args.no_chat:
         try:
-            print(f"chat   {download_chat(args.url, out, ytdlp=ytdlp)}")
-        except RuntimeError as exc:
+            if korean:
+                print(f"chat   {download_replay_chat(args.url, out)}")
+            else:
+                print(f"chat   {download_chat(args.url, out, ytdlp=ytdlp)}")
+        except (RuntimeError, ValueError, OSError) as exc:
             print(f"chat   (skipped) {exc}", file=sys.stderr)
     if args.subs:
         try:
@@ -245,8 +254,8 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 
 def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("highlight detection")
-    g.add_argument("--chat", help="chat archive: yt-dlp live_chat.json, chat-downloader JSON, TwitchDownloader JSON, CSV/JSONL")
-    g.add_argument("--chat-format", choices=["youtube", "chat-downloader", "twitch", "csv", "jsonl", "json"], help="force the chat format")
+    g.add_argument("--chat", help="chat archive: yt-dlp live_chat.json, chat-downloader JSON, TwitchDownloader JSON, CHZZK / SOOP replay chat, CSV/JSONL")
+    g.add_argument("--chat-format", choices=["youtube", "chat-downloader", "twitch", "chzzk", "soop", "csv", "jsonl", "json"], help="force the chat format")
     g.add_argument("--info", help="yt-dlp info JSON (most-replayed heatmap, title/URL for descriptions)")
     g.add_argument("--audio", action="store_true", help="also use the video's loudness")
     g.add_argument("--top", type=int, default=10, help="maximum number of highlights (default 10)")

@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from .chat import ChatMessage
 
 __all__ = [
     "SourceInfo",
@@ -32,6 +36,12 @@ __all__ = [
     "heatmap_from_info",
     "source_from_info",
     "load_info",
+    "platform_of",
+    "chzzk_video_no",
+    "soop_title_no",
+    "fetch_chzzk_chat",
+    "fetch_soop_chat",
+    "download_replay_chat",
 ]
 
 
@@ -224,3 +234,134 @@ def source_from_info(info: dict[str, Any]) -> SourceInfo:
         availability=info.get("availability"),
         extractor=info.get("extractor_key") or info.get("extractor") or "",
     )
+
+
+# --------------------------------------------------------------------------- CHZZK / SOOP replay chat
+
+CHZZK_API = "https://api.chzzk.naver.com/service"
+SOOP_VIEW_API = "https://api.m.sooplive.co.kr/station/video/a/view"
+#: ``get(url, data=None) -> bytes``; tests pass their own so nothing touches the network.
+Transport = Callable[..., bytes]
+
+
+def _http_get(url: str, data: bytes | None = None) -> bytes:
+    import urllib.request
+
+    headers = {"User-Agent": "Mozilla/5.0 (stream2clip)"}
+    if data is not None:
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    request = urllib.request.Request(url, data=data, headers=headers)
+    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - fixed https hosts
+        return response.read()
+
+
+def platform_of(url: str) -> str | None:
+    """``"chzzk"`` / ``"soop"`` for their replay URLs, else ``None`` (yt-dlp handles the rest)."""
+    lowered = url.lower()
+    if "chzzk.naver.com" in lowered:
+        return "chzzk"
+    if "sooplive.co.kr" in lowered or "afreecatv.com" in lowered:
+        return "soop"
+    return None
+
+
+def chzzk_video_no(url_or_number: str) -> str:
+    """``https://chzzk.naver.com/video/16230061`` (or just the number) -> ``"16230061"``."""
+    match = re.search(r"/video/(\d+)", url_or_number) or re.fullmatch(r"\s*(\d+)\s*", url_or_number)
+    if not match:
+        raise ValueError(f"Not a CHZZK replay URL (expected .../video/<number>): {url_or_number}")
+    return match.group(1)
+
+
+def soop_title_no(url_or_number: str) -> str:
+    """``https://vod.sooplive.co.kr/player/212422389`` (or just the number) -> ``"212422389"``."""
+    match = re.search(r"/player/(\d+)", url_or_number) or re.search(r"[?&]nTitleNo=(\d+)", url_or_number) or re.fullmatch(r"\s*(\d+)\s*", url_or_number)
+    if not match:
+        raise ValueError(f"Not a SOOP VOD URL (expected .../player/<number>): {url_or_number}")
+    return match.group(1)
+
+
+def fetch_chzzk_chat(video: str, *, get: Transport | None = None, max_pages: int = 20000, on_page: Callable[[int, float], None] | None = None) -> "list[ChatMessage]":
+    """Download the whole chat of a CHZZK replay (no login). Old replays may have no chat left."""
+    from .chat import parse_chzzk
+
+    get = get or _http_get
+    number = chzzk_video_no(video)
+    messages: list = []
+    cursor, previous = 0, None
+    for page_index in range(max_pages):
+        page = json.loads(get(f"{CHZZK_API}/v1/videos/{number}/chats?playerMessageTime={cursor}&previousVideoChatSize=50"))
+        if page.get("code") not in (None, 200):
+            raise RuntimeError(f"CHZZK chat request failed: {page.get('code')} {page.get('message')}")
+        messages += parse_chzzk(page)
+        if on_page is not None:
+            on_page(page_index + 1, cursor / 1000)
+        cursor = (page.get("content") or {}).get("nextPlayerMessageTime")
+        if cursor is None or cursor == previous:
+            break
+        previous = cursor
+    messages.sort(key=lambda m: m.time)
+    return messages
+
+
+def fetch_soop_chat(video: str, *, get: Transport | None = None, on_page: Callable[[int, float], None] | None = None) -> "list[ChatMessage]":
+    """Download the whole chat of a SOOP VOD (no login for public VODs).
+
+    A VOD can be several files; each has its own chat, read in 300-second pieces, and
+    its times are shifted by the length of the files before it.
+    """
+    import urllib.error
+    import urllib.parse
+
+    from .chat import parse_soop
+
+    get = get or _http_get
+    number = soop_title_no(video)
+    view = json.loads(get(SOOP_VIEW_API, urllib.parse.urlencode({"nTitleNo": number, "nApiLevel": 10, "nPlaylistIdx": 0}).encode()))
+    data = view.get("data") or {}
+    files = data.get("files") or []
+    if view.get("result") != 1 or not files:
+        raise RuntimeError(f"SOOP VOD {number} is not available (private, deleted or login required)")
+    messages: list = []
+    offset, pages = 0.0, 0
+    for part in files:
+        length = float(part.get("duration") or 0) / 1000
+        chat_url = part.get("chat")
+        start = 0
+        while chat_url and start < length + 300:
+            try:
+                xml = get(f"{chat_url}{'&' if '?' in chat_url else '?'}startTime={start}").decode("utf-8", "replace")
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:  # past the last piece
+                    break
+                raise
+            messages += parse_soop(xml, offset=offset)
+            pages += 1
+            if on_page is not None:
+                on_page(pages, offset + start)
+            start += 300
+        offset += length
+    messages.sort(key=lambda m: m.time)
+    return messages
+
+
+def download_replay_chat(url: str, out_dir: str | os.PathLike[str], *, get: Transport | None = None, on_page: Callable[[int, float], None] | None = None) -> Path:
+    """Collect CHZZK / SOOP replay chat and save it normalized as ``<platform>_<id>.chat.jsonl``.
+
+    The file has one ``{"time", "text", "author", "kind", "amount", "currency"}`` object per
+    line with authors already hashed - nicknames and user ids are not written to disk.
+    """
+    from .chat import save_chat_jsonl
+
+    platform = platform_of(url)
+    if platform == "chzzk":
+        number, messages = chzzk_video_no(url), fetch_chzzk_chat(url, get=get, on_page=on_page)
+    elif platform == "soop":
+        number, messages = soop_title_no(url), fetch_soop_chat(url, get=get, on_page=on_page)
+    else:
+        raise ValueError(f"Not a CHZZK or SOOP URL: {url}")
+    if not messages:
+        raise RuntimeError("no chat messages came back (the replay has no chat, or it has expired)")
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    return save_chat_jsonl(messages, out / f"{platform}_{number}.chat.jsonl")

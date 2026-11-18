@@ -1,0 +1,286 @@
+[
+ {
+  "code": 200,
+  "message": null,
+  "content": {
+   "nextPlayerMessageTime": 788166,
+   "previousVideoChats": [],
+   "videoChats": [
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000205777,
+     "userIdHash": "user01",
+     "content": "{:d_49:}{:d_49:}{:d_49:}{:d_49:}{:d_49:}{:d_49:}",
+     "extras": "{\"chatType\": \"STREAMING\", \"emojis\": {\"d_49\": \"https://example.invalid/emoji.png\"}}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user01\", \"nickname\": \"viewer-01\"}",
+     "playerMessageTime": 205777
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000407949,
+     "userIdHash": "user02",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user02\", \"nickname\": \"viewer-02\"}",
+     "playerMessageTime": 407949
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000437616,
+     "userIdHash": "user02",
+     "content": "?",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user02\", \"nickname\": \"viewer-02\"}",
+     "playerMessageTime": 437616
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000470960,
+     "userIdHash": "user03",
+     "content": "후원 감사합니다",
+     "extras": "{\"payType\": \"CURRENCY\", \"payAmount\": 8000, \"isAnonymous\": false, \"donationType\": \"CHAT\"}",
+     "messageTypeCode": 10,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user03\", \"nickname\": \"viewer-03\"}",
+     "playerMessageTime": 470960
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000485388,
+     "userIdHash": "user04",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user04\", \"nickname\": \"viewer-04\"}",
+     "playerMessageTime": 485388
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000486395,
+     "userIdHash": "user01",
+     "content": "ㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user01\", \"nickname\": \"viewer-01\"}",
+     "playerMessageTime": 486395
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000515624,
+     "userIdHash": "user05",
+     "content": "후원 감사합니다",
+     "extras": "{\"chatType\": \"STREAMING\", \"payType\": \"CURRENCY\", \"payAmount\": 1230, \"isAnonymous\": true, \"donationType\": \"VIDEO\"}",
+     "messageTypeCode": 10,
+     "messageStatusType": "NORMAL",
+     "profile": null,
+     "playerMessageTime": 515624
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000526672,
+     "userIdHash": "user02",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user02\", \"nickname\": \"viewer-02\"}",
+     "playerMessageTime": 526672
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000530705,
+     "userIdHash": "user01",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user01\", \"nickname\": \"viewer-01\"}",
+     "playerMessageTime": 530705
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000532332,
+     "userIdHash": "user06",
+     "content": "??????",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user06\", \"nickname\": \"viewer-06\"}",
+     "playerMessageTime": 532332
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000605124,
+     "userIdHash": "user03",
+     "content": "후원 감사합니다",
+     "extras": "{\"payType\": \"CURRENCY\", \"payAmount\": 1000, \"isAnonymous\": false, \"donationType\": \"CHAT\"}",
+     "messageTypeCode": 10,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user03\", \"nickname\": \"viewer-03\"}",
+     "playerMessageTime": 605124
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000788166,
+     "userIdHash": "user02",
+     "content": "ㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user02\", \"nickname\": \"viewer-02\"}",
+     "playerMessageTime": 788166
+    }
+   ]
+  }
+ },
+ {
+  "code": 200,
+  "message": null,
+  "content": {
+   "nextPlayerMessageTime": null,
+   "previousVideoChats": [],
+   "videoChats": [
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000852228,
+     "userIdHash": "user07",
+     "content": "{:songjinHalthalt:}{:d_41:}{:songjinHalthalt:}{:d_41:}{:songjinHalthalt:}{:d_41:}{:songjinHalthalt:}{:d_41:}",
+     "extras": "{\"chatType\": \"STREAMING\", \"emojis\": {\"songjinHalthalt\": \"https://example.invalid/emoji.png\", \"d_41\": \"https://example.invalid/emoji.png\"}}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user07\", \"nickname\": \"viewer-07\"}",
+     "playerMessageTime": 852228
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700000997809,
+     "userIdHash": "user08",
+     "content": "ㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user08\", \"nickname\": \"viewer-08\"}",
+     "playerMessageTime": 997809
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700001024226,
+     "userIdHash": "user02",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user02\", \"nickname\": \"viewer-02\"}",
+     "playerMessageTime": 1024226
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700001053787,
+     "userIdHash": "user02",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user02\", \"nickname\": \"viewer-02\"}",
+     "playerMessageTime": 1053787
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700001057041,
+     "userIdHash": "user04",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user04\", \"nickname\": \"viewer-04\"}",
+     "playerMessageTime": 1057041
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700001093292,
+     "userIdHash": "user02",
+     "content": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user02\", \"nickname\": \"viewer-02\"}",
+     "playerMessageTime": 1093292
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700001211253,
+     "userIdHash": "user01",
+     "content": "?",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user01\", \"nickname\": \"viewer-01\"}",
+     "playerMessageTime": 1211253
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700001239810,
+     "userIdHash": "user01",
+     "content": "ㅎㅎ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user01\", \"nickname\": \"viewer-01\"}",
+     "playerMessageTime": 1239810
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700001260087,
+     "userIdHash": "user01",
+     "content": "ㅠㅠ",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user01\", \"nickname\": \"viewer-01\"}",
+     "playerMessageTime": 1260087
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700004004237,
+     "userIdHash": "user09",
+     "content": "{:d_123:}",
+     "extras": "{\"chatType\": \"STREAMING\", \"emojis\": {\"d_123\": \"https://example.invalid/emoji.png\"}}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user09\", \"nickname\": \"viewer-09\"}",
+     "playerMessageTime": 4004237
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700006573191,
+     "userIdHash": "user10",
+     "content": "blinded",
+     "extras": "{\"chatType\": \"STREAMING\"}",
+     "messageTypeCode": 1,
+     "messageStatusType": "CBOTBLIND",
+     "profile": "{\"userIdHash\": \"user10\", \"nickname\": \"viewer-10\"}",
+     "playerMessageTime": 6573191
+    },
+    {
+     "chatChannelId": "CHANNEL",
+     "messageTime": 1700006880692,
+     "userIdHash": "user07",
+     "content": "{:songjinHalthalt:}{:songjinHalthalt:}",
+     "extras": "{\"chatType\": \"STREAMING\", \"emojis\": {\"songjinHalthalt\": \"https://example.invalid/emoji.png\"}}",
+     "messageTypeCode": 1,
+     "messageStatusType": "NORMAL",
+     "profile": "{\"userIdHash\": \"user07\", \"nickname\": \"viewer-07\"}",
+     "playerMessageTime": 6880692
+    }
+   ]
+  }
+ }
+]
