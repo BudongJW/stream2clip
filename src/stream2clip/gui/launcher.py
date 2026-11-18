@@ -67,6 +67,8 @@ class LauncherWindow(QMainWindow):
         outer.addWidget(self._capture_card())
         outer.addWidget(_eyebrow("RECORD"))
         outer.addWidget(self._record_card())
+        outer.addWidget(_eyebrow("CLIPS"))
+        outer.addWidget(self._clips_card())
 
         footer = QHBoxLayout()
         self.status = QLabel(objectName="Muted")
@@ -94,7 +96,7 @@ class LauncherWindow(QMainWindow):
         hotkey_note = "F8 영역 캡쳐 · F9 녹화 시작/정지" + ("" if backend != "none" else " (창이 활성일 때)")
         self._idle_status = f"{hotkey_note} · 저장: {self.settings.save_dir}"
         self.status.setText(self._idle_status)
-        self.resize(760, 640)
+        self.resize(760, 740)
 
     # ------------------------------------------------------------------ layout
     def _capture_card(self) -> QWidget:
@@ -112,6 +114,31 @@ class LauncherWindow(QMainWindow):
             btn.clicked.connect(slot)
             grid.addWidget(btn)
         return card
+
+    def _clips_card(self) -> QWidget:
+        card = QWidget(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(16, 12, 16, 12)
+        row.setSpacing(12)
+        text = QVBoxLayout()
+        text.addWidget(QLabel("방송 → 클립", objectName="Title"))
+        text.addWidget(QLabel("채팅 반응으로 하이라이트를 찾아 구간을 다듬고 9:16 클립으로 내보냅니다.", objectName="Muted"))
+        row.addLayout(text, 1)
+        self.highlights_button = QPushButton("하이라이트 찾기")
+        self.highlights_button.setMinimumHeight(44)
+        self.highlights_button.clicked.connect(self.open_highlights)
+        row.addWidget(self.highlights_button)
+        return card
+
+    def open_highlights(self):
+        from .highlights import HighlightsWindow
+
+        if getattr(self, "highlights_window", None) is None:
+            self.highlights_window = HighlightsWindow()
+        self.highlights_window.show()
+        self.highlights_window.raise_()
+        self.highlights_window.activateWindow()
+        return self.highlights_window
 
     def _record_card(self) -> QWidget:
         card = QWidget(objectName="Card")
