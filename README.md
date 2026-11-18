@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-128-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-173-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -181,12 +181,36 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 |---|---|:---:|
 | 채팅 속도 | 구간당 메시지 수 | 0.30 |
 | 고유 채터 | 도배 한 명보다 여러 명의 반응 | 0.20 |
-| 반응 어휘 | 草 · ｗｗ · 笑 · lol · KEKW · ㅋㅋ · ㄷㄷ · 888 · かわいい · ??? … (메시지당 1회) | 0.30 |
+| 반응 어휘 | 草 · ｗｗ · 문장 끝 ｗ 하나 · 笑 · lol · KEKW · ㅋㅋ · ㄷㄷ · 888 · 👏 · かわいい · ??? · ！？ · "え？"처럼 감탄사 한마디 … (메시지당 1회) | 0.30 |
 | 후원 | 슈퍼챗 · 비트 · 멤버십 · 선물 | 0.10 |
 | 음량 | `--audio`: 영상 소리의 RMS(dB) | 0.15 |
 | 많이 다시 본 구간 | `--info`: YouTube heatmap | 0.15 |
 
 그다음 이동 평균 → 임계값(`--threshold`, 기본 2.0) 넘는 봉우리 선택 → **채팅 지연 보정**(`--delay`, 기본 8초 앞당김) → 앞뒤 여유(`--lead` 20초 / `--tail` 10초) → 15초 이내 구간 병합 → 15~90초로 길이 조정 → 점수순 `--top`개. 각 구간에는 "채팅 급증 268/분 (평소의 11.2배) / 반응 60개 (웃음 60) / 음량 +26 dB" 같은 근거가 붙습니다.
+
+채팅 신호에서 빼는 것이 두 가지 있습니다. **인사 · 작별**("こんぺこ～", "おつかれ", "hello", "안녕하세요" …)은 방송 시작과 끝에 한꺼번에 몰려 하이라이트처럼 보이므로 세지 않습니다(`--keep-greetings`로 끌 수 있고, 슈퍼챗은 그대로 셉니다). **대기실 채팅**은 YouTube 다시보기에서 전부 0초로 기록되므로, 보낸 시각이 방송 시작 시각과 맞지 않으면 버립니다.
+
+</details>
+
+<details>
+<summary><b>📏 실제 방송으로 확인한 기본값</b></summary>
+
+<br>
+
+공개 아카이브 1개(게임 방송 85분, 채팅 약 44,000개 = 분당 약 520개, YouTube 다시보기 + 자동 자막 + 480p 영상)에 `fetch` → `auto`를 그대로 돌려 본 결과입니다. **방송 하나**의 결과이므로 참고 수치로 보세요. 조용한 채널이나 다른 장르에서는 달라질 수 있습니다.
+
+| 항목 | 확인한 것 | 조치 |
+|---|---|---|
+| 반응 어휘 | 처음에는 메시지의 11%만 반응으로 잡혔습니다. 실제 채팅은 문장 끝 `ｗ` 하나, "え？", "！？", 👏, 채널 이모티콘으로 반응합니다 | 어휘 추가 → 40% |
+| 인사 · 작별 | 종료 인사("おつぺこ～" 등 마지막 2분에 약 300개)가 10개 중 8위로 뽑혔습니다 | 인사 · 작별 제외 → 그 자리에 실제 장면이 들어옴 |
+| 대기실 채팅 | 방송 시작 전 메시지 49개가 0초에 몰려 있었습니다 | 보낸 시각으로 걸러냄 |
+| `--delay` 8초 | 가장 큰 소리가 난 40개 순간을 기준으로 보면 채팅 반응은 약 6초 뒤에 최고조(평소의 3.5배), 3초 · 9초에도 2.8배 이상 | 분석 단위(5초) 안의 차이라 8초 유지. 초저지연 방송이면 `--delay 5` 정도 |
+| `--threshold` 2.0 | 채팅이 많은 방송은 봉우리도 평소의 2~2.7배에 그쳐 최고 점수가 2.9였습니다. 임계값별 결과 수는 1.5 → 18개, 2.0 → 10개, 2.5 → 2개, 3.0 → 0개 | 유지. 더 높이면 이런 방송에서는 결과가 거의 없습니다 |
+| `--lead` 20초 / `--tail` 10초 | 뽑힌 구간의 자동 자막을 보면 상황 설명부터 반응까지 한 구간에 들어 있었습니다(직접 시청해 확인한 것은 아님) | 유지 |
+| 음량 가중치 0.15 | 방송 전체로 보면 음량과 채팅량의 상관은 약합니다(0.06). 큰 소리가 난 순간 직후에는 반응이 늘어납니다 | 보조 신호로 유지 |
+| 많이 다시 본 구간 | 올라온 지 얼마 안 된 영상이라 heatmap이 비어 있었습니다 | 검증하지 못함 |
+| `--transcribe small --language ja` | 처음에는 실패했습니다(faster-whisper 1.2.1이 PyAV 19로 파일을 열지 못함). 고친 뒤 90초 클립을 CPU에서 71초에 받아써 24개 자막, 단어 단위로 불이 들어오는 것을 프레임으로 확인 | 오디오를 ffmpeg로 디코딩해 넘기도록 수정. 첫 실행은 모델(약 460MB) 다운로드 시간이 추가됩니다 |
+| YouTube 자동 자막 VTT | 단어 시각이 들어 있어 그대로 카라오케가 됩니다. 자막 한 줄이 다음 줄이 나올 때까지 화면에 남습니다(Whisper는 말이 끝나면 사라짐) | 유지 |
 
 </details>
 
@@ -238,16 +262,16 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 
 | 구분 | 사용 기술 | 요구 버전 | 검증 버전 | 비고 |
 |---|---|---|---|---|
-| 🐍 언어 | **Python** | 3.10+ | 3.13 | 타입 힌트, `src/` 레이아웃, `py.typed` |
+| 🐍 언어 | **Python** | 3.10+ | 3.13 · 3.14 | 타입 힌트, `src/` 레이아웃, `py.typed` |
 | 🪟 GUI | **PySide6** (Qt for Python) | 6.6+ | 6.12 (Qt 6.12) | 선택 설치 `[gui]` · LGPLv3 |
 | 🖥️ 화면 캡처 | **mss** | 9+ | 10.2 | Windows GDI · macOS CoreGraphics · X11, 스레드별 핸들 |
 | 🖼️ 이미지 처리 | **Pillow** · **NumPy** | 10.1+ · 1.24+ | 13.0 · 2.5 | 렌더링(3배 슈퍼샘플링 안티에일리어싱), 크로마키 |
-| 🎞️ 인코딩 | **FFmpeg** (외부 바이너리) | 5+ 권장 | 6.1 | `gif` · `libwebp_anim` · `libx264` · `libvpx-vp9` · `prores_ks` · `apng` · `ffv1` |
+| 🎞️ 인코딩 | **FFmpeg** (외부 바이너리) | 5+ 권장 | 6.1 · 8.1 | `gif` · `libwebp_anim` · `libx264` · `libvpx-vp9` · `prores_ks` · `apng` · `ffv1` |
 | 📥 VOD · 채팅 수집 | **yt-dlp** | 2024.1+ | 2026.10 | 선택 설치 `[ingest]`, 구간 다운로드 · 채팅 다시보기 · heatmap |
-| 💬 자막 | **libass** (ffmpeg) · **faster-whisper** | — · 1.0+ | ffmpeg 6.1 내장 | 카라오케 ASS 입히기, 받아쓰기는 `[asr]` |
+| 💬 자막 | **libass** (ffmpeg) · **faster-whisper** | — · 1.0+ | ffmpeg 내장 · 1.2.1 | 카라오케 ASS 입히기, 받아쓰기는 `[asr]` (오디오는 ffmpeg로 직접 디코딩해 넘김) |
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 128개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 173개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows |
 | 📦 패키징 | `pyproject.toml` · setuptools | 77+ | — | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -621,8 +645,8 @@ xvfb-run -a pytest
 | `test_core.py` | Region · 색 · 프레임, 크로마키, ffmpeg 빌더 |
 | `test_editor.py` | 도형별 렌더링, 직렬화 왕복, JSON 스키마, 되돌리기, 오버레이 |
 | `test_export_record.py` | 6개 포맷, 구간 · 크롭, 투명 잔상 없음, WebM 알파, numpy↔ffmpeg 크로마키 일치, 실시간 녹화 |
-| `test_chat_sources.py` | 채팅 형식 4종 파싱, 금액 파싱, yt-dlp 명령, info · heatmap, 음량 곡선 |
-| `test_highlights.py` | 반응 어휘 분류, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
+| `test_chat_sources.py` | 채팅 형식 4종 파싱, 실제 YouTube 다시보기 발췌본(익명화), 대기실 채팅 제거, 금액 파싱, yt-dlp 명령, info · heatmap, 음량 곡선, 받아쓰기용 오디오 디코딩 |
+| `test_highlights.py` | 반응 어휘 분류(실제 채팅 어휘 포함), 인사 · 작별 제외, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT/VTT/ASS, 자막이 정해진 시간에만 보이는지, 가이드라인 점검, 클립 파이프라인 |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
@@ -642,7 +666,7 @@ xvfb-run -a pytest
 | 🪟 Windows 10 | 🟡 같은 Win32 API를 쓰지만 실기기 미검증 |
 | 🍎 macOS | 🟡 시스템 설정의 화면 기록 권한 필요, 실기기 미검증 |
 | 🌊 Wayland | ❌ 화면 캡쳐(mss)는 X11/XWayland에서만 동작 |
-| 📺 YouTube 수집 | 🟡 이 저장소의 테스트 서버에서는 YouTube가 봇 확인으로 막아 실제 다운로드는 검증하지 못했습니다. 채팅 파서는 yt-dlp `live_chat.json` 구조로 만든 샘플로 테스트했습니다 |
+| 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) |
 
 - 배율이 다른 다중 모니터에서는 논리↔물리 좌표를 가상 화면 전체 비율로 환산하므로 선택 영역이 조금 어긋날 수 있습니다.
 - 125% · 150% 같은 소수 배율에서는 선택 영역의 위치와 크기를 따로 반올림합니다(Qt가 창을 놓는 방식과 같음). 같은 크기로 드래그하면 어디서든 같은 픽셀 크기가 나오고, 화면 픽셀과의 차이는 최대 1px입니다.

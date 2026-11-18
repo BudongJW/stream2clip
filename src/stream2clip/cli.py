@@ -253,6 +253,7 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--tail", type=float, default=10.0, help="context after the moment (default 10 s)")
     g.add_argument("--min-length", type=float, default=15.0)
     g.add_argument("--max-length", type=float, default=90.0)
+    g.add_argument("--keep-greetings", action="store_true", help="count greetings / goodbyes too (they flood the chat when a stream starts and ends)")
     g.add_argument("--plot", help="also draw the timeline as PNG")
 
 
@@ -275,7 +276,7 @@ def _detect(args: argparse.Namespace, video: str | None):
     if not messages and audio is None and not heatmap:
         raise ValueError("Give --chat, --info (heatmap) or --audio with a video")
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
-                          min_length=args.min_length, max_length=args.max_length, top=args.top)
+                          min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings)
     src = _source(args)
     result = detect_highlights(messages, duration=duration, audio=audio, audio_window=args.window, heatmap=heatmap, config=cfg,
                                source={"url": src.url, "title": src.title} if src else {})

@@ -30,6 +30,8 @@ from .sources import HeatmapPoint
 
 __all__ = [
     "REACTIONS",
+    "ROUTINE",
+    "is_routine",
     "HighlightConfig",
     "Highlight",
     "HighlightResult",
@@ -47,23 +49,47 @@ REACTIONS: dict[str, list[str]] = {
     "laugh": [
         r"草", r"[wｗ]{2,}", r"笑", r"ワロ", r"\blol+\b", r"\blmf?ao+\b", r"kekw", r"omegalul", r"\blul\b",
         r"ㅋ{2,}", r"ㅎ{3,}", r"\bxd\b", r"(?:ha){2,}", r"kusa", r"_lol", r"_www", r"爆笑",
+        # A single trailing w is how most Japanese chat laughs ("えｗ", "そうねw"); not "now" / "wow".
+        r"(?<![a-z])[wｗ]+$",
     ],
     "hype": [
         r"[!！]{3,}", r"[8８]{3,}", r"ナイス", r"\bnice+\b", r"pog", r"\bgg\b", r"ㄷ{2,}", r"레전드", r"미쳤",
         r"와{2,}", r"神", r"天才", r"すご", r"やば", r"\bclip\b", r"클립", r"切り抜き", r"legend",
+        r"👏", r"拍手", r"おーっ", r"助かる",
     ],
-    "cute": [r"かわいい|可愛い|かわよ|カワイイ", r"\bcute\b", r"kawaii", r"귀여|귀엽", r"てぇてぇ|尊い", r"tee ?tee"],
-    "shock": [r"[?？]{3,}", r"[えぇ]{3,}", r"ㄴㅇㄱ", r"\bwtf\b", r"\bwhat+\b", r"嘘", r"マジ", r"헐"],
+    "cute": [r"かわいい|可愛い|かわよ|カワイイ", r"\bcute\b", r"kawaii", r"귀여|귀엽", r"てぇてぇ|尊い", r"tee ?tee", r"きゃー"],
+    "shock": [
+        r"[?？]{3,}", r"[えぇ]{3,}", r"ㄴㅇㄱ", r"\bwtf\b", r"\bwhat+\b", r"嘘", r"マジ", r"헐",
+        r"[!！][?？]|[?？][!！]", r"こっ?わ|怖", r"うわ", r"びっくり", r"はてな", r"焦",
+        # The whole message is one short interjection: "え", "え？", "あっ", "ん？", "お？".
+        r"^(?:[えぇエ]+|[あぁア]+|[おぉオ]+|[んン])[っッー〜～]*[?？!！]*$",
+    ],
 }
-_COMPILED = {name: re.compile("|".join(patterns), re.IGNORECASE) for name, patterns in REACTIONS.items()}
+_COMPILED = {name: re.compile("|".join(patterns), re.IGNORECASE | re.MULTILINE) for name, patterns in REACTIONS.items()}
+
+#: Greetings and goodbyes. Everybody types them at once when a stream starts and ends,
+#: which looks exactly like a highlight (on a real archive the sign-off ranked 8th of 10).
+ROUTINE: list[str] = [
+    r"^こん(?:ばん|にち|ちゃ)", r"^こん(?![など])[ぁ-んァ-ヶ]{1,4}[〜～ー!！♪\s]*$", r"^おは(?:よ|[〜～ー])", r"^おつ", r"^お疲れ", r"^乙[〜～ー!！]*$",
+    r"^(?:ばいばい|バイバイ|またね|おやすみ)", r"^(?:待機|初見)",
+    r"^(?:hello|hi+|hey|bye+|good ?(?:night|morning|evening)|gn|otsu\w*|kon\w+)\b",
+    r"^(?:안녕|ㅎㅇ|하이|ㅂㅂ|ㅂㅇ|바이|수고|고생)",
+]
+_ROUTINE = re.compile("|".join(ROUTINE), re.IGNORECASE)
 _LABELS = {"laugh": "웃음", "hype": "환호", "cute": "귀여움", "shock": "놀람"}
 SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap")
 
 
 def classify_reactions(text: str, emotes: Sequence[str] = ()) -> set[str]:
     """Reaction categories present in one message (each category counted once)."""
-    haystack = text if not emotes else text + " " + " ".join(emotes)
+    # One line per piece, so patterns anchored with ^ / $ see the message text on its own.
+    haystack = text if not emotes else text + "\n" + "\n".join(emotes)
     return {name for name, rx in _COMPILED.items() if rx.search(haystack)}
+
+
+def is_routine(text: str) -> bool:
+    """A greeting or goodbye ("こんぺこ～", "おつかれ", "hello", "안녕하세요") rather than a reaction."""
+    return bool(_ROUTINE.search(text.strip()))
 
 
 @dataclass(frozen=True)
@@ -78,6 +104,8 @@ class HighlightConfig:
     max_length: float = 90.0
     merge_gap: float = 15.0
     top: int = 10
+    #: Leave greetings / goodbyes out of the chat signals (paid events still count).
+    skip_greetings: bool = True
     weights: dict[str, float] = field(
         default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15}
     )
@@ -176,7 +204,7 @@ def _resample(values: np.ndarray, src_window: float, n: int, window: float) -> n
 # --------------------------------------------------------------------------- detection
 
 
-def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float) -> dict[str, Any]:
+def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float, skip_greetings: bool = True) -> dict[str, Any]:
     rate = np.zeros(n)
     reactions = np.zeros(n)
     paid = np.zeros(n)
@@ -186,6 +214,10 @@ def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float) -> dict
         i = min(n - 1, int(m.time // window))
         if i < 0:
             continue
+        if m.is_paid or m.kind == "member":
+            paid[i] += 1
+        if skip_greetings and m.kind == "text" and is_routine(m.text):
+            continue
         rate[i] += 1
         if m.author:
             authors[i].add(m.author)
@@ -194,8 +226,6 @@ def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float) -> dict
             reactions[i] += 1
             for c in cats:
                 per_category[c][i] += 1
-        if m.is_paid or m.kind == "member":
-            paid[i] += 1
     unique = np.array([len(a) for a in authors], dtype=np.float64)
     return {"rate": rate, "unique": unique, "reactions": reactions, "paid": paid, "categories": per_category}
 
@@ -226,7 +256,7 @@ def detect_highlights(
     n = max(1, math.ceil(total / w))
 
     raw: dict[str, np.ndarray] = {}
-    chat = _bucket_chat(messages, n, w) if messages else None
+    chat = _bucket_chat(messages, n, w, cfg.skip_greetings) if messages else None
     if chat is not None:
         for key in ("rate", "unique", "reactions", "paid"):
             raw[key] = chat[key]

@@ -36,6 +36,48 @@ def test_youtube_live_chat():
     assert msgs[1].amount == 1000 and msgs[1].currency == "¥" and msgs[1].is_paid
 
 
+def test_real_youtube_excerpt():
+    """48 lines cut from a real yt-dlp ``live_chat.json`` (authors, ids, images removed)."""
+    path = DATA / "youtube_real_excerpt.live_chat.json"
+    raw = path.read_text(encoding="utf-8")
+    assert raw.count("\n") == 48 and "http" not in raw  # nothing left that points at a person
+    msgs = load_chat(path)
+    kinds = {k: sum(1 for m in msgs if m.kind == k) for k in ("text", "paid", "sticker", "member", "gift")}
+    # 40 text lines in the file, 5 of them typed in the waiting room (offset 0); the
+    # engagement notice, the ticker copy and the gift redemption are not chat messages.
+    assert kinds == {"text": 35, "paid": 2, "sticker": 1, "member": 1, "gift": 1}
+    assert msgs[0].time == pytest.approx(4.8, abs=0.1) and msgs[-1].time == pytest.approx(3361.5, abs=0.1)
+    assert [(m.amount, m.currency) for m in msgs if m.amount] == [(200.0, "¥"), (190.0, "¥"), (15800.0, "¥")]
+    assert all(len(m.author) == 12 and "viewer" not in m.author for m in msgs)
+    emote = next(m for m in msgs if m.emotes)
+    assert set(emote.emotes) == {":_にんじん:"} and ":_にんじん:" in emote.text  # custom emoji -> shortcut text
+    assert any(m.text == "🥕🥕🥕" for m in msgs) and any(m.text == "たしかにw" for m in msgs)  # unicode emoji, split runs
+
+
+def _yt_line(offset_ms, sent_at, text="hi"):
+    import json
+
+    item = {"liveChatTextMessageRenderer": {"message": {"runs": [{"text": text}]}, "authorExternalChannelId": f"UC{sent_at}", "timestampUsec": str(int(sent_at * 1e6))}}
+    return json.dumps({"replayChatItemAction": {"actions": [{"addChatItemAction": {"item": item}}], "videoOffsetTimeMsec": str(offset_ms)}})
+
+
+def test_waiting_room_chat_is_not_stacked_on_the_first_second(tmp_path):
+    start = 1_700_000_000.0
+    lines = [_yt_line(0, start - 25 + i, "waiting") for i in range(20)]  # typed before the stream: offset 0
+    lines.append(_yt_line(0, start + 0.4, "first!"))  # really sent in the first second
+    lines += [_yt_line(int(t * 1000), start + t) for t in (3, 8, 15, 21, 30, 44)]
+    lines.append(_yt_line(0, start + 90_000, "after the stream"))  # also reported with offset 0
+    path = tmp_path / "x.live_chat.json"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    msgs = load_chat(path)
+    assert [m.text for m in msgs if m.time == 0] == ["first!"]
+    assert len(msgs) == 7
+
+    # Too few timed messages to know when the stream started: keep everything.
+    path.write_text("\n".join(lines[:20] + lines[21:24]), encoding="utf-8")
+    assert len(load_chat(path)) == 23
+
+
 def test_chat_downloader_sorted_and_clamped():
     msgs = load_chat(DATA / "chat_downloader.json")
     assert [m.time for m in msgs] == [0.0, 1.0, 3.5]
@@ -102,3 +144,41 @@ def test_audio_levels(tmp_path):
     levels = audio_levels(wav, window=1.0)
     assert len(levels) == 6
     assert levels[2] - levels[0] > 30 and abs(levels[0] - levels[5]) < 3
+
+
+@needs_ffmpeg
+def test_whisper_transcriber_decodes_audio_itself(tmp_path, monkeypatch):
+    """faster-whisper 1.2.1 could not open files with PyAV 19; we pass decoded samples instead."""
+    import subprocess
+    import sys
+    import types
+
+    import numpy as np
+
+    from stream2clip.audio import decode_pcm
+    from stream2clip.subtitles import FasterWhisperTranscriber
+
+    wav = tmp_path / "speech.wav"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=2:r=44100", "-ac", "2", str(wav)], check=True)
+    samples = decode_pcm(wav)
+    assert samples.dtype == np.float32 and len(samples) == pytest.approx(2 * 16000, abs=200)  # 16 kHz mono
+    assert 0.05 < float(np.abs(samples).max()) <= 1.0
+    with pytest.raises(RuntimeError, match="could not decode"):
+        decode_pcm(tmp_path / "missing.wav")
+
+    seen = {}
+
+    class FakeModel:
+        def __init__(self, model, **kwargs):
+            seen["model"] = model
+
+        def transcribe(self, audio, **kwargs):
+            seen["audio"], seen["kwargs"] = audio, kwargs
+            word = types.SimpleNamespace(start=0.2, end=0.6, word=" こんにちは")
+            return iter([types.SimpleNamespace(start=0.2, end=0.6, text=" こんにちは", words=[word])]), None
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=FakeModel))
+    cues = FasterWhisperTranscriber("small").transcribe(wav, language="ja")
+    assert isinstance(seen["audio"], np.ndarray) and len(seen["audio"]) == len(samples)  # samples, not a path
+    assert seen["kwargs"]["language"] == "ja" and seen["kwargs"]["word_timestamps"] is True
+    assert cues[0].text == "こんにちは" and cues[0].words[0].text == "こんにちは" and cues[0].words[0].end == 0.6

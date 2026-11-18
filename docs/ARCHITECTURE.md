@@ -73,6 +73,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
             clip_XX.mp4 · clip_XX.ass · clip_XX.txt · clips.json
 ```
 
+- **채팅 정리**: `chat.load_chat`은 YouTube 다시보기에서 0초로 기록된 대기실 채팅을 보낸 시각(`timestampUsec` − 오프셋 = 방송 시작 시각)으로 가려 버립니다. `highlights`는 인사 · 작별(`ROUTINE`)을 채팅 신호에서 뺍니다. 둘 다 실제 아카이브에서 방송 시작 · 끝에 가짜 봉우리를 만들던 것입니다.
 - **필터 순서**: `crop → fps → [layout 그래프] → scale → subtitles → extra → colorkey → 포맷별 처리`. 레이아웃은 `[pre] → [lay]` 레이블을 쓰는 서브그래프라 GIF 팔레트 등 뒤 단계와 그대로 이어집니다.
 - **자막 시간**: `-ss`를 입력 옵션으로 쓰므로 필터가 보는 시간은 0부터 시작합니다. 그래서 자막은 `slice_cues`로 클립 기준 시간으로 옮겨서 씁니다(테스트로 자막이 정해진 시간에만 보이는지 확인).
 - **자막 경로**: `filter_path()`가 ffmpeg의 두 단계 이스케이프(옵션 · 필터그래프)를 처리합니다. Windows `C:\` 경로와 `' [ ] , ; :`가 들어간 경로도 테스트합니다.
@@ -106,8 +107,8 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 | `tests/test_core.py` | Region/색/프레임, 크로마키, ffmpeg 빌더 |
 | `tests/test_editor.py` | 도형별 렌더링, 직렬화 왕복, JSON 스키마, 되돌리기, 히트 테스트, 오버레이 |
 | `tests/test_export_record.py` | 6개 포맷 내보내기, 구간·크롭, 투명 GIF/WebP/APNG 잔상 없음, WebM 알파, numpy↔ffmpeg 크로마키 일치, 실시간 녹화 |
-| `tests/test_chat_sources.py` | 채팅 형식 4종, 금액, yt-dlp 명령 · 쿠키, info · heatmap, 음량 곡선 |
-| `tests/test_highlights.py` | 반응 분류, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
+| `tests/test_chat_sources.py` | 채팅 형식 4종, 실제 YouTube 다시보기 발췌본(익명화), 대기실 채팅 제거, 금액, yt-dlp 명령 · 쿠키, info · heatmap, 음량 곡선 |
+| `tests/test_highlights.py` | 반응 분류(실제 채팅 어휘 포함), 인사 · 작별 제외, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `tests/test_clips.py` | 레이아웃 4종, 필터 경로 이스케이프, SRT/VTT/ASS, 자막 시간, 가이드라인 점검, 클립 파이프라인 |
 | `tests/test_cli.py` | CLI 명령 (`auto` · `check` 포함) |
 | `tests/test_gui.py` | 편집기 도구를 실제 마우스 이벤트로 조작, HiDPI 좌표 환산(소수 배율에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
