@@ -130,6 +130,7 @@ def test_cli_clips_and_auto_from_an_address(tmp_path, monkeypatch, capsys):
         return Path(output)
 
     monkeypatch.setattr(sources, "download_section", fake_section)
+    monkeypatch.setattr(sources, "ytdlp_command", lambda **kwargs: ["yt-dlp"])  # yt-dlp itself is not needed (nor installed in CI)
     url = "https://www.youtube.com/watch?v=abc"
     highlights = tmp_path / "h.json"
     highlights.write_text(json.dumps({"highlights": [{"rank": 1, "start": 600.5, "end": 601.5}]}), encoding="utf-8")
