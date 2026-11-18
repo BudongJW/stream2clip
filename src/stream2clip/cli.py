@@ -226,7 +226,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     korean = platform_of(args.url)  # CHZZK / SOOP: chat comes from their own replay API, not yt-dlp
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
     try:
-        info = fetch_info(args.url, ytdlp=ytdlp, comments=args.comments)
+        info = fetch_info(args.url, ytdlp=ytdlp, comments=args.comments) if args.comments else fetch_info(args.url, ytdlp=ytdlp)
         (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
         print(f"info   {out / 'info.json'}  ({info.get('title', '')})" + (f"  + {len(info.get('comments') or [])} comments" if args.comments else ""))
     except RuntimeError as exc:
