@@ -14,6 +14,8 @@ from .ffmpeg import ExportOptions, build_export_command, find_ffprobe
 if TYPE_CHECKING:
     import numpy as np
 
+    from .layouts import VerticalLayout
+
 __all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "probe", "run_ffmpeg"]
 
 
@@ -65,23 +67,33 @@ def export(
     return out
 
 
-def grab_frames(path: str | os.PathLike[str], times: Sequence[float], *, ffmpeg: str | None = None) -> "list[np.ndarray]":
-    """Decode one frame per timestamp as ``(h, w, 4)`` uint8 RGBA arrays (fast seek, source size)."""
+def grab_frames(path: str | os.PathLike[str], times: Sequence[float], *, layout: "VerticalLayout | None" = None, ffmpeg: str | None = None) -> "list[np.ndarray]":
+    """Decode one frame per timestamp as ``(h, w, 4)`` uint8 RGBA arrays (fast seek).
+
+    Frames have the source size, or ``layout.size`` when a layout is given (a quick
+    still preview of what a clip will look like).
+    """
     import numpy as np
 
     from .ffmpeg import find_ffmpeg
 
-    info = probe(path)
+    if layout is not None:
+        width, height = layout.size
+        shape = ["-filter_complex", layout.graph("[0:v]", "[v]"), "-map", "[v]"]
+    else:
+        info = probe(path)
+        width, height = info.width, info.height
+        shape = []
     frames = []
     for t in times:
         cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-ss", f"{max(0.0, t):.3f}", "-i", os.fspath(path),
-               "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]
+               *shape, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]
         proc = subprocess.run(cmd, capture_output=True, check=False)
         if proc.returncode != 0:
             raise FFmpegError(cmd, proc.returncode, proc.stderr.decode("utf-8", "replace"))
-        if len(proc.stdout) < info.width * info.height * 4:
+        if len(proc.stdout) < width * height * 4:
             continue  # past the end of the file
-        frames.append(np.frombuffer(proc.stdout[: info.width * info.height * 4], dtype=np.uint8).reshape(info.height, info.width, 4).copy())
+        frames.append(np.frombuffer(proc.stdout[: width * height * 4], dtype=np.uint8).reshape(height, width, 4).copy())
     return frames
 
 

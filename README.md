@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-185-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-196-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -167,6 +167,11 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 stream2clip check --agency nijisanji --info vod/info.json --description clips/clip_01.txt
 ```
 
+**앱에서** — 런처의 **하이라이트 찾기**를 누르면 같은 흐름을 창 하나에서 합니다. 영상 · 채팅을 고르고 하이라이트를 찾은 뒤, 타임라인에서 구간을 끌어 다듬고(가운데 = 이동, 가장자리 = 시작 · 끝), 레이아웃을 입힌 미리보기를 보면서 체크한 구간만 내보냅니다. 긴 방송에서는 휠이나 구간 더블클릭으로 타임라인을 확대합니다.
+
+<p align="center"><img src="docs/images/highlights_window.png" alt="하이라이트 창: 입력 파일, 타임라인, 구간 목록, 레이아웃 미리보기, 내보내기 설정과 진행률" width="92%"></p>
+<p align="center"><sub>하이라이트 창 — 키 비주얼로 만든 30분 영상과 합성 채팅 데이터로 실행한 화면 (노란 테두리 = 선택한 구간)</sub></p>
+
 **아바타 위치 자동 찾기** — `--layout stack`에 `--avatar auto`를 주면 애니메 얼굴 검출로 아바타 박스를 정합니다. 박스만 먼저 확인하려면:
 
 ```bash
@@ -275,7 +280,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 
 <table>
 <tr>
-<td width="40%" align="center"><img src="docs/images/launcher.png" alt="런처: 캡쳐 버튼, 움짤 녹화 설정, 투명 배경 녹화"><br><sub><b>런처</b> — 캡쳐 · 움짤 녹화 · 투명 배경 설정</sub></td>
+<td width="40%" align="center"><img src="docs/images/launcher.png" alt="런처: 캡쳐 버튼, 움짤 녹화 설정, 투명 배경 녹화, 하이라이트 찾기"><br><sub><b>런처</b> — 캡쳐 · 움짤 녹화 · 투명 배경 설정 · 하이라이트 찾기</sub></td>
 <td width="60%" align="center"><img src="docs/images/editor.png" alt="편집기: 선택·펜·형광펜·네모·화살표·글자·모자이크·투명·자르기 툴바"><br><sub><b>편집기</b> — 툴바 · 팔레트 · 굵기 · 번역 · 되돌리기 · 복사 · 저장</sub></td>
 </tr>
 <tr>
@@ -283,7 +288,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 </tr>
 </table>
 
-<sub>스크린샷은 Xvfb 가상 디스플레이에서 앱을 실제로 실행해 찍었습니다. 캡쳐 대상 이미지는 <a href="assets/brand">assets/brand</a>의 키 비주얼입니다.</sub>
+<sub>스크린샷은 앱을 실제로 실행해 찍었습니다(편집기 · 영역 선택은 Xvfb 가상 디스플레이, 런처 · 하이라이트 창은 Windows 11). 캡쳐 대상 이미지는 <a href="assets/brand">assets/brand</a>의 키 비주얼입니다.</sub>
 
 <br>
 
@@ -301,7 +306,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 185개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 196개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows |
 | 📦 패키징 | `pyproject.toml` · setuptools | 77+ | — | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -313,8 +318,8 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 
 | | 줄 수 |
 |---|---|
-| 라이브러리 + 앱 (`src/`) | 약 6,200 |
-| 테스트 (`tests/`) | 약 1,200 |
+| 라이브러리 + 앱 (`src/`) | 약 7,600 |
+| 테스트 (`tests/`) | 약 2,000 |
 
 | 설치 옵션 | 추가되는 의존성 | 쓰는 곳 |
 |---|---|---|
@@ -393,6 +398,15 @@ stream2clip gui
 | <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>S</kbd> | 복사 / 저장 |
 | <kbd>Ctrl</kbd>+휠, <kbd>Ctrl</kbd>+<kbd>0</kbd> | 확대 · 축소, 100% |
 | <kbd>Delete</kbd> | 선택한 주석 삭제 |
+
+하이라이트 창(런처 → **하이라이트 찾기**):
+
+| 조작 | 동작 |
+|---|---|
+| 구간 가운데 끌기 / 가장자리 끌기 | 구간 이동 / 시작 · 끝 조정 (최소 5초) |
+| 휠 · 구간 더블클릭 | 타임라인 확대 (빈 곳 더블클릭 = 전체 보기) |
+| 목록의 체크 | 내보낼 구간 고르기 |
+| 레이아웃 **stack** + **자동 찾기** | 아바타 박스를 얼굴 검출로 채우기 |
 
 > [!TIP]
 > **투명** 도구는 드래그하면 그 영역을 지우고, 클릭하면 클릭한 색을 이미지 전체에서 투명하게 만듭니다. **자르기**는 원본을 보존한 채 남길 영역만 지정합니다. 저장할 때 `.json`을 고르면 주석만 따로 저장됩니다.
@@ -574,7 +588,7 @@ src/stream2clip/
 ├── plugins.py     entry point 기반 플러그인 레지스트리
 ├── schemas/       annotation.v1 JSON Schema
 ├── cli.py         stream2clip 명령
-└── gui/           PySide6 앱 (런처, 영역 선택, 편집기, 녹화 오버레이, 전역 단축키)
+└── gui/           PySide6 앱 (런처, 영역 선택, 편집기, 녹화 오버레이, 전역 단축키, 하이라이트 창)
 ```
 
 설계 원칙 · 녹화 파이프라인 · 스레드 구조는 👉 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
@@ -647,7 +661,7 @@ src/stream2clip/
 - [x] 💬 카라오케 자막 — SRT · YouTube VTT 단어 시각 · Whisper JSON · faster-whisper <sup>v0.2</sup>
 - [x] ✅ 기획사 가이드라인 설명란 생성 · 업로드 전 점검 <sup>v0.2</sup>
 - [x] 🤖 아바타 박스 자동 제안 — 애니메 얼굴 검출(deepghs/anime_face_detection)로 `--layout stack --avatar auto`
-- [ ] 🖥️ GUI에 하이라이트 타임라인 · 클립 미리보기 · 구간 미세 조정
+- [x] 🖥️ GUI 하이라이트 창 — 타임라인 · 구간 드래그 조정 · 레이아웃 미리보기 · 내보내기 진행률
 - [ ] 🇰🇷 CHZZK · SOOP 채팅 수집기 내장, 한국 기획사 가이드라인 프로필
 - [ ] 🌐 JP→KR 자막 번역 + 버튜버 이름 용어집 (Holodex 채널 메타)
 - [ ] 😂 웃음소리 검출 · 노래 구간(歌枠) 검출
@@ -684,6 +698,7 @@ xvfb-run -a pytest
 | `test_detect.py` | 얼굴 검출 전처리 · 후처리, 계속 같은 자리에 있는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` · `--avatar auto` (실제 모델은 파일이 있을 때만) |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
+| `test_gui_highlights.py` | 하이라이트 창: 타임라인 막대가 시간축과 맞는지, 구간 이동 · 가장자리 조정 · 한계, 좁은 구간 확대, 분석 → 미리보기 → 내보내기(끌어서 바꾼 길이로 저장되는지), 아바타 자동 찾기, 실패 표시 |
 | `test_gui_flow.py` | (디스플레이 필요) F8 → 편집기, F9 → 녹화 → 투명 GIF. Windows에서는 추가로 실제 F8/F9 입력 → 전역 단축키, 선택 영역 = 창의 물리 픽셀, 테두리 · REC 바가 녹화 영역 밖, 커서 합성 위치 |
 
 > [!NOTE]

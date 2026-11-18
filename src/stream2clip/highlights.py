@@ -147,6 +147,7 @@ class HighlightResult:
     signals: dict[str, np.ndarray]
     highlights: list[Highlight]
     source: dict[str, Any] = field(default_factory=dict)
+    messages: int = 0  # chat messages analysed (not part of the saved JSON)
 
     @property
     def times(self) -> np.ndarray:
@@ -278,7 +279,7 @@ def detect_highlights(
     highlights = _pick(score, cfg, total)
     for h in highlights:
         h.reasons, h.stats = _explain(h, raw, chat, signals, cfg)
-    return HighlightResult(window=w, duration=total, score=score, signals=signals, highlights=highlights, source=source or {})
+    return HighlightResult(window=w, duration=total, score=score, signals=signals, highlights=highlights, source=source or {}, messages=len(messages))
 
 
 def _pick(score: np.ndarray, cfg: HighlightConfig, total: float) -> list[Highlight]:

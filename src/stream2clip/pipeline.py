@@ -13,12 +13,12 @@ from typing import Callable, Sequence
 from .compliance import AgencyProfile, Issue, build_description, check_upload
 from .export import export, probe
 from .ffmpeg import ExportOptions, extension_for, find_ffmpeg
-from .highlights import Highlight
+from .highlights import Highlight, HighlightConfig, HighlightResult, detect_highlights
 from .layouts import VerticalLayout
 from .sources import SourceInfo
 from .subtitles import Cue, SubtitleStyle, Transcriber, slice_cues, write_ass
 
-__all__ = ["ClipResult", "default_clip_options", "make_clips"]
+__all__ = ["ClipResult", "default_clip_options", "find_highlights", "make_clips"]
 
 
 @dataclass
@@ -37,6 +37,46 @@ class ClipResult:
             "description": self.description.name if self.description else None,
             "issues": [{"level": i.level, "message": i.message} for i in self.issues],
         }
+
+
+def find_highlights(
+    video: str | os.PathLike[str] | None = None,
+    *,
+    chat: str | os.PathLike[str] | None = None,
+    chat_format: str | None = None,
+    info: str | os.PathLike[str] | None = None,
+    audio: bool = False,
+    config: HighlightConfig | None = None,
+    source: dict | None = None,
+    on_stage: Callable[[str], None] | None = None,
+) -> HighlightResult:
+    """Load the chat archive / info JSON / loudness curve and detect highlights.
+
+    This is the first half of ``stream2clip auto``; ``on_stage`` is told which step
+    starts ("chat", "audio", "detect") so a UI can show what it is waiting for.
+    """
+    from .audio import audio_levels
+    from .chat import load_chat
+    from .sources import heatmap_from_info, load_info
+
+    cfg = config or HighlightConfig()
+    stage = on_stage or (lambda _name: None)
+    messages = []
+    if chat:
+        stage("chat")
+        messages = load_chat(chat, format=chat_format)
+    heatmap = heatmap_from_info(load_info(info)) if info else []
+    duration = None
+    levels = None
+    if video:
+        duration = probe(video).duration
+        if audio:
+            stage("audio")
+            levels = audio_levels(video, window=cfg.window)
+    if not messages and levels is None and not heatmap:
+        raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
+    stage("detect")
+    return detect_highlights(messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap, config=cfg, source=source or {})
 
 
 def default_clip_options() -> ExportOptions:

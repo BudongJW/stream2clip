@@ -163,6 +163,8 @@ app.exec()
 
 `EditorCanvas(document, ToolState())`는 툴바 없이 캔버스만 쓰고 싶을 때 씁니다. 변경되면 `changed` 시그널이 나옵니다.
 
+하이라이트 타임라인만 필요하면 `gui.highlights.TimelineWidget`을 씁니다. `set_result(result)`로 `HighlightResult`를 넘기면 막대와 구간을 그리고, 사용자가 구간을 끌면 `result.highlights`의 `start` · `end`가 바뀌면서 `changed(index)`가 나옵니다. 전체 창은 `HighlightsWindow()`입니다.
+
 ## 7. 하이라이트 · 레이아웃 · 자막만 가져가기 (v0.2)
 
 이미 다운로드와 편집을 하는 프로젝트(autoclip, FunClip, biliup 등)라면 **구간 찾기**나 **세로 레이아웃**만 떼어 쓸 수 있습니다.
