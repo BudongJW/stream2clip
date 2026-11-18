@@ -98,10 +98,20 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 - **타임라인**: 막대는 보이는 시간 범위를 균등하게 나눠 그 구간의 최고 점수를 그립니다(시간축과 어긋나지 않게). 긴 방송에서는 클립 하나가 몇 픽셀밖에 안 되므로 확대(휠 · 더블클릭)가 있고, 잡는 영역은 가장자리가 바깥쪽으로 넓어 좁은 구간도 가운데를 잡아 옮길 수 있습니다.
 - **스레드**: 분석 · 미리보기 · 아바타 찾기 · 내보내기는 `threading.Thread`에서 돌고 결과는 Qt 시그널로 GUI 스레드에 돌아옵니다. 미리보기는 요청 번호를 붙여, 늦게 끝난 이전 요청이 화면을 덮지 않게 합니다.
 - **미리보기**는 레이아웃만 입힌 정지 화면입니다. 자막은 내보낸 클립에서 확인합니다.
+- **마스코트**: 상태 줄 옆의 키리는 창의 상태(`set_mood`: wink · focus · laugh · cut · surprised)를, 목록의 얼굴은 `mood_for(highlight)`가 `stats["react_*"]`에서 가장 많은 반응을 골라 보여 줍니다. 이미지는 `gui/qt.py`의 `mascot()`이 화면 배율에 맞춰 불러옵니다.
 
 ### VOD → 클립 (`stream2clip convert`)
 
 `ExportOptions(start, end, crop, fps, width/height, transparent, ...)` → `build_export_command()` → ffmpeg 한 번. 필터 순서는 `crop → fps → scale → (format=rgba, colorkey) → 포맷별 처리(GIF 팔레트 / 픽셀 포맷)`입니다. yuv420 계열(MP4/WebM)은 짝수 크기로 맞춥니다.
+
+## Windows 실행 파일 (`packaging/`)
+
+`packaging/build_windows.py`가 PyInstaller로 `stream2clip-gui.exe`(창)와 `stream2clip.exe`(콘솔)를 라이브러리를 공유하는 한 폴더에 만들고 zip으로 묶습니다. 빌드된 프로그램에서 달라지는 점은 두 가지입니다.
+
+- **ffmpeg**: `ffmpeg.find_ffmpeg()` · `find_ffprobe()`는 환경 변수 다음으로 **실행 파일 옆**을 먼저 보고, 없으면 PATH를 봅니다.
+- **yt-dlp**: `python -m yt_dlp`를 쓸 수 없으므로 `stream2clip.exe yt-dlp …`로 실행합니다(`cli.main`이 이 인자를 yt-dlp에 그대로 넘깁니다).
+
+쓰지 않는 Qt 모듈(WebEngine · QML · Multimedia 등)과 받아쓰기 관련 패키지는 빼서 용량을 줄입니다. `.github/workflows/package.yml`이 Windows 러너에서 빌드한 뒤 파이썬 · ffmpeg가 PATH에 없는 상태로 두 프로그램을 실행해 확인합니다.
 
 ## 포맷별 처리
 
@@ -132,6 +142,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 | `tests/test_highlights.py` | 반응 분류(실제 채팅 어휘 포함), 인사 · 작별 제외, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `tests/test_clips.py` | 레이아웃 4종, 필터 경로 이스케이프, SRT/VTT/ASS, 자막 시간, 가이드라인 점검, 클립 파이프라인 |
 | `tests/test_detect.py` | letterbox · YOLO 출력 해석 · NMS, 같은 자리에 남는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` 명령과 `--avatar auto` |
+| `tests/test_packaging.py` | 빌드 스크립트, 빌드된 실행 파일의 ffmpeg · yt-dlp 경로 |
 | `tests/test_cli.py` | CLI 명령 (`auto` · `check` 포함) |
 | `tests/test_gui.py` | 편집기 도구를 실제 마우스 이벤트로 조작, HiDPI 좌표 환산(소수 배율에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
 | `tests/test_gui_highlights.py` | 하이라이트 창: 타임라인 막대 · 구간 끌기 · 확대, 분석 → 미리보기 → 내보내기, 아바타 자동 찾기, 실패 표시 |
