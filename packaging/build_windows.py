@@ -1,0 +1,140 @@
+"""Build the Windows programs: a folder with stream2clip-gui.exe and stream2clip.exe, and a zip of it.
+
+    pip install -e ".[gui,ingest,detect,build]"
+    python packaging/build_windows.py --ffmpeg auto
+
+Result: ``dist/stream2clip/`` and ``dist/stream2clip-<version>-windows-x64.zip``.
+
+``--ffmpeg auto`` copies the ffmpeg.exe / ffprobe.exe found on this machine into the
+folder, so the programs work on a PC without ffmpeg (they look next to themselves
+first). Without it the user needs ffmpeg on PATH. ``--with-asr`` also bundles
+faster-whisper for ``--transcribe``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import platform
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SHIM_LIMIT = 2_000_000  # a real ffmpeg.exe is tens of MB
+SPEC = Path(__file__).with_name("stream2clip.spec")
+APP = "stream2clip"
+
+
+def project_version() -> str:
+    for line in (ROOT / "pyproject.toml").read_text(encoding="utf-8").splitlines():
+        if line.startswith("version"):
+            return line.split("=", 1)[1].strip().strip('"')
+    raise RuntimeError("version not found in pyproject.toml")
+
+
+def machine_tag(machine: str | None = None) -> str:
+    return {"amd64": "x64", "x86_64": "x64", "arm64": "arm64", "aarch64": "arm64"}.get((machine or platform.machine()).lower(), (machine or platform.machine()).lower())
+
+
+def archive_name(version: str, machine: str | None = None) -> str:
+    return f"{APP}-{version}-windows-{machine_tag(machine)}"
+
+
+def pyinstaller_command(dist: Path, work: Path, python: str | None = None) -> list[str]:
+    return [python or sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--distpath", str(dist), "--workpath", str(work), str(SPEC)]
+
+
+ICONS = ROOT / "assets" / "brand" / "app-icons" / "windows"
+
+
+def icon_path(choice: str = "symbol") -> Path:
+    """``symbol`` (the logo, default), ``kiri`` (the mascot) or the path of an .ico file."""
+    path = {"symbol": ICONS / "stream2clip.ico", "kiri": ICONS / "stream2clip_kiri.ico"}.get(choice, Path(choice))
+    if not path.is_file():
+        raise FileNotFoundError(f"icon not found: {path}")
+    return path
+
+
+def bundle_env(with_asr: bool, base: dict[str, str] | None = None, icon: Path | None = None) -> dict[str, str]:
+    env = dict(os.environ if base is None else base)
+    env["STREAM2CLIP_BUNDLE"] = "asr" if with_asr else ""
+    if icon is not None:
+        env["STREAM2CLIP_ICON"] = str(icon)
+    return env
+
+
+def find_ffmpeg_pair(ffmpeg: str) -> tuple[Path, Path]:
+    """Resolve ``auto`` / a path to (ffmpeg, ffprobe); both must exist."""
+    if ffmpeg == "auto":
+        found = shutil.which("ffmpeg")
+        if not found:
+            raise FileNotFoundError("--ffmpeg auto: ffmpeg is not on PATH")
+        exe = Path(found).resolve()
+    else:
+        exe = Path(ffmpeg)
+        if exe.is_dir():
+            exe = exe / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+    probe = exe.with_name(exe.name.replace("ffmpeg", "ffprobe"))
+    for path in (exe, probe):
+        if not path.is_file():
+            raise FileNotFoundError(f"not found: {path}")
+        if path.stat().st_size < SHIM_LIMIT:
+            # Chocolatey and Scoop put a tiny launcher on PATH; copied elsewhere it cannot find the real program.
+            raise ValueError(f"{path} is only {path.stat().st_size // 1024} KB: a launcher shim, not ffmpeg itself. Pass the real file with --ffmpeg PATH")
+    return exe, probe
+
+
+def copy_ffmpeg(ffmpeg: str, folder: Path) -> list[Path]:
+    """Put ffmpeg and ffprobe next to the programs."""
+    copied = []
+    for source in find_ffmpeg_pair(ffmpeg):
+        target = folder / source.name
+        shutil.copy2(source, target)
+        copied.append(target)
+    return copied
+
+
+def make_zip(folder: Path, name: str) -> Path:
+    return Path(shutil.make_archive(str(folder.parent / name), "zip", root_dir=folder.parent, base_dir=folder.name))
+
+
+def folder_size(folder: Path) -> int:
+    return sum(f.stat().st_size for f in folder.rglob("*") if f.is_file())
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--dist", default=str(ROOT / "dist"), help="output directory (default: dist)")
+    parser.add_argument("--work", default=str(ROOT / "build" / "pyinstaller"), help="PyInstaller work directory")
+    parser.add_argument("--ffmpeg", help="'auto' or the path of ffmpeg.exe (or its folder): copy ffmpeg and ffprobe into the app folder")
+    parser.add_argument("--with-asr", action="store_true", help="bundle faster-whisper for --transcribe (adds a few hundred MB)")
+    parser.add_argument("--icon", default="symbol", help="program icon: symbol (default), kiri (mascot) or an .ico path")
+    parser.add_argument("--no-zip", action="store_true", help="only build the folder")
+    parser.add_argument("--copy-ffmpeg-only", action="store_true", help="do not build: just copy --ffmpeg into an already built folder")
+    args = parser.parse_args(argv)
+
+    dist = Path(args.dist)
+    if args.ffmpeg:
+        find_ffmpeg_pair(args.ffmpeg)  # fail before the long build, not after it
+    if args.copy_ffmpeg_only:
+        if not args.ffmpeg or not (dist / APP).is_dir():
+            parser.error("--copy-ffmpeg-only needs --ffmpeg and an existing build in --dist")
+        for path in copy_ffmpeg(args.ffmpeg, dist / APP):
+            print(f"added  {path.name}  ({path.stat().st_size / 1e6:.0f} MB)")
+        return 0
+    subprocess.run(pyinstaller_command(dist, Path(args.work)), check=True, env=bundle_env(args.with_asr, icon=icon_path(args.icon)), cwd=ROOT)
+    folder = dist / APP
+    print(f"built  {folder}  ({folder_size(folder) / 1e6:.0f} MB)")
+    if args.ffmpeg:
+        for path in copy_ffmpeg(args.ffmpeg, folder):
+            print(f"added  {path.name}  ({path.stat().st_size / 1e6:.0f} MB)")
+    if not args.no_zip:
+        archive = make_zip(folder, archive_name(project_version()))
+        print(f"zip    {archive}  ({archive.stat().st_size / 1e6:.0f} MB)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

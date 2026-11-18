@@ -12,7 +12,9 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import sys
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .chroma import DEFAULT_KEY_COLOR, colorkey_filter
@@ -50,10 +52,20 @@ class FFmpegNotFoundError(RuntimeError):
     pass
 
 
+def app_dir() -> Path | None:
+    """Folder of the program when running as a built executable (PyInstaller), else ``None``."""
+    return Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else None
+
+
 def _find_binary(name: str, env: str) -> str:
     candidate = os.environ.get(env)
     if candidate:
         return candidate
+    bundled = app_dir()
+    if bundled is not None:  # a copy shipped next to the program wins over whatever is on PATH
+        for filename in (name + ".exe", name):
+            if (bundled / filename).is_file():
+                return str(bundled / filename)
     found = shutil.which(name)
     if found:
         return found

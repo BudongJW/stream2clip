@@ -281,6 +281,19 @@ def _detect(args: argparse.Namespace, video: str | None):
     return result
 
 
+def _run_ytdlp(args: list[str]) -> int:
+    try:
+        import yt_dlp
+    except ImportError:
+        print('stream2clip: error: yt-dlp is not installed: pip install "stream2clip[ingest]"', file=sys.stderr)
+        return 1
+    try:
+        yt_dlp.main(args)
+    except SystemExit as exc:  # yt-dlp always exits; hand its status back
+        return exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+    return 0
+
+
 def _clock(seconds: float) -> str:
     seconds = max(0, int(seconds))
     return f"{seconds // 3600:d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
@@ -531,7 +544,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    raw = sys.argv[1:] if argv is None else list(argv)
+    if raw[:1] == ["yt-dlp"]:  # `stream2clip yt-dlp ...`: how the built executable runs yt-dlp for `fetch`
+        return _run_ytdlp(raw[1:])
+    args = build_parser().parse_args(raw)
     try:
         return int(args.func(args) or 0)
     except (ValueError, RuntimeError, FileNotFoundError, IndexError) as exc:

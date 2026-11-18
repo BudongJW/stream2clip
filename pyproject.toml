@@ -24,6 +24,7 @@ ocr = ["pytesseract>=0.3"]
 ingest = ["yt-dlp>=2024.1"]
 asr = ["faster-whisper>=1.0"]
 detect = ["onnxruntime>=1.16"]
+build = ["pyinstaller>=6.10"]
 dev = ["pytest>=8", "mss>=9", "PySide6>=6.6", "jsonschema>=4"]
 
 [project.scripts]
