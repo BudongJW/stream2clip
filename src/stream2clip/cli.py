@@ -543,7 +543,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _tolerant_output() -> None:
+    """Never die while printing.
+
+    Results contain Korean, Japanese and emoji (reasons, stream titles). A real console
+    shows them, but redirected output uses the system code page (cp1252, cp949 ...) and
+    ``print`` raised UnicodeEncodeError there. Redirected output becomes UTF-8 unless
+    ``PYTHONIOENCODING`` says otherwise; anything that still cannot be shown is replaced.
+    """
+    import os
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            if stream.isatty() or os.environ.get("PYTHONIOENCODING"):
+                reconfigure(errors="replace")
+            else:
+                reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # closed or exotic stream: leave it alone
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _tolerant_output()
     raw = sys.argv[1:] if argv is None else list(argv)
     if raw[:1] == ["yt-dlp"]:  # `stream2clip yt-dlp ...`: how the built executable runs yt-dlp for `fetch`
         return _run_ytdlp(raw[1:])
