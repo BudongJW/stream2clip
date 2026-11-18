@@ -130,7 +130,7 @@ class LauncherWindow(QMainWindow):
         self.controller.failed.connect(self._on_record_failed)
 
         self.hotkeys = GlobalHotkeys(self)
-        backend = self.hotkeys.register(["F8", "F9"])
+        backend = self.hotkeys.register(self._hotkey_names())
         self.hotkeys.activated.connect(self._on_hotkey)
         if backend == "none":
             QShortcut(QKeySequence("F8"), self, activated=self.capture_region)
@@ -189,6 +189,10 @@ class LauncherWindow(QMainWindow):
         self.replay_last.setSpecialValueText("전체")
         self.replay_last.setToolTip("리플레이 버퍼에서 마지막 몇 초만 남길지 (전체 = 버퍼 그대로)")
         replay.addWidget(self.replay_last)
+        self.replay_hotkey_check = QCheckBox("F10")
+        self.replay_hotkey_check.setToolTip("켜면 방송 중 어느 프로그램에서든 F10으로 리플레이를 저장합니다.\n켜 둔 동안 다른 프로그램은 F10을 받지 못합니다.")
+        self.replay_hotkey_check.toggled.connect(self._set_replay_hotkey)
+        replay.addWidget(self.replay_hotkey_check)
         connect = QPushButton("연결 설정")
         connect.clicked.connect(self.edit_obs)
         replay.addWidget(connect)
@@ -206,6 +210,16 @@ class LauncherWindow(QMainWindow):
             self.obs_host = dialog.host_edit.text().strip() or "127.0.0.1"
             self.obs_port = dialog.port_spin.value()
             self.obs_password = dialog.password_edit.text()
+
+    def _hotkey_names(self) -> list[str]:
+        return ["F8", "F9"] + (["F10"] if self.replay_hotkey_check.isChecked() else [])
+
+    def _set_replay_hotkey(self, on: bool) -> None:
+        """Take or give back the system-wide F10 (opt-in: other programs lose the key while it is on)."""
+        if getattr(self, "hotkeys", None) is None:
+            return  # still starting up: the keys are registered once, a little later
+        self.hotkeys.unregister()
+        self.hotkeys.register(self._hotkey_names())
 
     def obs_client(self):
         """Connect to OBS with the current settings (tests replace this)."""
@@ -375,6 +389,8 @@ class LauncherWindow(QMainWindow):
             self.obs_port = obs["port"]
         if isinstance(obs.get("last"), int) and 0 <= obs["last"] <= 600:
             self.replay_last.setValue(obs["last"])
+        if isinstance(obs.get("hotkey"), bool):
+            self.replay_hotkey_check.setChecked(obs["hotkey"])
 
     def remember(self) -> None:
         save_section("record", {
@@ -382,7 +398,7 @@ class LauncherWindow(QMainWindow):
             "cursor": self.settings.cursor, "transparent": self.settings.transparent, "key_color": self.settings.key_color,
             "similarity": self.similarity.value(), "save_dir": str(self.settings.save_dir),
         })
-        save_section("obs", {"host": self.obs_host, "port": self.obs_port, "last": self.replay_last.value()})  # never the password
+        save_section("obs", {"host": self.obs_host, "port": self.obs_port, "last": self.replay_last.value(), "hotkey": self.replay_hotkey_check.isChecked()})  # never the password
 
     def _set_format(self, key: str) -> None:
         self.settings.format = key
@@ -495,6 +511,8 @@ class LauncherWindow(QMainWindow):
             self.controller_toggle()
         elif name == "F8":
             self.capture_region()
+        elif name == "F10":
+            self.save_replay()
 
     def _on_record_state(self, state: str) -> None:
         labels = {"idle": "●  영역 녹화 (F9)", "selecting": "영역 선택 중…", "recording": "■  정지 (F9)", "encoding": "저장 중…"}
