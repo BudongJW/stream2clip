@@ -813,8 +813,14 @@ pip install -e ".[dev]"
 ```
 
 ```bash
+ruff check .
+```
+
+```bash
 pytest
 ```
+
+CI는 린트(ruff), 리눅스(Python 3.10 · 3.12 · 3.14, Xvfb), Windows(3.12, 오프스크린)에서 같은 명령을 돌립니다. 기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md), 보안 문제는 [SECURITY.md](SECURITY.md)를 보세요.
 
 리눅스에서 실제 화면을 쓰는 end-to-end GUI 테스트(F8 캡쳐 → 편집기, F9 투명 녹화 → GIF 검증)까지 돌리려면:
 

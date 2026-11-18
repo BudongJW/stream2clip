@@ -13,9 +13,9 @@ from typing import Callable, Protocol, Sequence, runtime_checkable
 
 from PIL import Image
 
+from ..editor.model import Rectangle, Shape, Text
 from ..geometry import Region
 from ..plugins import text_detectors, translators
-from ..editor.model import Rectangle, Shape, Text
 
 __all__ = [
     "TextBlock",

@@ -1,0 +1,45 @@
+name: 버그 제보
+description: 동작이 이상하거나 오류가 납니다
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요
+      description: 기대한 동작과 실제 동작을 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+      description: 실행한 명령이나 앱에서 누른 순서. 방송 주소가 필요하면 공개 다시보기만 적어 주세요.
+      placeholder: |
+        1. stream2clip fetch <주소> -o vod
+        2. stream2clip auto vod/video.mp4 --chat ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: 출력 · 오류 메시지
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: stream2clip 버전
+      description: "`stream2clip --version` (실행 파일로 쓰는지 pip로 설치했는지도)"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: 운영체제 · 화면
+      placeholder: "Windows 11, 배율 125%, 모니터 1대"
+    validations:
+      required: true
+  - type: input
+    id: ffmpeg
+    attributes:
+      label: ffmpeg 버전
+      description: "`ffmpeg -version` 첫 줄 (영상 변환 · 녹화 문제일 때)"

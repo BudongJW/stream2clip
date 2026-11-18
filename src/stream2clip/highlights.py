@@ -459,8 +459,8 @@ def render_timeline(result: HighlightResult, path: str | os.PathLike[str] | None
     """Draw the excitement timeline with highlight brackets (brand colours) as a PIL image."""
     from PIL import Image, ImageDraw
 
-    from .editor.fonts import load_font
     from .brand import HIGHLIGHT, INK, LIVE_PINK, MUTED_BAR, PAPER
+    from .editor.fonts import load_font
 
     img = Image.new("RGB", (width, height), INK)
     draw = ImageDraw.Draw(img)

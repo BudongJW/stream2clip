@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Keeps the workflow actions on a supported runtime (the Node 20 warning was how the last lag was noticed).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "Bump"

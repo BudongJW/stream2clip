@@ -200,7 +200,7 @@ def test_windows_global_hotkeys_scaling_border_and_cursor(tmp_path):
             sel = visible_selector()
             assert sel is not None, "global F8 did not open the selector"
             picked = []
-            sel.regionSelected.connect(lambda region, _image, _rect: picked.append(region))
+            sel.regionSelected.connect(lambda region, _image, _rect, picked=picked: picked.append(region))
             _drag(sel, rect)
             pump(app, 500)
             target = _window_region(green)
