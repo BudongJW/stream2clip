@@ -10,6 +10,7 @@ from stream2clip.highlights import (
     HighlightConfig,
     classify_reactions,
     detect_highlights,
+    is_routine,
     load_highlights,
     render_timeline,
     robust_z,
@@ -22,7 +23,7 @@ def stream(events, duration=3600, seed=0, base_rate=0.5):
     msgs, t = [], 0.0
     while t < duration:
         t += rng.expovariate(base_rate)
-        msgs.append(ChatMessage(t, rng.choice(["hello", "こんばんは", "안녕하세요", "おつ"]), f"u{rng.randrange(200)}"))
+        msgs.append(ChatMessage(t, rng.choice(["ok", "なるほど", "그렇구나", "そうだね"]), f"u{rng.randrange(200)}"))
     for at, word, n in events:
         for _ in range(n):
             msgs.append(ChatMessage(at + 6 + rng.random() * 20, word, f"r{rng.randrange(5000)}"))
@@ -31,14 +32,59 @@ def stream(events, duration=3600, seed=0, base_rate=0.5):
 
 @pytest.mark.parametrize("text, cats", [
     ("草", {"laugh"}), ("wwwww", {"laugh"}), ("ㅋㅋㅋㅋ", {"laugh"}), ("KEKW", {"laugh"}), ("888888", {"hype"}),
-    ("ㄷㄷㄷ", {"hype"}), ("かわいい", {"cute"}), ("???", {"shock"}), ("hello", set()), ("w", set()),
+    ("ㄷㄷㄷ", {"hype"}), ("かわいい", {"cute"}), ("???", {"shock"}), ("hello", set()),
 ])
 def test_classify(text, cats):
     assert classify_reactions(text) == cats
 
 
+# Vocabulary added after reading a real 85-minute archive (44k messages): with only the
+# patterns above 11% of the messages counted as reactions, although the chat was reacting
+# all the time with a single trailing w, "え？", "！？", claps and channel emotes.
+@pytest.mark.parametrize("text, cats", [
+    ("えｗ", {"laugh"}), ("そうねw", {"laugh"}), ("w", {"laugh"}), ("ｗ", {"laugh"}),
+    ("wow", set()), ("now", set()), ("brb in a few", set()),  # English words ending in w are not laughs
+    ("え", {"shock"}), ("え？", {"shock"}), ("えっ", {"shock"}), ("あっ", {"shock"}), ("ん？", {"shock"}), ("お？", {"shock"}),
+    ("えらい", set()), ("あした", set()),  # only when the interjection is the whole message
+    ("！？", {"shock"}), ("え！？", {"shock"}), ("こわ", {"shock"}), ("こっわ", {"shock"}), ("うわ", {"shock"}),
+    ("👏👏👏", {"hype"}), ("ポエム助かる", {"hype"}), ("こんぺこ～", set()), ("気のせいだよ", set()),
+])
+def test_classify_real_chat_vocabulary(text, cats):
+    assert classify_reactions(text) == cats
+
+
 def test_classify_uses_custom_emoji():
     assert classify_reactions("", (":_kusa:",)) == {"laugh"}
+    assert classify_reactions(":_きゃー:", (":_きゃー:",)) == {"cute"}
+    # the emote goes on its own line, so "the message ends with w" still sees the text
+    assert classify_reactions("たしかにw", (":_ぺこ:",)) == {"laugh"}
+    assert classify_reactions("え？", (":_はてな:",)) == {"shock"}
+
+
+@pytest.mark.parametrize("text, routine", [
+    ("こんぺこ～", True), ("こんばんは", True), ("こんるし！", True), ("おつぺこでした～", True), ("お疲れ様でした", True), ("乙", True),
+    ("konpeko~", True), ("hello", True), ("hi!", True), ("bye bye", True), ("안녕하세요", True), ("수고하셨습니다", True),
+    ("こんなの初めて", False), ("こんど見る", False), ("乙女ゲーム", False), ("history", False), ("草", False), ("え？", False),
+])
+def test_greetings_and_goodbyes(text, routine):
+    assert is_routine(text) is routine
+
+
+def test_sign_off_is_not_a_highlight():
+    # On a real archive the goodbye flood at the end ("おつぺこ～" x 200) ranked 8th of 10.
+    events = [(1200, "草", 150)]
+    msgs = stream(events, duration=3600)
+    rng = random.Random(1)
+    msgs += [ChatMessage(3560 + rng.random() * 30, rng.choice(["おつぺこ～", "おつかれさま", "bye", "수고하셨습니다"]), f"g{i}") for i in range(300)]
+    msgs += [ChatMessage(5 + rng.random() * 30, rng.choice(["こんぺこ～", "こんばんは", "hello"]), f"h{i}") for i in range(300)]
+    found = detect_highlights(msgs, duration=3600).highlights
+    assert [round(h.peak / 100) for h in found] == [12]
+    # Opting out brings the two floods back.
+    loud = detect_highlights(msgs, duration=3600, config=HighlightConfig(skip_greetings=False)).highlights
+    assert len(loud) == 3
+    # Super Chats sent together with a goodbye still count as paid events.
+    paid = msgs + [ChatMessage(2400 + i, "おつぺこ", f"p{i}", kind="paid", amount=500) for i in range(12)]
+    assert any(h.stats.get("paid") for h in detect_highlights(paid, duration=3600).highlights)
 
 
 def test_robust_z_handles_sparse_and_flat():

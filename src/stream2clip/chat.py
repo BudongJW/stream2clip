@@ -143,8 +143,37 @@ def _parse_youtube_item(item: dict[str, Any], offset: float | None) -> ChatMessa
     return None
 
 
+def _item_timestamp(item: dict[str, Any]) -> float | None:
+    """Wall-clock time the item was sent (``timestampUsec``), in seconds."""
+    for renderer in item.values():
+        if isinstance(renderer, dict) and renderer.get("timestampUsec"):
+            try:
+                return int(renderer["timestampUsec"]) / 1e6
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _drop_outside_stream(messages: list[ChatMessage], stamps: list[float | None]) -> list[ChatMessage]:
+    """Remove messages that sit at 0:00 only because they were not sent during the stream.
+
+    The replay gives everything typed in the waiting room (and the odd message sent
+    after the stream ended) a video offset of 0. On a real archive that was ~50
+    messages stacked on the first second - a fake burst right at the start. The
+    wall-clock ``timestampUsec`` minus the offset is the same for every message sent
+    during the stream (it is the stream's start time), so offset-0 messages whose
+    timestamp is not that start time are dropped.
+    """
+    starts = sorted(ts - m.time for m, ts in zip(messages, stamps) if ts is not None and m.time > 0)
+    if len(starts) < 5:
+        return messages
+    start = starts[len(starts) // 2]
+    return [m for m, ts in zip(messages, stamps) if not (m.time == 0 and ts is not None and abs(ts - start) > 2.0)]
+
+
 def _load_ytdlp_live_chat(lines: Iterable[str]) -> list[ChatMessage]:
     out: list[ChatMessage] = []
+    stamps: list[float | None] = []
     for raw in lines:
         raw = raw.strip()
         if not raw:
@@ -157,10 +186,12 @@ def _load_ytdlp_live_chat(lines: Iterable[str]) -> list[ChatMessage]:
             add = action.get("addChatItemAction")
             if add is None:
                 continue
-            msg = _parse_youtube_item(add.get("item", {}), offset)
+            item = add.get("item", {})
+            msg = _parse_youtube_item(item, offset)
             if msg is not None:
                 out.append(msg)
-    return out
+                stamps.append(_item_timestamp(item))
+    return _drop_outside_stream(out, stamps)
 
 
 # --------------------------------------------------------------------------- other formats
