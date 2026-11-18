@@ -118,7 +118,7 @@ def _extract_audio(video: str | os.PathLike[str], start: float, end: float, out:
 
 
 def make_clips(
-    video: str | os.PathLike[str],
+    video: str | os.PathLike[str] | None,
     highlights: Sequence[Highlight],
     out_dir: str | os.PathLike[str],
     *,
@@ -138,24 +138,44 @@ def make_clips(
     uses_ai: bool | None = None,
     name: str = "clip_{rank:02d}",
     on_progress: Callable[[int, int, Highlight], None] | None = None,
+    section: Callable[[Highlight], "tuple[str | os.PathLike[str], float]"] | None = None,
 ) -> list[ClipResult]:
-    """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index."""
+    """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
+
+    Normally every clip is cut from ``video``. With ``section`` each highlight has its own
+    footage instead - ``section(h)`` returns ``(file, stream time at the file's start)`` - so
+    only those parts of a stream need to be downloaded (``video`` may then be ``None``).
+    Highlight times, subtitles and descriptions stay in stream time either way.
+    """
+    if video is None and section is None:
+        raise ValueError("make_clips needs a video or a section function")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     options = options or default_clip_options()
-    play_res = _output_size(video, options)
+
+    def footage(h: Highlight) -> tuple[str | os.PathLike[str], float]:
+        if section is None:
+            assert video is not None
+            return video, 0.0
+        path, offset = section(h)
+        return path, float(offset)
+
+    play_res = _output_size(video, options) if section is None else None
     ai = uses_ai if uses_ai is not None else (transcriber is not None or subtitle_translator is not None)
     results: list[ClipResult] = []
     for index, h in enumerate(highlights, start=1):
         if on_progress is not None:
             on_progress(index, len(highlights), h)
         stem = name.format(rank=h.rank, start=int(h.start), index=index)
-        opts = replace(options, start=h.start, end=h.end)
+        clip_video, offset = footage(h)
+        if play_res is None:
+            play_res = _output_size(clip_video, options)
+        opts = replace(options, start=max(0.0, h.start - offset), end=h.end - offset)
 
         clip_cues: list[Cue] | None = slice_cues(cues, h.start, h.end) if cues is not None else None
         if clip_cues is None and transcriber is not None:
             with tempfile.TemporaryDirectory(prefix="stream2clip-asr-") as tmp:
-                wav = _extract_audio(video, h.start, h.end, Path(tmp) / "clip.wav")
+                wav = _extract_audio(clip_video, max(0.0, h.start - offset), h.end - offset, Path(tmp) / "clip.wav")
                 clip_cues = transcriber.transcribe(wav, language=language)
         if clip_cues and subtitle_translator is not None:
             from .translation import translate_cues
@@ -166,7 +186,7 @@ def make_clips(
             sub_path = write_ass(clip_cues, out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke)
             opts = replace(opts, subtitles=sub_path)
 
-        clip_path = export(video, out / f"{stem}{extension_for(opts.format)}", opts)
+        clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
         result = ClipResult(h, clip_path, sub_path)
         if source is not None:
             text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai)
@@ -177,7 +197,7 @@ def make_clips(
 
     index_data = {
         "schema": "stream2clip.clips/v1",
-        "video": os.fspath(video),
+        "video": os.fspath(video) if video is not None else None,
         "source": source.__dict__ if source is not None else None,
         "agency": profile.key if profile is not None else None,
         "clips": [r.to_dict() for r in results],
