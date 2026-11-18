@@ -165,6 +165,23 @@ def test_make_clips_end_to_end(green_screen_video, tmp_path):
     assert index["agency"] == "hololive" and index["clips"][0]["file"] == "clip_01.mp4"
 
 
+def test_vspo_profile_follows_the_official_guideline():
+    """Checked against https://vspo.jp/en/guide/ (revised 2026-09-17), not hearsay."""
+    from stream2clip.compliance import check_upload, get_profile
+    from stream2clip.sources import SourceInfo
+
+    vspo = get_profile("vspo")
+    assert vspo.guideline_url == "https://vspo.jp/en/guide/" and vspo.revised == "2026-09-17"
+    assert vspo.registration == "required" and vspo.permission_number and vspo.source_link_required
+    assert not any("미확인" in note for note in vspo.notes)
+    source = SourceInfo(url="https://www.youtube.com/watch?v=x", title="t", live_status="was_live", availability="public")
+    without = check_upload(source, vspo, description="https://www.youtube.com/watch?v=x")
+    assert any(issue.level == "warning" and "허가 번호" in issue.message for issue in without)
+    with_number = check_upload(source, vspo, description="https://www.youtube.com/watch?v=x", permission_number="VSPO-0000")
+    assert not any(issue.level == "warning" and "허가 번호" in issue.message for issue in with_number)
+    assert any(issue.level == "info" and "vspo.jp" in issue.message for issue in with_number)
+
+
 class FakeTranscriber:
     def __init__(self):
         self.calls = []
