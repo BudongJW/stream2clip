@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-274-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-282-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -212,7 +212,7 @@ stream2clip auto vod/video.mp4 --chat vod/VIDEO_ID.live_chat.json --audio --skip
 
 `--mark-singing`은 각 하이라이트가 노래 구간과 얼마나 겹치는지 근거에 적고, `--skip-singing`은 절반 이상 겹치는 하이라이트를 뺍니다. `--laughter`는 웃음소리 같은 소리(크고 초당 4~8번 끊어지는 소리)를 점수에 더하는 실험 기능입니다.
 
-**OBS 리플레이 버퍼** — 방송 중 "방금 그 장면"을 바로 움짤로. OBS의 리플레이 버퍼를 켜 두고(설정 → 출력 → 리플레이 버퍼, 도구 → WebSocket 서버 설정) 실행합니다. 앱에서는 런처의 **리플레이 저장** 버튼이 같은 일을 합니다(형식 · 크기는 녹화 설정을 따르고, 비밀번호는 저장하지 않습니다). 새로 설치한 OBS는 리플레이 버퍼가 꺼져 있으니 설정 → 출력에서 먼저 켜세요. `--start-buffer`는 버퍼가 실제로 돌기 시작했는지 확인하며, 장면이 비어 있어 OBS가 "소스 없음"을 묻고 있으면 그렇게 알려 줍니다.
+**OBS 리플레이 버퍼** — 방송 중 "방금 그 장면"을 바로 움짤로. OBS의 리플레이 버퍼를 켜 두고(설정 → 출력 → 리플레이 버퍼, 도구 → WebSocket 서버 설정) 실행합니다. 앱에서는 런처의 **리플레이 저장** 버튼이 같은 일을 합니다(형식 · 크기는 녹화 설정을 따르고, 비밀번호는 저장하지 않습니다). 새로 설치한 OBS는 리플레이 버퍼가 꺼져 있으니 설정 → 출력에서 먼저 켜세요. 리플레이 줄의 **F10**을 켜 두면 방송 중 어느 프로그램에서든 F10으로 저장합니다(켜 둔 동안 다른 프로그램은 F10을 받지 못하므로 기본은 꺼짐). `--start-buffer`는 버퍼가 실제로 돌기 시작했는지 확인하며, 장면이 비어 있어 OBS가 "소스 없음"을 묻고 있으면 그렇게 알려 줍니다.
 
 ```bash
 stream2clip replay -o moment.gif --last 15 --width 480
@@ -317,6 +317,52 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 </details>
 
 <details>
+<summary><b>📊 여러 방송으로 평가하기 (시청자 타임스탬프 기준)</b></summary>
+
+<br>
+
+기본값을 방송 하나로만 정하면 그 방송에 맞춰질 뿐입니다. `evaluate`는 여러 방송에서 채팅만으로 하이라이트를 찾고, **시청자들이 댓글에 남긴 타임스탬프**("1:23:45 여기 웃김")와 비교합니다. 정답은 아니지만 사람이 고른 순간이고, 인기 아카이브에는 대부분 있으며, 따로 표시 작업을 하지 않아도 됩니다.
+
+```bash
+stream2clip fetch "https://www.youtube.com/watch?v=VIDEO_ID" -o data/VIDEO_ID --comments 150
+```
+
+```bash
+stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
+```
+
+| 값 | 뜻 |
+|---|---|
+| precision | 뽑은 하이라이트 중 시청자가 표시한 순간이 들어 있는 비율 |
+| recall | 시청자가 표시한 순간 중 하이라이트에 들어간 비율 |
+| chance | 같은 길이의 구간을 아무 데나 놓았을 때 기대되는 precision |
+| lift | precision ÷ chance — 1보다 크면 무작위보다 낫다는 뜻 |
+
+**공개 아카이브 7개로 돌려 본 결과** (2026-11-19, 62~106분 방송, 일본어 5 · 영어 2, 채팅만 사용, 방송당 최대 10개, 허용 오차 10초, 인기 댓글 53~150개에서 얻은 표시 196곳):
+
+| 설정 | 클립 | precision | chance | lift | recall |
+|---|---|---|---|---|---|
+| **기본값** (`--threshold 2.0`, `--delay 8`, `--lead 20`) | 60 | 52% | 40% | **1.28** | 23% |
+| `threshold=1.5` | 70 | 51% | 45% | 1.13 | 26% |
+| `threshold=2.5` | 52 | 52% | 37% | 1.40 | 19% |
+| `threshold=3.0` | 41 | 51% | 34% | 1.49 | 14% |
+| `delay=4` / `delay=12` | 60 | 53% / 52% | 40% | 1.33 / 1.28 | 23% / 22% |
+| `lead=10` / `lead=30` | 61 / 59 | 49% / 51% | 37% / 42% | 1.32 / 1.21 | 21% / 23% |
+| `window=10` | 46 | 57% | 39% | 1.43 | 18% |
+
+두 명 이상이 같은 순간을 표시한 곳만 쓰면(`--min-votes 2`, 방송 5개 · 57곳) 기본값은 precision 23% · chance 16% · lift 1.42, `threshold=2.5`는 lift 1.94입니다.
+
+읽는 법과 한계:
+
+- 기본값은 무작위보다 낫지만 차이는 크지 않습니다(1.3~1.4배). 방송별 편차가 커서(lift 0.47~4.68) 방송 7개로는 설정값 사이의 0.1~0.2 차이를 가릴 수 없습니다. 그래서 **기본값은 바꾸지 않았습니다.**
+- 임계값을 올리면 precision 대비 배수는 좋아지지만 클립 수가 줄고, 3.0에서는 방송 하나에서 결과가 0개였습니다. 확실한 장면만 원하면 `--threshold 2.5`가 근거 있는 선택입니다.
+- `--delay`와 `--lead`는 이 자료에서 차이가 없었습니다.
+- 타임스탬프 댓글은 거친 기준입니다. 방송의 목차처럼 화제가 바뀔 때마다 적은 댓글도 섞여 있어, 표시가 54~56곳인 두 방송은 아무 데나 골라도 70~81%가 맞습니다. 채팅 반응이 없는 조용한 명장면은 이 방법으로도 채팅 검출로도 잡히지 않습니다.
+- CHZZK · SOOP 다시보기는 댓글 타임스탬프 문화가 달라 이 평가에 넣지 못했습니다.
+
+</details>
+
+<details>
 <summary><b>💬 지원하는 채팅 · 자막 형식, 출력 파일</b></summary>
 
 <br>
@@ -375,7 +421,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 274개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 282개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -497,6 +543,7 @@ stream2clip gui
 |---|---|
 | <kbd>F8</kbd> | 영역 캡쳐 → 편집기 |
 | <kbd>F9</kbd> | 녹화할 영역 선택 후 바로 녹화 · 다시 누르면 정지 + 저장 |
+| <kbd>F10</kbd> | (런처에서 켰을 때) OBS 리플레이 버퍼 저장 → 클립 |
 | <kbd>V</kbd> <kbd>P</kbd> <kbd>H</kbd> <kbd>R</kbd> <kbd>A</kbd> <kbd>T</kbd> <kbd>M</kbd> <kbd>E</kbd> <kbd>C</kbd> | 선택 · 펜 · 형광펜 · 네모 · 화살표 · 글자 · 모자이크 · 투명 · 자르기 |
 | <kbd>I</kbd> | 스포이드 |
 | <kbd>[</kbd> <kbd>]</kbd> | 굵기 −/+ (글자 크기 = 굵기 × 3 + 12, 모자이크 블록 = 굵기 × 2) |
@@ -803,6 +850,10 @@ src/stream2clip/
 - [x] 🇰🇷 CHZZK · SOOP 다시보기 채팅 수집 — `fetch`에 주소만 주면 정규화해서 저장
 - [x] ✂️ 주소만으로 클립까지 — `auto <주소>` · `clips <주소>`가 하이라이트 구간의 영상만 내려받음 (CHZZK 구간 다운로드 수정 포함)
 - [ ] 🖥️ 앱의 하이라이트 창에서 주소로 시작하기 (지금은 명령줄만)
+- [x] 📊 여러 방송 평가 — `evaluate`: 시청자 댓글 타임스탬프와 비교해 precision · recall · 무작위 대비 배수
+- [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항)
+- [ ] 📡 라이브 모드 — 방송 중 채팅 급증을 보고 리플레이를 자동 저장
+- [ ] 🌏 앱 화면 일본어 · 영어
 - [ ] 🇰🇷 한국 기획사 가이드라인 프로필 — 공식 원문을 확인한 곳부터 (스텔라이브 · 이세계아이돌은 원문 미확보)
 - [x] 🌐 자막 번역 + 이름 용어집 — 번역기 플러그인으로 번역, 용어집으로 이름 고정, 원문 + 번역 두 줄 자막, Holodex 이름 초안 <sup>v0.3</sup>
 - [x] 😂 노래 구간(歌枠) 검출 · 웃음소리 신호(실험) <sup>v0.3</sup>
@@ -850,6 +901,7 @@ xvfb-run -a pytest
 | `test_detect.py` | 얼굴 검출 전처리 · 후처리, 계속 같은 자리에 있는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` · `--avatar auto` (실제 모델은 파일이 있을 때만) |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지 · 이름 고정 · 두 줄 자막 · 묶음 전송, Holodex 초안, `--translate` |
+| `test_evaluation.py` | 댓글에서 타임스탬프 읽기(시각이 아닌 숫자 제외), 가까운 표시 묶기 · 댓글 수 세기, precision · recall · 무작위 기대값 계산, 설정값 바꿔 가며 비교, `evaluate` · `fetch --comments` |
 | `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 내려받기(여유 시간 · 이미 받은 파일 재사용), 구간 파일에서 잘라도 자막 · 설명란은 방송 시각 기준, CHZZK 구간에서만 ffmpeg 확장자 검사 끄기, `clips <주소>` · `auto <주소>` |
 | `test_translator_loading.py` | 번역기를 파일 · 모듈에서 불러오기(함수 · 클래스 · 객체, Windows 드라이브 경로), 잘못된 지정의 안내, 예제 번역기(가짜 응답: 목록 추출 · 줄 수가 틀리면 한 줄씩 다시), `--translator file.py` |
 | `test_audio_signals.py` | 웃음소리 신호(크고 끊어지는 소리), 가산 신호가 다른 하이라이트를 줄이지 않는지, 노래 구간 검출(합성 음성 · 노래), 노래 표시 · 제외 |

@@ -539,7 +539,11 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
 
     streams = []
     for folder in args.folders:
-        stream = load_stream(folder, min_votes=args.min_votes)
+        try:
+            stream = load_stream(folder, min_votes=args.min_votes)
+        except ValueError as exc:  # one incomplete folder should not stop the others
+            print(f"skip   {exc}", file=sys.stderr)
+            continue
         if not stream.labels:
             print(f"skip   {stream.name}: no timestamps in its comments (fetch with --comments N)", file=sys.stderr)
             continue

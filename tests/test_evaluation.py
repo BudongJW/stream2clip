@@ -117,6 +117,9 @@ def test_evaluate_a_folder_of_streams(tmp_path, capsys):
     assert main(["evaluate", str(tmp_path / "unmarked")]) == 1 and "No stream with viewer timestamps" in capsys.readouterr().err
     (tmp_path / "empty").mkdir()
     assert main(["evaluate", str(tmp_path / "empty")]) == 1 and "no chat replay" in capsys.readouterr().err
+    assert main(["evaluate", str(tmp_path / "empty"), str(good)]) == 0  # an incomplete folder does not stop the others
+    printed = capsys.readouterr()
+    assert "skip" in printed.err and "no chat replay" in printed.err and "all 1 streams" in printed.out
 
 
 def test_info_command_can_ask_for_comments():
