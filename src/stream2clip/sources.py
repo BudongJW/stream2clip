@@ -158,14 +158,21 @@ def build_section_command(
 
     ``ffmpeg_input_args`` are handed to the ffmpeg that yt-dlp runs for a section download.
     """
+    section = start is not None or end is not None
+    formats = f"bv*[height<={max_height}]+ba/b[height<={max_height}]/b"
+    if section:
+        # A section is read by ffmpeg in one connection. YouTube serves its DASH formats to such a reader at a
+        # crawl (a 64 s section had not arrived after 6 minutes), its HLS formats at full speed (13 s) - so HLS first.
+        hls = "[protocol*=m3u8]"
+        formats = f"bv*{hls}[height<={max_height}]+ba{hls}/b{hls}[height<={max_height}]/" + formats
     cmd = [
         *(ytdlp or ytdlp_command()),
-        "-f", f"bv*[height<={max_height}]+ba/b[height<={max_height}]/b",
+        "-f", formats,
         "--merge-output-format", "mp4",
         "--no-warnings",
         "-o", os.fspath(output),
     ]
-    if start is not None or end is not None:
+    if section:
         cmd += ["--download-sections", f"*{_hms(start or 0)}-{_hms(end) if end is not None else 'inf'}", "--force-keyframes-at-cuts"]
         if ffmpeg_input_args:
             cmd += ["--downloader-args", "ffmpeg_i:" + " ".join(ffmpeg_input_args)]
