@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-173-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-185-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -91,7 +91,7 @@ F9 → 영역 드래그 → **바로 녹화**, 다시 F9 → 저장.<br>
 <td valign="top">
 
 ### 📱 9:16 세로 클립 <sup>v0.2</sup>
-**center** · **fit** · **blur**(블러 배경) · **stack**(아바타 위 / 게임 아래) 레이아웃 + 단어별로 불이 들어오는 **카라오케 자막**(SRT · YouTube 자동 자막 VTT · Whisper).
+**center** · **fit** · **blur**(블러 배경) · **stack**(아바타 위 / 게임 아래, `--avatar auto`로 아바타 위치 자동 찾기) 레이아웃 + 단어별로 불이 들어오는 **카라오케 자막**(SRT · YouTube 자동 자막 VTT · Whisper).
 
 </td>
 <td valign="top">
@@ -166,6 +166,35 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 ```bash
 stream2clip check --agency nijisanji --info vod/info.json --description clips/clip_01.txt
 ```
+
+**아바타 위치 자동 찾기** — `--layout stack`에 `--avatar auto`를 주면 애니메 얼굴 검출로 아바타 박스를 정합니다. 박스만 먼저 확인하려면:
+
+```bash
+stream2clip avatar vod/video.mp4 --preview avatar.png
+```
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --avatar auto -o clips
+```
+
+<p align="center"><img src="docs/images/avatar.png" alt="화면 위에 그려진 아바타 박스 제안" width="66%"> <img src="docs/images/stack_auto.png" alt="자동으로 찾은 박스로 만든 stack 레이아웃 클립" width="21%"></p>
+<p align="center"><sub>키 비주얼을 방송 화면 삼아 찾은 아바타 박스(분홍)와 얼굴(노랑), 그 박스로 만든 stack 클립</sub></p>
+
+<details>
+<summary><b>🤖 아바타 박스는 이렇게 정합니다</b></summary>
+
+<br>
+
+아바타는 방송 내내 같은 자리에 있으므로 프레임마다 따라가지 않고 **방송 하나에 박스 하나**를 정합니다.
+
+1. 방송 길이의 8%~92% 구간에서 프레임 12장(`--avatar-samples`)을 고르게 뽑습니다.
+2. 각 프레임에서 애니메 얼굴을 검출합니다([deepghs/anime_face_detection](https://huggingface.co/deepghs/anime_face_detection) `face_detect_v1.4_n`, ONNX 12MB, onnxruntime CPU).
+3. 여러 프레임에서 **같은 자리에 계속 나오는 얼굴**을 아바타로 봅니다. 게임 캐릭터나 섬네일 속 얼굴은 나왔다 사라지지만 아바타는 남습니다. 뽑은 프레임의 40% 이상에서 나와야 합니다.
+4. 머리가 움직인 범위를 덮도록 얼굴 높이의 약 3배 크기로 넓히고, 머리카락 · 귀 · 모자를 위해 위쪽에 여유를 더 둡니다. 가로세로 비율은 stack 레이아웃의 아바타 칸에 맞춥니다.
+
+모델은 처음 쓸 때 한 번 내려받아 `~/.cache/stream2clip`(또는 `STREAM2CLIP_MODEL_DIR`)에 두고, 고정된 SHA-256과 다르면 쓰지 않습니다. 인터넷 없이 쓰려면 `--face-model model.onnx`로 파일을 지정하세요. 실제 방송 1개(480p, 85분)에서는 12장 모두에서 아바타 얼굴을 찾았고 2.9초 걸렸습니다. 아바타가 화면에 없거나 계속 돌아다니는 방송은 찾지 못하고, 그때는 `--avatar x,y,w,h`로 직접 지정하라고 안내합니다.
+
+</details>
 
 > [!TIP]
 > YouTube가 "Sign in to confirm you're not a bot"으로 막으면 `fetch`에 `--cookies-from-browser chrome`(또는 `firefox`, `edge`)이나 `--cookies cookies.txt`를 붙이세요. CHZZK · SOOP 채팅은 다른 수집기로 받은 뒤 `time,author,text` CSV로 넘기면 됩니다.
@@ -270,8 +299,9 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 | 📥 VOD · 채팅 수집 | **yt-dlp** | 2024.1+ | 2026.10 | 선택 설치 `[ingest]`, 구간 다운로드 · 채팅 다시보기 · heatmap |
 | 💬 자막 | **libass** (ffmpeg) · **faster-whisper** | — · 1.0+ | ffmpeg 내장 · 1.2.1 | 카라오케 ASS 입히기, 받아쓰기는 `[asr]` (오디오는 ffmpeg로 직접 디코딩해 넘김) |
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
+| 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 173개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 185개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows |
 | 📦 패키징 | `pyproject.toml` · setuptools | 77+ | — | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -295,6 +325,7 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 | `[ocr]` | pytesseract | 번역용 글자 인식 |
 | `[ingest]` | yt-dlp | `stream2clip fetch` (VOD · 채팅 · info) |
 | `[asr]` | faster-whisper | `--transcribe` 자동 받아쓰기 |
+| `[detect]` | onnxruntime | `--avatar auto` · `stream2clip avatar` (아바타 박스 자동 제안) |
 | `[dev]` | pytest, jsonschema, mss, PySide6 | 테스트 |
 
 </details>
@@ -338,7 +369,8 @@ pip install -e ".[gui]"
 | 번역용 OCR | `pip install -e ".[ocr]"` + tesseract 바이너리 |
 | 방송 URL에서 VOD · 채팅 받기 | `pip install -e ".[ingest]"` |
 | 자막 자동 받아쓰기 (Whisper) | `pip install -e ".[asr]"` |
-| 전부 | `pip install -e ".[gui,hotkey,ingest,asr]"` |
+| 아바타 위치 자동 찾기 | `pip install -e ".[detect]"` |
+| 전부 | `pip install -e ".[gui,hotkey,ingest,asr,detect]"` |
 
 <br>
 
@@ -531,6 +563,7 @@ src/stream2clip/
 ├── sources.py     yt-dlp: info · 채팅 · VOD 구간 · heatmap        audio.py  음량 곡선
 ├── highlights.py  하이라이트 검출 · 타임라인 그래프
 ├── layouts.py     9:16 레이아웃 (center · fit · blur · stack)
+├── detect.py      애니메 얼굴 검출 → stack 레이아웃 아바타 박스 제안
 ├── subtitles.py   SRT/VTT/JSON → 카라오케 ASS, faster-whisper 연결
 ├── compliance.py  기획사 가이드라인 프로필 · 설명란 · 업로드 전 점검
 ├── pipeline.py    하이라이트 → 완성 클립 일괄 생성
@@ -610,10 +643,10 @@ src/stream2clip/
 - [x] VOD 구간 · 크롭 변환, 주석 JSON 스키마, 플러그인 구조
 - [x] 📥 VOD · 채팅 수집 — yt-dlp(구간 · `live_chat` · heatmap), chat-downloader, TwitchDownloader, CSV/JSONL <sup>v0.2</sup>
 - [x] 🔥 하이라이트 검출 — 방송별 기준선 · 채팅 급증 · 고유 채터 · 반응 어휘 · 슈퍼챗 · 음량 · heatmap, 채팅 지연 보정 <sup>v0.2</sup>
-- [x] 📱 9:16 레이아웃 — center · fit · blur · stack(아바타 박스 수동 지정) <sup>v0.2</sup>
+- [x] 📱 9:16 레이아웃 — center · fit · blur · stack <sup>v0.2</sup>
 - [x] 💬 카라오케 자막 — SRT · YouTube VTT 단어 시각 · Whisper JSON · faster-whisper <sup>v0.2</sup>
 - [x] ✅ 기획사 가이드라인 설명란 생성 · 업로드 전 점검 <sup>v0.2</sup>
-- [ ] 🤖 아바타 박스 자동 제안 — 애니메 얼굴 검출(deepghs/anime_face_detection, MIT)로 stack 레이아웃 자동화
+- [x] 🤖 아바타 박스 자동 제안 — 애니메 얼굴 검출(deepghs/anime_face_detection)로 `--layout stack --avatar auto`
 - [ ] 🖥️ GUI에 하이라이트 타임라인 · 클립 미리보기 · 구간 미세 조정
 - [ ] 🇰🇷 CHZZK · SOOP 채팅 수집기 내장, 한국 기획사 가이드라인 프로필
 - [ ] 🌐 JP→KR 자막 번역 + 버튜버 이름 용어집 (Holodex 채널 메타)
@@ -648,6 +681,7 @@ xvfb-run -a pytest
 | `test_chat_sources.py` | 채팅 형식 4종 파싱, 실제 YouTube 다시보기 발췌본(익명화), 대기실 채팅 제거, 금액 파싱, yt-dlp 명령, info · heatmap, 음량 곡선, 받아쓰기용 오디오 디코딩 |
 | `test_highlights.py` | 반응 어휘 분류(실제 채팅 어휘 포함), 인사 · 작별 제외, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT/VTT/ASS, 자막이 정해진 시간에만 보이는지, 가이드라인 점검, 클립 파이프라인 |
+| `test_detect.py` | 얼굴 검출 전처리 · 후처리, 계속 같은 자리에 있는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` · `--avatar auto` (실제 모델은 파일이 있을 때만) |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
 | `test_gui_flow.py` | (디스플레이 필요) F8 → 편집기, F9 → 녹화 → 투명 GIF. Windows에서는 추가로 실제 F8/F9 입력 → 전역 단축키, 선택 영역 = 창의 물리 픽셀, 테두리 · REC 바가 녹화 영역 밖, 커서 합성 위치 |

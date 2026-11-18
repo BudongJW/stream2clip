@@ -73,6 +73,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
             clip_XX.mp4 · clip_XX.ass · clip_XX.txt · clips.json
 ```
 
+- **아바타 박스**(`--avatar auto`, `detect.py`): 프레임 12장을 뽑아 애니메 얼굴을 검출하고, 여러 프레임에서 같은 자리에 남는 얼굴을 아바타로 봐서 방송 하나에 고정 박스 하나를 정합니다. 프레임 단위 추적은 하지 않습니다. 전처리(letterbox) · 후처리(YOLO 출력 해석, NMS) · 군집 · 박스 계산은 numpy만 쓰는 순수 함수이고, onnxruntime은 `OnnxFaceDetector`를 만들 때만 import합니다. 프레임 추출은 `export.grab_frames`가 맡습니다.
 - **채팅 정리**: `chat.load_chat`은 YouTube 다시보기에서 0초로 기록된 대기실 채팅을 보낸 시각(`timestampUsec` − 오프셋 = 방송 시작 시각)으로 가려 버립니다. `highlights`는 인사 · 작별(`ROUTINE`)을 채팅 신호에서 뺍니다. 둘 다 실제 아카이브에서 방송 시작 · 끝에 가짜 봉우리를 만들던 것입니다.
 - **필터 순서**: `crop → fps → [layout 그래프] → scale → subtitles → extra → colorkey → 포맷별 처리`. 레이아웃은 `[pre] → [lay]` 레이블을 쓰는 서브그래프라 GIF 팔레트 등 뒤 단계와 그대로 이어집니다.
 - **자막 시간**: `-ss`를 입력 옵션으로 쓰므로 필터가 보는 시간은 0부터 시작합니다. 그래서 자막은 `slice_cues`로 클립 기준 시간으로 옮겨서 씁니다(테스트로 자막이 정해진 시간에만 보이는지 확인).
@@ -110,6 +111,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 | `tests/test_chat_sources.py` | 채팅 형식 4종, 실제 YouTube 다시보기 발췌본(익명화), 대기실 채팅 제거, 금액, yt-dlp 명령 · 쿠키, info · heatmap, 음량 곡선 |
 | `tests/test_highlights.py` | 반응 분류(실제 채팅 어휘 포함), 인사 · 작별 제외, 심어 둔 장면 검출 · 지연 보정 · 병합 · 길이 제한, 음량/heatmap 단독, JSON · 타임라인 |
 | `tests/test_clips.py` | 레이아웃 4종, 필터 경로 이스케이프, SRT/VTT/ASS, 자막 시간, 가이드라인 점검, 클립 파이프라인 |
+| `tests/test_detect.py` | letterbox · YOLO 출력 해석 · NMS, 같은 자리에 남는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` 명령과 `--avatar auto` |
 | `tests/test_cli.py` | CLI 명령 (`auto` · `check` 포함) |
 | `tests/test_gui.py` | 편집기 도구를 실제 마우스 이벤트로 조작, HiDPI 좌표 환산(소수 배율에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음 |
 | `tests/test_gui_flow.py` | (디스플레이 필요) F8 캡쳐 → 편집기, F9 영역 선택 → 녹화 → 투명 GIF 결과 검증. Windows: OS 수준 F8/F9 입력으로 전역 단축키, `GetWindowRect`로 선택 영역 · 테두리 · REC 바의 물리 좌표, `SetCursorPos`로 커서 합성 위치 |
