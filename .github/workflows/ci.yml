@@ -14,11 +14,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # Hosted runners sometimes stall here for many minutes on a slow package mirror.
+      # Each attempt gets 4 minutes, then it is retried instead of hanging the job.
       - name: System packages (ffmpeg, Xvfb, Qt runtime, CJK fonts)
+        timeout-minutes: 15
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg xvfb libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
-            libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxcb-randr0 libxcb-render-util0 libxcb-image0 fonts-noto-cjk
+          APT="sudo timeout 240 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          for attempt in 1 2 3; do
+            sudo dpkg --configure -a || true
+            if $APT update && $APT install -y ffmpeg xvfb libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
+              libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxcb-randr0 libxcb-render-util0 libxcb-image0 fonts-noto-cjk; then
+              break
+            fi
+            echo "apt attempt $attempt failed or timed out"
+            sleep 10
+          done
           ffmpeg -version
       - run: pip install -e ".[dev]"
       - name: Tests (including the end-to-end GUI flow on a virtual display)
