@@ -226,9 +226,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     korean = platform_of(args.url)  # CHZZK / SOOP: chat comes from their own replay API, not yt-dlp
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
     try:
-        info = fetch_info(args.url, ytdlp=ytdlp)
+        info = fetch_info(args.url, ytdlp=ytdlp, comments=args.comments)
         (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-        print(f"info   {out / 'info.json'}  ({info.get('title', '')})")
+        print(f"info   {out / 'info.json'}  ({info.get('title', '')})" + (f"  + {len(info.get('comments') or [])} comments" if args.comments else ""))
     except RuntimeError as exc:
         if not korean:
             raise
@@ -533,6 +533,44 @@ def cmd_upload(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    from .evaluation import evaluate_streams, load_stream, parse_sweep
+    from .highlights import HighlightConfig
+
+    streams = []
+    for folder in args.folders:
+        stream = load_stream(folder, min_votes=args.min_votes)
+        if not stream.labels:
+            print(f"skip   {stream.name}: no timestamps in its comments (fetch with --comments N)", file=sys.stderr)
+            continue
+        streams.append(stream)
+    if not streams:
+        raise ValueError("No stream with viewer timestamps to compare against")
+    base = HighlightConfig(top=args.top)
+    settings = [("defaults", base)]
+    for sweep in args.sweep:
+        settings += parse_sweep(sweep, base)
+
+    def line(name: str, s) -> str:
+        return f"{name:<28.28} {s.highlights:>4} {s.labels:>6} {s.precision:>9.0%} {s.recall:>7.0%} {s.chance:>7.0%} {s.lift:>5.2f}"
+
+    report = []
+    header = f"{'':<28} {'clip':>4} {'marked':>6} {'precision':>9} {'recall':>7} {'chance':>7} {'lift':>5}"
+    for label, cfg in settings:
+        rows, pooled = evaluate_streams(streams, cfg, tolerance=args.tolerance)
+        print(f"\n[{label}]")
+        print(header)
+        for name, score in rows:
+            print(line(name, score))
+        print(line(f"all {len(rows)} streams", pooled))
+        report.append({"setting": label, "streams": {name: vars(score) for name, score in rows},
+                       "pooled": {**vars(pooled), "precision": pooled.precision, "recall": pooled.recall, "lift": pooled.lift}})
+    if args.output:
+        Path(args.output).write_text(json.dumps({"schema": "stream2clip.evaluation/v1", "tolerance": args.tolerance, "results": report}, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"\nsaved {args.output}")
+    return 0
+
+
 def cmd_singing(args: argparse.Namespace) -> int:
     from .audio import singing_sections
 
@@ -643,7 +681,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cookies", help="Netscape cookies.txt for yt-dlp (fixes \"Sign in to confirm you're not a bot\")")
     p.add_argument("--cookies-from-browser", metavar="BROWSER", help="let yt-dlp read cookies from chrome / firefox / edge ...")
     p.add_argument("--subs", metavar="LANGS", help='also download captions as WebVTT (auto captions included), e.g. "ja" or "ja,ko"')
+    p.add_argument("--comments", type=int, default=0, metavar="N", help="also keep the N top comments in info.json (viewers' timestamps for `stream2clip evaluate`)")
     p.set_defaults(func=cmd_fetch)
+
+    p = sub.add_parser("evaluate", help="score the detector against the timestamps viewers left in the comments")
+    p.add_argument("folders", nargs="+", help="folders made by `fetch URL -o FOLDER --comments N` (chat replay + info.json)")
+    p.add_argument("--sweep", action="append", default=[], metavar="NAME=V1,V2", help="try several values of one setting, e.g. threshold=1.5,2,2.5 or delay=4,8,12 (repeatable)")
+    p.add_argument("--tolerance", type=float, default=10.0, help="seconds a marked moment may lie outside a highlight and still count (default 10)")
+    p.add_argument("--min-votes", type=int, default=1, help="only use moments marked by at least this many comments (default 1)")
+    p.add_argument("--top", type=int, default=10, help="maximum number of highlights per stream (default 10)")
+    p.add_argument("-o", "--output", help="write the numbers as JSON")
+    p.set_defaults(func=cmd_evaluate)
 
     p = sub.add_parser("highlights", help="find highlight moments from chat / audio / most-replayed")
     p.add_argument("--video", help="VOD file (duration, and loudness with --audio)")

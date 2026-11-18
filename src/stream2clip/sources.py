@@ -121,8 +121,12 @@ def ytdlp_command(*, cookies: str | os.PathLike[str] | None = None, cookies_from
     return base
 
 
-def build_info_command(url: str, *, ytdlp: list[str] | None = None) -> list[str]:
-    return [*(ytdlp or ytdlp_command()), "--dump-single-json", "--no-warnings", "--skip-download", url]
+def build_info_command(url: str, *, ytdlp: list[str] | None = None, comments: int = 0) -> list[str]:
+    """``comments`` > 0 also puts that many top comments into the JSON (viewers' timestamps, see ``evaluation``)."""
+    cmd = [*(ytdlp or ytdlp_command()), "--dump-single-json", "--no-warnings", "--skip-download"]
+    if comments > 0:
+        cmd += ["--write-comments", "--extractor-args", f"youtube:max_comments={int(comments)},all,0,0;comment_sort=top"]
+    return [*cmd, url]
 
 
 def build_chat_command(url: str, out_dir: str | os.PathLike[str], *, ytdlp: list[str] | None = None) -> list[str]:
@@ -211,8 +215,8 @@ def _run(cmd: list[str], timeout: float | None = None) -> subprocess.CompletedPr
     return proc
 
 
-def fetch_info(url: str, *, ytdlp: list[str] | None = None, timeout: float | None = 120) -> dict[str, Any]:
-    return json.loads(_run(build_info_command(url, ytdlp=ytdlp), timeout).stdout)
+def fetch_info(url: str, *, ytdlp: list[str] | None = None, timeout: float | None = 120, comments: int = 0) -> dict[str, Any]:
+    return json.loads(_run(build_info_command(url, ytdlp=ytdlp, comments=comments), timeout if comments <= 0 else None).stdout)
 
 
 def download_chat(url: str, out_dir: str | os.PathLike[str], *, ytdlp: list[str] | None = None, timeout: float | None = None) -> Path:
