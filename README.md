@@ -218,7 +218,7 @@ stream2clip fetch "https://vod.sooplive.co.kr/player/TITLE_NO" -o vod --video
 stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/info.json --audio -o clips
 ```
 
-채팅은 `chzzk_<번호>.chat.jsonl` · `soop_<번호>.chat.jsonl`로 저장됩니다. 한 줄에 메시지 하나(`time` · `text` · `author` · `kind` · `amount`)인 정규화 형식이고, **닉네임과 사용자 ID는 저장하지 않고** 해시만 남깁니다. 치즈 후원 · 별풍선 · 애드벌룬은 후원 신호로, 팬클럽 가입 · 구독은 멤버십으로 셉니다. 오래된 CHZZK 다시보기는 채팅이 남아 있지 않을 수 있습니다.
+채팅은 `chzzk_<번호>.chat.jsonl` · `soop_<번호>.chat.jsonl`로 저장됩니다. 한 줄에 메시지 하나(`time` · `text` · `author` · `kind` · `amount`)인 정규화 형식이고, **닉네임과 사용자 ID는 저장하지 않고** 해시만 남깁니다. 치즈 후원 · 별풍선 · 애드벌룬은 후원 신호로, 팬클럽 가입 · 구독은 멤버십으로 셉니다. 오래된 CHZZK 다시보기는 채팅이 남아 있지 않을 수 있습니다. CHZZK 영상은 `--start` · `--end` 구간 다운로드가 되지 않아 `--video`로 전체를 받아야 합니다.
 
 <details>
 <summary><b>🔬 하이라이트 점수는 이렇게 계산합니다</b></summary>
@@ -791,7 +791,7 @@ xvfb-run -a pytest
 | 🪟 Windows 10 | 🟡 같은 Win32 API를 쓰지만 실기기 미검증 |
 | 🍎 macOS | 🟡 시스템 설정의 화면 기록 권한 필요, 실기기 미검증 |
 | 🌊 Wayland | ❌ 화면 캡쳐(mss)는 X11/XWayland에서만 동작 |
-| 🇰🇷 CHZZK · SOOP 수집 | ✅ 실제 공개 다시보기 각 1개로 확인: CHZZK 채팅 983개(6초), SOOP 채팅 1,567개(8초, 별풍선 포함) → 하이라이트 검출까지. 비공개 · 성인 인증 · 구독자 전용 다시보기와 영상 다운로드는 확인하지 못했습니다 |
+| 🇰🇷 CHZZK · SOOP 수집 | ✅ 실제 공개 다시보기 각 1개로 확인: CHZZK 채팅 983개(6초), SOOP 채팅 1,567개(8초, 별풍선 포함) → 하이라이트 검출까지. 영상은 SOOP에서 20초 구간 다운로드를 확인했습니다. CHZZK는 구간 다운로드(`--start` · `--end`)가 실패했고(ffmpeg가 CHZZK의 HLS 목록을 열지 못함) 전체 영상 다운로드는 용량이 커서 시도하지 않았습니다. 비공개 · 성인 인증 · 구독자 전용 다시보기는 확인하지 못했습니다 |
 | 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) |
 
 - 배율이 다른 다중 모니터에서는 논리↔물리 좌표를 가상 화면 전체 비율로 환산하므로 선택 영역이 조금 어긋날 수 있습니다.
