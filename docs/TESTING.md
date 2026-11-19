@@ -1,0 +1,62 @@
+# 테스트
+
+## 실행
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;작&NoBreak;업&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 명령 |
+|:---:|---|
+| 개발 환경 설치 | `pip install -e ".[dev]"` |
+| 린트 | `ruff check .` |
+| 전체 테스트 | `pytest` |
+| 화면 없이 실행 | 환경 변수 `QT_QPA_PLATFORM=offscreen` 지정 후 `pytest` |
+| Linux에서 실제 화면 사용 테스트 포함 | `xvfb-run -a pytest` |
+
+- Windows에서 `pytest`를 옵션 없이 실행하면 `test_gui_flow.py`가 화면 좌측 상단에 창을 표시하고 F8, F9를 실제로 입력하며 마우스 커서를 수 초간 이동(종료 후 원위치)
+- 다른 프로그램이 F8, F9를 전역 단축키로 사용 중이면 해당 테스트는 건너뜀
+- 실제 얼굴 검출 모델을 사용하는 테스트는 모델 파일이 있는 경우에만 실행
+
+## CI
+
+| &numsp;&numsp;작&NoBreak;업&numsp;&numsp; | 환경 | 내용 |
+|:---:|---|---|
+| 린트 | Ubuntu | `ruff check .` |
+| 테스트 | Ubuntu, Python 3.10, 3.12, 3.14, Xvfb | GUI 테스트 포함 전체 테스트 |
+| 테스트 | Windows, Python 3.12, 오프스크린 | 전체 테스트 |
+| 패키징 | Windows | 패키징 변경 시 실행 파일 빌드, 파이썬과 ffmpeg가 PATH에 없는 상태에서 실행 확인, 설치 프로그램을 3개 언어로 자동 설치 및 제거 |
+| 홈페이지 | Ubuntu | `site/` 조립, 설명서 PDF 인쇄, GitHub Pages 배포 |
+
+## 원칙
+
+- 신규 기능은 테스트와 함께 추가
+- 외부 서비스(OBS, YouTube, 번역 서비스 등)는 테스트에서 가짜 구현으로 대체. 실제 서비스 검증 여부는 [VERIFICATION.md](VERIFICATION.md)에 기록
+- 네트워크 함수는 요청 함수를 교체할 수 있게 작성하여 테스트가 실제 요청을 보내지 않음
+- 테스트 자료는 `assets/brand`의 그림 또는 합성 데이터로 제작. 채팅 자료는 닉네임 제거 후 사용
+- 설정 파일을 사용하는 테스트는 `STREAM2CLIP_CONFIG_DIR`로 빈 폴더 지정
+
+## 파일별 범위
+
+| 파일 | 범위 |
+|---|---|
+| `test_core.py` | Region, 색, 프레임, 크로마키, ffmpeg 빌더 |
+| `test_editor.py` | 도형별 렌더링, 직렬화 왕복, JSON 스키마, 되돌리기, 히트 테스트, 오버레이 |
+| `test_export_record.py` | 6개 포맷 내보내기, 구간, 크롭, 투명 GIF, WebP, APNG의 잔상 없음, WebM 알파, numpy와 ffmpeg 크로마키 일치, 실시간 녹화 |
+| `test_chat_sources.py` | 채팅 형식 4종 파싱, 실제 YouTube 다시보기 발췌본(익명화), 대기실 채팅 제거, 금액 파싱, yt-dlp 명령, 쿠키, info, heatmap, 음량 곡선, 받아쓰기용 오디오 디코딩 |
+| `test_kr_chat.py` | CHZZK, SOOP 다시보기 채팅: 실제 응답의 익명화 발췌본 파싱(후원, 별풍선, 이모티콘, 가려진 메시지), 주소 해석, 페이지 수집, 여러 파일로 나뉜 VOD의 시간 보정, 이름 없이 저장되는지 여부 |
+| `test_highlights.py` | 반응 어휘 분류(실제 채팅 어휘 포함), 인사 및 작별 제외, 삽입한 장면 검출, 지연 보정, 병합, 길이 제한, 음량 및 heatmap 단독 사용, JSON, 타임라인 |
+| `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT, VTT, ASS, 자막의 표시 시간, 가이드라인 점검, 클립 파이프라인 |
+| `test_detect.py` | 얼굴 검출 전처리(letterbox), 후처리(YOLO 출력 해석, NMS), 동일 위치에 유지되는 얼굴 선택, 박스 형태, 모델 체크섬, `avatar`, `--avatar auto` |
+| `test_cli.py` | CLI 명령(`auto` 전체 절차, `check` 포함) |
+| `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지, 이름 고정, 원문 병기 자막, 묶음 전송, Holodex 초안, `--translate` |
+| `test_translator_loading.py` | 번역기를 파일, 모듈에서 불러오기(함수, 클래스, 객체, Windows 드라이브 경로), 잘못된 지정에 대한 안내, 예제 번역기(가짜 응답: 목록 추출, 줄 수 불일치 시 1줄씩 재요청), `--translator file.py` |
+| `test_audio_signals.py` | 웃음소리 신호(크고 끊어지는 소리), 가산 신호가 다른 하이라이트를 줄이지 않는지 여부, 노래 구간 검출(합성 음성, 노래), 노래 표시 및 제외 |
+| `test_evaluation.py` | 댓글의 타임스탬프 읽기(시각이 아닌 숫자 제외), 인접 표시 묶기, 댓글 수 집계, precision, recall, 무작위 기대값 계산, 설정값별 비교, `evaluate`, `fetch --comments` |
+| `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 다운로드(여유 시간, 수신한 파일 재사용), 구간 파일 기준 자막과 설명란의 방송 시각 유지, CHZZK 구간에서만 ffmpeg 확장자 검사 해제, `clips <주소>`, `auto <주소>`, 방송별 폴더 이름, 정보와 채팅만 수신(재사용, CHZZK 및 SOOP 정보 거부) |
+| `test_live.py` | 라이브 모드: 급증 발동(준비 시간, 쿨다운, 인사말, 후원, 늦게 도착한 채팅), 구간 확정 후 판정, yt-dlp 라이브 채팅 줄 읽기, 파일 따라 읽기(불완전한 줄, 교체된 파일), 리플레이에서 장면 위치 계산, 가짜 OBS로 클립 저장, `live` 명령 |
+| `test_obs_upload.py` | obs-websocket 인증, 요청, 이벤트(가짜 서버, 실제 소켓), 리플레이 마지막 N초 변환, 업로드 본문 검증, 기본 비공개, 진행률, `--dry-run` |
+| `test_i18n.py` | 화면 문구와 일본어, 영어 번역 목록의 일치(자리 표시, 줄바꿈 포함), `tr()`로 감싸지 않은 한국어 문구 유무, 장식 기호 유무, 언어 결정 순서(앱 설정, 환경 변수, 설치 시 선택, 시스템), 영어 및 일본어로 실제 창 표시 |
+| `test_packaging.py` | 빌드 스크립트(이름, 명령, 아이콘, ffmpeg 복사, zip, 설치 프로그램), 빌드된 실행 파일의 같은 폴더 ffmpeg 우선 사용, yt-dlp 실행 경로 |
+| `test_site.py` | 홈페이지: 조립 결과에 페이지가 가리키는 파일과 책갈피의 존재, 다운로드 버튼의 최신 릴리즈 연결, 설명서의 현재 버전 표기, 브랜드 색과 서체, 문구의 장식 기호 및 구어체 유무, 3개 언어판의 구성 일치, 언어 선택 드롭다운, PDF 인쇄 명령 |
+| `test_docs.py` | 저장소 문서(README, CHANGELOG, CONTRIBUTING, SECURITY, `docs/`): 링크와 책갈피의 존재, 장식 기호 및 구어체 종결 유무, 표 항목 열의 줄바꿈 방지 처리, README의 버전과 테스트 수 표기, 양식과 브랜드 안내 파일의 문구 |
+| `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125%, 150%, 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않는지 여부, 앱 아이콘 크기 구성, 마스코트 이미지 |
+| `test_gui_highlights.py` | 하이라이트 창: 타임라인 막대와 시간축의 일치, 구간 이동, 가장자리 조정, 한계, 좁은 구간 확대, 분석, 미리보기, 내보내기(끌어서 변경한 길이로 저장되는지 여부), 아바타 자동 찾기, 실패 표시 |
+| `test_gui_wiring.py` | 설정 파일(손상된 파일, 쓸 수 없는 폴더, 사용할 수 없는 값), 런처와 하이라이트 창의 설정 저장(비밀번호 미저장), 리플레이 저장 버튼(가짜 OBS), 창의 번역, 용어집, 노래 구간, 웃음소리, 업로드 창(보낼 내용 보기, 가짜 업로드, 기본 비공개), 하이라이트 창의 주소로 시작하기(구간만 다운로드, 재사용, 미리보기), 런처의 라이브 모드(급증 시 클립 저장, OBS 문제 안내, 창을 닫으면 중지) |
+| `test_gui_flow.py` | 디스플레이 필요. F8 캡쳐, 편집기, F9 영역 선택, 녹화, 투명 GIF 결과 검증. Windows에서는 OS 수준 F8, F9 입력으로 전역 단축키, `GetWindowRect`로 선택 영역, 테두리, REC 바의 물리 좌표, `SetCursorPos`로 커서 합성 위치 추가 확인 |
