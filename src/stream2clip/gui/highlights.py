@@ -664,11 +664,11 @@ class HighlightsWindow(QMainWindow):
                 edit.setText(value)
                 self._fetched_paths[edit] = value
 
-    def _download(self, url: str, highlights: list[Highlight], on_progress=None) -> dict[int, tuple[Path, float]]:
-        """Fetch the footage of ``highlights`` (called from a worker thread); files that are already there are reused."""
+    def _download(self, url: str, folder: Path, highlights: list[Highlight], on_progress=None) -> dict[int, tuple[Path, float]]:
+        """Fetch the footage of ``highlights`` into ``folder`` (called from a worker thread); files that are already there are reused."""
         from .. import sources
 
-        got = sources.download_highlight_sections(url, highlights, self.source_folder(url) / "sections", ytdlp=sources.ytdlp_command(), on_progress=on_progress)
+        got = sources.download_highlight_sections(url, highlights, folder / "sections", ytdlp=sources.ytdlp_command(), on_progress=on_progress)
         self.sections.update(got)
         return got
 
@@ -881,6 +881,7 @@ class HighlightsWindow(QMainWindow):
                 self._on_failed(tr("먼저 하이라이트를 찾으세요."))
                 return
             sample = self.timeline.highlights[index]
+        folder = self.source_folder(url) if url else None
         self._set_busy(True, tr("구간 내려받는 중…") if url else tr("아바타 찾는 중…"))
 
         def work() -> None:
@@ -888,7 +889,7 @@ class HighlightsWindow(QMainWindow):
 
             footage = video
             if sample is not None:
-                footage = str(self._download(url, [sample])[sample.rank][0])
+                footage = str(self._download(url, folder, [sample])[sample.rank][0])
                 self._stage.emit("avatar")
             self._exported.emit(("avatar", suggest_avatar_for_video(footage, default_detector())))
 
@@ -926,6 +927,7 @@ class HighlightsWindow(QMainWindow):
             return
         self.remember()
         self._set_busy(True, tr("클립 {0}개 내보내는 중…").format(len(chosen)))
+        folder = self.source_folder(url) if url else None
         steps = len(chosen) * (2 if url else 1)  # an address: download each section, then encode it
         self.progress.setRange(0, steps)
         self.progress.setValue(0)
@@ -948,7 +950,7 @@ class HighlightsWindow(QMainWindow):
                 glossary = Glossary.load(glossary_path) if glossary_path else None
             sections = None
             if url:
-                sections = self._download(url, chosen, lambda i, n, h: self._progress.emit(i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} – {4} 내려받는 중…").format(i, n, h.rank, _clock(h.start), _clock(h.end))))
+                sections = self._download(url, folder, chosen, lambda i, n, h: self._progress.emit(i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} – {4} 내려받는 중…").format(i, n, h.rank, _clock(h.start), _clock(h.end))))
             done = len(chosen) if url else 0
             results = make_clips(
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
