@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>stream2clip — 긴 방송 속 레전드만 쏙</title>
-<meta name="description" content="방송 다시보기에서 클립을 뽑아내는, 버튜버를 위한 영상 편집 도구. Windows용 실행 파일과 설명서를 받을 수 있습니다.">
+<title>stream2clip - 방송 하이라이트 클립 제작 도구</title>
+<meta name="description" content="방송 다시보기에서 하이라이트 구간을 검출하여 세로형 클립으로 제작하는 영상 편집 도구. Windows 실행 파일과 사용 설명서 제공.">
 <meta name="theme-color" content="#15131F">
 <meta property="og:type" content="website">
-<meta property="og:title" content="stream2clip — Stream in. Clips out.">
-<meta property="og:description" content="긴 방송 속 레전드만 쏙. 채팅이 터진 순간을 찾아 9:16 클립으로.">
+<meta property="og:title" content="stream2clip - Stream in. Clips out.">
+<meta property="og:description" content="방송 다시보기에서 하이라이트 구간을 검출하여 세로형 클립으로 제작하는 영상 편집 도구">
 <meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/favicon.ico" sizes="48x48">
@@ -20,19 +20,19 @@
 <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
-<a class="skip" href="#main">본문으로 건너뛰기</a>
+<a class="skip" href="#main">본문으로 이동</a>
 
 <header class="top">
   <div class="wrap">
-    <a class="lockup" href="./" aria-label="stream2clip 첫 화면">
+    <a class="lockup" href="./" aria-label="stream2clip 홈">
       <img src="assets/symbol-on-dark.svg" alt="" width="38" height="38">
       <span><span class="s">stream</span><span class="two">2</span><span class="c">clip</span></span>
     </a>
     <nav class="nav" aria-label="주요 메뉴">
-      <a href="#download">받기</a>
-      <a href="#features">기능</a>
-      <a href="guide.html">설명서</a>
-      <a class="gh" href="https://github.com/BudongJW/stream2clip">GitHub</a>
+      <a href="#download">다운로드</a>
+      <a href="#features">주요 기능</a>
+      <a href="guide.html">사용 설명서</a>
+      <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
     </nav>
   </div>
 </header>
@@ -41,151 +41,161 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <p class="eyebrow">For VTubers · Stream → Clips</p>
-        <h1>긴 방송 속<br><em>레전드</em>만 쏙<span class="dot">.</span></h1>
-        <p class="lead">방송 다시보기에서 클립을 뽑아내는, 버튜버를 위한 영상 편집 도구. 채팅이 터진 순간을 찾아 9:16 클립 · 자막 · 설명란까지 한 번에 만듭니다.</p>
+        <h1>긴 방송 속<br><em>레전드</em>만 쏙.</h1>
+        <p class="summary">방송 다시보기에서 하이라이트 구간을 검출하여 세로형 클립으로 제작하는 영상 편집 도구</p>
         <div class="actions">
-          <a class="btn primary" data-download href="https://github.com/BudongJW/stream2clip/releases/latest">
+          <a class="btn" data-download href="https://github.com/BudongJW/stream2clip/releases/latest">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
-            Windows용 내려받기
+            Windows용 다운로드
           </a>
-          <a class="btn ghost" href="guide.html">설명서 보기</a>
+          <a class="text" href="guide.html">사용 설명서</a>
         </div>
-        <p class="meta" data-release>최신 릴리즈 · zip · 압축만 풀면 됩니다</p>
+        <dl class="facts">
+          <dt>버전</dt><dd data-release="version">최신 릴리즈</dd>
+          <dt>배포일</dt><dd data-release="date">릴리즈 페이지 참조</dd>
+          <dt>파일 크기</dt><dd data-release="size">릴리즈 페이지 참조</dd>
+          <dt>지원 환경</dt><dd>Windows 64비트</dd>
+          <dt>라이선스</dt><dd>Apache-2.0</dd>
+        </dl>
       </div>
 
       <div>
         <div class="stage">
           <div class="frame">
-            <img src="assets/shots/highlights_window.png" alt="stream2clip 하이라이트 창: 채팅 반응 타임라인에서 찾은 구간과 9:16 미리보기" width="1350" height="956">
-            <span class="rec live">LIVE</span>
-            <span class="tc">02:41:07</span>
+            <img src="assets/shots/highlights_window.png" alt="stream2clip 하이라이트 창: 채팅 반응 타임라인에서 검출한 구간과 9:16 미리보기" width="1350" height="956">
           </div>
           <div class="clipcard" aria-hidden="true">
-            <span class="tag">CLIP 01 · 0:32</span>
-            <span class="say">ㅋㅋㅋ 레전드</span>
+            <span class="time">CLIP 01 0:32</span>
             <img src="assets/kiri/kiri_laugh_512.png" alt="" width="512" height="512">
           </div>
         </div>
         <div class="timeline">
-          <img src="img/timeline.svg" alt="채팅 반응 타임라인: 회색 막대는 평소 채팅, 분홍 막대 세 묶음은 클립으로 뽑힌 구간" width="1040" height="196">
+          <img src="img/timeline.svg" alt="채팅 반응 타임라인: 회색 막대는 평소 채팅량, 분홍 막대 세 묶음은 클립으로 검출된 구간" width="1040" height="196">
           <ul class="legend">
             <li><span class="sw"></span>채팅 반응</li>
-            <li><span class="sw clip"></span>클립 구간</li>
-            <li><span class="sw vert"></span>9:16 세로 클립</li>
+            <li><span class="sw clip"></span>검출 구간</li>
+            <li><span class="sw vert"></span>9:16 세로형 클립</li>
           </ul>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="download">
+  <section class="block" id="download">
     <div class="wrap">
-      <div class="sectionhead">
-        <p class="eyebrow">Download</p>
-        <h2>세 걸음이면 됩니다</h2>
-        <p>설치 프로그램은 없습니다. 압축을 풀고 실행하면 끝입니다.</p>
-      </div>
-      <ol class="steps">
-        <li class="card">
-          <h3>zip을 받아 압축 풀기</h3>
-          <p>원하는 폴더에 풀면 <code>stream2clip-gui.exe</code>(앱)와 <code>stream2clip.exe</code>(명령줄)가 들어 있습니다.</p>
-          <a class="btn primary" data-download href="https://github.com/BudongJW/stream2clip/releases/latest">Windows용 zip 받기</a>
-          <p class="meta" data-release>최신 릴리즈 · Windows 64비트 (Windows 11에서 확인)</p>
-        </li>
-        <li class="card">
-          <h3>ffmpeg 준비하기</h3>
-          <p>영상을 자르고 변환하는 데 필요합니다. 이미 있다면 건너뛰세요. 터미널에 한 줄이면 됩니다.</p>
-          <pre><code>winget install Gyan.FFmpeg</code></pre>
-          <p>또는 <code>ffmpeg.exe</code> · <code>ffprobe.exe</code>를 실행 파일 옆에 두어도 됩니다.</p>
-        </li>
-        <li class="card">
-          <h3>실행하고 첫 클립 만들기</h3>
-          <p><code>stream2clip-gui.exe</code>를 엽니다. <kbd>F8</kbd> 캡쳐, <kbd>F9</kbd> 움짤 녹화, <strong>하이라이트 찾기</strong>로 방송에서 클립을 뽑습니다.</p>
-          <a class="btn ghost" href="guide.html#first-run">처음 실행 안내</a>
-        </li>
-      </ol>
-      <ul class="notes">
-        <li><strong>코드 서명이 없는 프로그램입니다.</strong> Windows SmartScreen 경고가 뜰 수 있고, Smart App Control이 켜진 PC에서는 실행이 막힐 수 있습니다. 그럴 때는 아래의 파이썬 설치를 쓰세요. 파일의 SHA-256은 <a href="https://github.com/BudongJW/stream2clip/releases/latest">릴리즈 페이지</a>에 적혀 있습니다.</li>
-        <li><strong>macOS · Linux, 또는 파이썬으로 쓰고 싶다면</strong> Python 3.10 이상에서 <code>pip install "stream2clip[gui] @ git+https://github.com/BudongJW/stream2clip"</code> 후 <code>stream2clip gui</code>.</li>
-        <li>실행 파일에는 자막 받아쓰기(Whisper)와 YouTube 업로드가 들어 있지 않습니다. 이 둘은 파이썬 설치에서 씁니다.</li>
-      </ul>
-    </div>
-  </section>
-
-  <section id="features">
-    <div class="wrap">
-      <div class="sectionhead">
-        <p class="eyebrow">Features</p>
-        <h2>스트림에서 클립을 꺼내는 일, 전부</h2>
-        <p>가로 16:9 방송에서 세로 9:16 클립 한 장을 꺼내기까지 필요한 것들입니다.</p>
-      </div>
-      <div class="features">
-        <div class="card">
-          <span class="k">HIGHLIGHTS</span>
-          <h3>채팅이 터진 순간 찾기</h3>
-          <p>채팅 급증 · 참여자 수 · 반응 어휘 · 후원을 방송마다의 평소 수준과 비교해 하이라이트를 찾고, 타임라인에서 구간을 끌어 다듬습니다.</p>
+      <h2>다운로드</h2>
+      <div class="split">
+        <div class="tablewrap">
+          <table>
+            <tbody>
+              <tr><th scope="row">배포 형태</th><td>Windows 실행 파일 묶음(zip). 앱 <code>stream2clip-gui.exe</code>, 명령줄 도구 <code>stream2clip.exe</code> 포함</td></tr>
+              <tr><th scope="row">지원 환경</th><td>Windows 64비트. Windows 11에서 검증</td></tr>
+              <tr><th scope="row">필수 구성 요소</th><td>ffmpeg (영상 변환)</td></tr>
+              <tr><th scope="row">설치 방식</th><td>압축 해제 후 실행. 별도 설치 프로그램 없음</td></tr>
+              <tr><th scope="row">코드 서명</th><td>미적용. Windows SmartScreen 경고가 표시될 수 있으며, Smart App Control 사용 환경에서는 파이썬 패키지 설치 권장</td></tr>
+              <tr><th scope="row">무결성 확인</th><td><a href="https://github.com/BudongJW/stream2clip/releases/latest">릴리즈 페이지</a>의 SHA-256 값과 대조</td></tr>
+              <tr><th scope="row">별도 설치 기능</th><td>자막 받아쓰기(Whisper), YouTube 업로드는 파이썬 패키지 설치 시 제공</td></tr>
+              <tr><th scope="row">기타 운영체제</th><td>macOS, Linux는 파이썬 패키지로 설치. Python 3.10 이상 필요</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="card">
-          <span class="k">FROM A URL</span>
-          <h3>주소 하나로 클립까지</h3>
-          <p>방송 주소를 넣으면 채팅 다시보기로 장면을 찾고, 고른 구간의 영상만 내려받습니다. 몇 시간짜리 방송을 통째로 받지 않습니다.</p>
-        </div>
-        <div class="card">
-          <span class="k">9:16 · SUBTITLES</span>
-          <h3>세로 클립과 자막</h3>
-          <p>blur · center · stack 레이아웃, 단어가 따라 켜지는 카라오케 자막, 번역과 이름 용어집까지 입혀 내보냅니다.</p>
-        </div>
-        <div class="card">
-          <span class="k">CAPTURE · GIF</span>
-          <h3>캡쳐와 움짤 녹화</h3>
-          <p><kbd>F8</kbd>로 캡쳐해 바로 편집하고, <kbd>F9</kbd>로 GIF · MP4 · WebP를 녹화합니다. 그린스크린을 지운 투명 배경 녹화도 됩니다.</p>
-        </div>
-        <div class="card">
-          <span class="k">OBS · LIVE</span>
-          <h3>방금 그 장면, 방송 중에</h3>
-          <p>OBS 리플레이 버퍼를 <kbd>F10</kbd>으로 저장해 움짤로 만듭니다. 라이브 모드는 채팅이 급증하면 알아서 저장합니다. <span class="soon">다음 버전</span></p>
-        </div>
-        <div class="card">
-          <span class="k">GUIDELINES</span>
-          <h3>올리기 전 점검</h3>
-          <p>원본 제목 · 주소를 맨 위에 둔 설명란을 만들고, 기획사 가이드라인 항목을 점검합니다. 체크리스트일 뿐이니 원문은 직접 확인하세요.</p>
+        <div>
+          <h3>설치 절차</h3>
+          <ol class="procedure">
+            <li><a data-download href="https://github.com/BudongJW/stream2clip/releases/latest">zip 파일 다운로드</a> 후 원하는 폴더에 압축 해제</li>
+            <li>ffmpeg 설치
+              <pre><code>winget install Gyan.FFmpeg</code></pre>
+            </li>
+            <li><code>stream2clip-gui.exe</code> 실행</li>
+          </ol>
+          <h3 class="spaced">파이썬 패키지 설치</h3>
+          <pre class="wrap"><code>pip install "stream2clip[gui,ingest,obs] @ git+https://github.com/BudongJW/stream2clip"</code></pre>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="screens">
+  <section class="block" id="features">
     <div class="wrap">
-      <div class="sectionhead">
-        <p class="eyebrow">Screens</p>
-        <h2>이렇게 생겼습니다</h2>
-      </div>
+      <h2>주요 기능</h2>
+      <dl class="features">
+        <div>
+          <dt>하이라이트 검출</dt>
+          <dd><ul>
+            <li>채팅량, 참여자 수, 반응 어휘, 후원 내역을 방송별 평균과 비교하여 구간 검출</li>
+            <li>타임라인에서 구간 이동 및 길이 조정</li>
+            <li>음량 분석, 노래 구간 표시 및 제외</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>방송 주소 입력</dt>
+          <dd><ul>
+            <li>방송 주소만으로 채팅 수집 및 하이라이트 검출</li>
+            <li>선택한 구간의 영상만 다운로드</li>
+            <li>YouTube, CHZZK, SOOP 다시보기 지원</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>세로형 클립 및 자막</dt>
+          <dd><ul>
+            <li>9:16 레이아웃 4종: blur, center, fit, stack</li>
+            <li>카라오케 자막, 자막 번역, 용어집</li>
+            <li>원본 제목과 주소를 포함한 설명란 자동 작성</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>화면 캡쳐 및 녹화</dt>
+          <dd><ul>
+            <li><kbd>F8</kbd> 영역 캡쳐 및 주석 편집</li>
+            <li><kbd>F9</kbd> 화면 녹화: GIF, MP4, WebP, WebM</li>
+            <li>지정 색상 제거 방식의 투명 배경 녹화</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>OBS 연동 및 라이브 모드</dt>
+          <dd><ul>
+            <li><kbd>F10</kbd> 리플레이 버퍼 저장 및 클립 변환</li>
+            <li>라이브 모드: 방송 중 채팅 급증 시 리플레이 자동 저장 및 클립 생성</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>가이드라인 점검</dt>
+          <dd><ul>
+            <li>기획사별 점검 항목 확인: hololive, にじさんじ, ぶいすぽっ!, あおぎり高校</li>
+            <li>점검 결과는 참고 자료이며 법적 판단이 아님</li>
+          </ul></dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block" id="screens">
+    <div class="wrap">
+      <h2>화면 구성</h2>
       <div class="shots">
         <figure>
-          <img src="assets/shots/highlights_window.png" alt="하이라이트 창: 입력 파일, 타임라인, 구간 목록, 레이아웃 미리보기, 내보내기 설정" width="1350" height="956" loading="lazy">
-          <figcaption>하이라이트 창 — 브랜드 키 비주얼로 만든 영상과 합성 채팅으로 실행한 화면</figcaption>
+          <img src="assets/shots/highlights_window.png" alt="하이라이트 창: 입력 자료, 타임라인, 구간 목록, 레이아웃 미리보기, 내보내기 설정" width="1350" height="956" loading="lazy">
+          <figcaption>하이라이트 창: 타임라인, 구간 목록, 미리보기, 내보내기 설정. 예시 화면은 브랜드 이미지와 합성 채팅 데이터로 작성</figcaption>
         </figure>
         <figure>
-          <img src="assets/shots/launcher.png" alt="런처: 캡쳐 버튼, 움짤 녹화 설정, 투명 배경 녹화, 하이라이트 찾기, OBS 리플레이" width="1030" height="975" loading="lazy">
-          <figcaption>런처 — 캡쳐 · 움짤 녹화 · 방송 → 클립</figcaption>
+          <img src="assets/shots/launcher.png" alt="런처: 캡쳐, 화면 녹화, 하이라이트 찾기, OBS 리플레이, 라이브 모드" width="1030" height="1020" loading="lazy">
+          <figcaption>런처: 캡쳐, 화면 녹화, 클립 제작, OBS 연동</figcaption>
         </figure>
       </div>
     </div>
   </section>
 
-  <section id="manual">
+  <section class="block" id="manual">
     <div class="wrap">
-      <div class="card manual">
-        <img src="assets/kiri/kiri_wink_512.png" alt="마스코트 키리가 윙크하는 그림" width="512" height="512" loading="lazy">
+      <h2>사용 설명서</h2>
+      <div class="manual">
+        <img src="assets/kiri/kiri_wink_512.png" alt="마스코트 키리" width="512" height="512" loading="lazy">
         <div>
-          <p class="eyebrow">Manual</p>
-          <h2>처음이라면 설명서부터</h2>
-          <p>설치부터 첫 클립, OBS 연동, 자주 막히는 곳까지 한 장에 담았습니다. PDF로 받아 두고 볼 수도 있습니다.</p>
-          <div class="actions">
-            <a class="btn primary" href="guide.html">설명서 읽기</a>
-            <a class="btn ghost" href="stream2clip-guide.pdf" download>PDF로 받기</a>
-          </div>
+          <p>설치, 기본 사용법, 화면 캡쳐 및 녹화, 하이라이트 클립 제작, 자막 및 번역, OBS 연동, 라이브 모드, 명령줄 사용, 문제 해결 수록</p>
+          <ul class="links">
+            <li><a href="guide.html">웹 문서 보기</a></li>
+            <li><a href="stream2clip-guide.pdf" download>PDF 다운로드</a></li>
+          </ul>
         </div>
       </div>
     </div>
@@ -195,13 +205,11 @@
 <footer>
   <div class="wrap">
     <span class="tagline">Stream in. Clips out.</span>
-    <span class="links">
-      <a href="https://github.com/BudongJW/stream2clip">GitHub</a> ·
-      <a href="https://github.com/BudongJW/stream2clip/releases">릴리즈</a> ·
-      <a href="https://github.com/BudongJW/stream2clip/blob/main/CHANGELOG.md">변경 내역</a> ·
-      <a href="https://github.com/BudongJW/stream2clip/blob/main/LICENSE">Apache-2.0</a>
-    </span>
-    <p>stream2clip은 오픈소스입니다. 기획사 가이드라인 점검은 체크리스트이며 법적 판단이 아닙니다. 이 페이지는 서체를 Google Fonts에서, 최신 릴리즈 정보를 GitHub에서 불러옵니다.</p>
+    <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+    <a href="https://github.com/BudongJW/stream2clip/releases">릴리즈</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/CHANGELOG.md">변경 내역</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/LICENSE">라이선스</a>
+    <p>오픈소스 소프트웨어(Apache-2.0). 본 페이지는 Google Fonts의 서체와 GitHub의 릴리즈 정보를 불러옴.</p>
   </div>
 </footer>
 

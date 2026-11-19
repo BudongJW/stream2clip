@@ -11,7 +11,7 @@
 캡쳐부터 움짤 녹화까지, 한 프로그램으로
 
 <!-- 프로젝트 -->
-<a href="#️-로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.4.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#️-로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.5.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#️-알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-316-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-319-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -52,6 +52,8 @@
 **stream2clip**은 방송 화면과 다시보기(VOD)에서 장면을 **캡쳐**하고, **바로 편집**하고, **GIF · MP4 · WebP 움짤로 녹화**하는 도구입니다. 그린스크린을 지운 **투명 배경 녹화**도 됩니다. 데스크톱 앱(PySide6)으로 쓸 수 있고, GUI 없이 **다른 오픈소스 영상 프로젝트에 그대로 이식**할 수 있도록 코어를 작은 파이썬 라이브러리로 분리했습니다.
 
 > [!NOTE]
+> **v0.5** — **라이브 모드**(방송 중 채팅 급증 시 OBS 리플레이를 자동 저장, 런처와 명령줄), 하이라이트 창에서 **방송 주소로 시작하기**, [홈페이지](https://budongjw.github.io/stream2clip/)와 사용 설명서(PDF 포함)가 들어갔습니다.
+>
 > **v0.4** — **주소 하나로 클립까지**(하이라이트 구간의 영상만 내려받음), 앱 화면 **한국어 · 일본어 · 영어**, 앱에서 **번역 · 업로드 · OBS 리플레이**(F10), **번역기를 파일 하나로 연결**, 여러 방송으로 검출을 재는 **`evaluate`** 가 들어갔습니다. 실제 OBS · CHZZK · YouTube로 확인하며 찾은 문제도 고쳤습니다.
 >
 > **v0.3** — 앱에 **하이라이트 창**이 생겼고, **아바타 위치 자동 찾기**, **CHZZK · SOOP 채팅 수집**, **자막 번역 + 이름 용어집**, **노래 구간 검출**, **OBS 리플레이 버퍼 → 클립**, **YouTube 업로드**, **Windows 실행 파일**이 들어갔습니다. 바뀐 내용은 [CHANGELOG.md](CHANGELOG.md)에 있습니다.
@@ -222,7 +224,7 @@ stream2clip auto vod/video.mp4 --chat vod/VIDEO_ID.live_chat.json --audio --skip
 stream2clip replay -o moment.gif --last 15 --width 480
 ```
 
-**라이브 모드** — 방송 중에 채팅을 지켜보다가 급증하면 OBS 리플레이 버퍼를 저장하고 그 장면을 클립으로 잘라 둡니다. 키를 누를 필요가 없습니다.
+**라이브 모드** — 방송 중에 채팅을 지켜보다가 급증하면 OBS 리플레이 버퍼를 저장하고 그 장면을 클립으로 잘라 둡니다. 키를 누를 필요가 없습니다. 앱에서는 런처의 **라이브 모드** 줄에 YouTube 라이브 주소를 넣고 민감도(낮음 4.5 · 보통 3.5 · 높음 2.5)를 고른 뒤 **라이브 모드 시작**을 누릅니다. 클립은 저장 폴더에 녹화 설정의 형식으로 저장됩니다. 명령줄에서는:
 
 ```bash
 stream2clip live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips
@@ -459,7 +461,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 316개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 319개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -555,7 +557,7 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱 (콘솔 창 없음) |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 — `fetch` · `auto` · `avatar` 등 전부 |
-| `dist/stream2clip-0.4.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.5.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
 
 | 옵션 | 동작 |
 |---|---|
@@ -898,7 +900,8 @@ src/stream2clip/
 - [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항) <sup>v0.4</sup>
 - [x] 🌐 홈페이지 — [내려받기 · 설명서](https://budongjw.github.io/stream2clip/)(PDF 포함), GitHub Pages로 배포 (`site/`, `packaging/build_site.py`)
 - [x] 📡 라이브 모드 — `stream2clip live`: 방송 중 채팅 급증을 보고 OBS 리플레이를 자동 저장 (YouTube 주소 · 채팅 파일)
-- [ ] 📡 라이브 모드를 앱(런처)에서 켜기, CHZZK · SOOP 라이브 채팅 직접 받기
+- [x] 📡 라이브 모드를 앱(런처)에서 켜기 — 주소 · 민감도 · 시작/중지 <sup>v0.5</sup>
+- [ ] 📡 CHZZK · SOOP 라이브 채팅 직접 받기
 - [x] 🌏 앱 화면 일본어 · 영어 — 런처 · 하이라이트 창 · 업로드 창 · 편집기 · 녹화 화면의 문구 230개 <sup>v0.4</sup>
 - [ ] 🌏 하이라이트 근거 · 가이드라인 점검 · 명령줄 출력의 일본어 · 영어 (지금은 한국어), 원어민 검수
 - [ ] 🇰🇷 한국 기획사 가이드라인 프로필 — 공식 원문을 확인한 곳부터 (스텔라이브 · 이세계아이돌은 원문 미확보)
@@ -955,7 +958,7 @@ xvfb-run -a pytest
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지 · 이름 고정 · 두 줄 자막 · 묶음 전송, Holodex 초안, `--translate` |
 | `test_i18n.py` | 화면 문구와 일본어 · 영어 번역 목록이 빠짐없이 맞는지(자리 표시 · 줄바꿈 포함), 감싸지 않은 한국어 문구가 없는지, 언어 결정 순서(앱 설정 · 환경 변수 · 시스템), 영어 · 일본어로 실제 창 띄우기 |
-| `test_site.py` | 홈페이지: 조립 결과에 페이지가 가리키는 파일 · 책갈피가 모두 있는지, 내려받기 버튼이 최신 릴리즈를 따르는지, 설명서가 현재 버전을 말하는지, 브랜드 색 · 서체, PDF 인쇄 명령 |
+| `test_site.py` | 홈페이지: 조립 결과에 페이지가 가리키는 파일 · 책갈피가 모두 있는지, 내려받기 버튼이 최신 릴리즈를 따르는지, 설명서가 현재 버전을 말하는지, 브랜드 색 · 서체, 문구에 장식 기호 · 구어체가 없는지, PDF 인쇄 명령 |
 | `test_live.py` | 라이브 모드: 급증 발동(준비 시간 · 쿨다운 · 인사말 · 후원 · 늦게 온 채팅), 구간이 닫힌 뒤에만 판정, yt-dlp 라이브 채팅 줄 읽기, 파일 따라 읽기(반쪽 줄 · 교체된 파일), 리플레이에서 장면 위치 계산, 가짜 OBS로 클립 저장, `live` 명령 |
 | `test_evaluation.py` | 댓글에서 타임스탬프 읽기(시각이 아닌 숫자 제외), 가까운 표시 묶기 · 댓글 수 세기, precision · recall · 무작위 기대값 계산, 설정값 바꿔 가며 비교, `evaluate` · `fetch --comments` |
 | `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 내려받기(여유 시간 · 이미 받은 파일 재사용), 구간 파일에서 잘라도 자막 · 설명란은 방송 시각 기준, CHZZK 구간에서만 ffmpeg 확장자 검사 끄기, `clips <주소>` · `auto <주소>`, 방송별 폴더 이름, 정보 · 채팅만 받기(재사용 · CHZZK/SOOP 정보 거부) |
@@ -965,7 +968,7 @@ xvfb-run -a pytest
 | `test_packaging.py` | 빌드 스크립트(이름 · 명령 · 아이콘 · ffmpeg 복사 · zip), 빌드된 실행 파일이 옆의 ffmpeg를 먼저 쓰는지, yt-dlp 실행 경로 |
 | `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음, 앱 아이콘 크기 구성 · 마스코트 이미지 |
 | `test_gui_highlights.py` | 하이라이트 창: 타임라인 막대가 시간축과 맞는지, 구간 이동 · 가장자리 조정 · 한계, 좁은 구간 확대, 분석 → 미리보기 → 내보내기(끌어서 바꾼 길이로 저장되는지), 아바타 자동 찾기, 실패 표시 |
-| `test_gui_wiring.py` | 설정 파일(깨진 파일 · 쓸 수 없는 폴더 · 쓸 수 없는 값), 런처 · 하이라이트 창이 설정을 기억하는지(비밀번호는 저장 안 됨), 리플레이 저장 버튼(가짜 OBS), 창에서 번역 · 용어집 · 노래 구간 · 웃음소리, 업로드 창(보낼 내용 보기 · 가짜 업로드 · 기본 비공개), 하이라이트 창에서 주소로 시작하기(구간만 내려받기 · 재사용 · 미리보기) |
+| `test_gui_wiring.py` | 설정 파일(깨진 파일 · 쓸 수 없는 폴더 · 쓸 수 없는 값), 런처 · 하이라이트 창이 설정을 기억하는지(비밀번호는 저장 안 됨), 리플레이 저장 버튼(가짜 OBS), 창에서 번역 · 용어집 · 노래 구간 · 웃음소리, 업로드 창(보낼 내용 보기 · 가짜 업로드 · 기본 비공개), 하이라이트 창에서 주소로 시작하기(구간만 내려받기 · 재사용 · 미리보기), 런처의 라이브 모드(급증 시 클립 저장 · OBS 문제 안내 · 창을 닫으면 중지) |
 | `test_gui_flow.py` | (디스플레이 필요) F8 → 편집기, F9 → 녹화 → 투명 GIF. Windows에서는 추가로 실제 F8/F9 입력 → 전역 단축키, 선택 영역 = 창의 물리 픽셀, 테두리 · REC 바가 녹화 영역 밖, 커서 합성 위치 |
 
 > [!NOTE]
