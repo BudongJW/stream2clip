@@ -2,6 +2,11 @@
 
 ## 다음 릴리즈 (작업 중)
 
+### 홈페이지
+- [https://budongjw.github.io/stream2clip/](https://budongjw.github.io/stream2clip/): Windows 실행 파일 내려받기와 설명서. 내려받기 버튼은 최신 릴리즈의 zip을 가리키고 버전 · 날짜 · 크기를 보여 줍니다(GitHub API를 못 쓰면 릴리즈 페이지로 갑니다).
+- 설명서는 웹 페이지와 PDF 두 가지입니다. PDF는 배포할 때 같은 페이지를 Chrome으로 인쇄해 만듭니다.
+- 브랜드 컨셉(잉크 · 페이퍼 · 라이브 핑크 · 하이라이트, Outfit · Noto Sans KR · JetBrains Mono, 채팅 타임라인과 9:16 클립 카드, 키리)을 따릅니다. 그림은 저장소에 두 번 두지 않고 `packaging/build_site.py`가 `assets/brand` · `docs/images`에서 가져옵니다.
+
 ### 라이브 모드
 - `stream2clip live <YouTube 라이브 주소 | 채팅 파일>`: 방송 중 채팅이 급증하면 OBS 리플레이 버퍼를 저장하고 그 장면(약 35초)을 클립으로 잘라 둡니다. `--no-obs`는 알리기만 하고, `--simulate`는 끝난 방송의 채팅으로 언제 발동했을지 보여 줍니다.
 - 급증은 다시보기 검출과 같은 점수(채팅 수 · 참여자 · 반응 어휘 · 후원의 robust z)를 직전 15분과 비교해 판단합니다. 기본값은 끝난 방송 7개에 돌려 본 발동 횟수(시간당 약 6회)로 정했습니다.

@@ -155,6 +155,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 | `tests/test_detect.py` | letterbox · YOLO 출력 해석 · NMS, 같은 자리에 남는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` 명령과 `--avatar auto` |
 | `tests/test_translation.py` | 용어집, 자막 번역(시간 유지 · 두 줄 · 묶음), Holodex 초안, `--translate` |
 | `tests/test_audio_signals.py` | 웃음소리 신호, 가산 신호, 노래 구간 검출 · 표시 · 제외 |
+| `tests/test_site.py` | 홈페이지 조립, 페이지 안 링크, 내려받기 버튼, 설명서 PDF 인쇄 명령 |
 | `tests/test_live.py` | 실시간 급증 검출, 라이브 채팅 줄 · 파일 따라 읽기, 리플레이에서 장면 자르기, `live` 명령 |
 | `tests/test_obs_upload.py` | obs-websocket 클라이언트(가짜 서버 · 실제 소켓), 리플레이 변환, 업로드 본문 · 진행률 |
 | `tests/test_packaging.py` | 빌드 스크립트, 빌드된 실행 파일의 ffmpeg · yt-dlp 경로 |
