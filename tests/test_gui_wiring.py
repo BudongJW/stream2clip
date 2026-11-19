@@ -423,3 +423,80 @@ def test_upload_form_is_filled_from_the_exported_clip(app, window, stream_files,
     deadline = time.time() + 0.05
     while time.time() < deadline:
         app.processEvents()
+
+
+# ----------------------------------------------------------------------------- starting from an address
+@needs_ffmpeg
+def test_highlights_from_an_address(app, window, tmp_path, monkeypatch):
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    from stream2clip import sources
+
+    footage = tmp_path / "footage.mp4"  # long enough for any section that is asked for
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=160x90:r=5:d=100", "-f", "lavfi", "-i", "sine=frequency=440:duration=100",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(footage)], check=True)
+    url = "https://www.youtube.com/watch?v=abcdef12345"
+    asked, fetched = [], []
+
+    def fake_chat(u, out, ytdlp=None):
+        asked.append("chat")
+        rows = ["time,author,text"] + [f"{t},u{t % 30},なるほど" for t in range(0, 1800, 3)] + [f"{906 + i * 0.05:.2f},r{i},草" for i in range(160)]
+        path = Path(out) / "chat.csv"
+        path.write_text("\n".join(rows), encoding="utf-8")
+        return path
+
+    def fake_section(u, output, start=None, end=None, *, max_height=1080, ytdlp=None, timeout=None):
+        fetched.append((u, start, end))
+        Path(output).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(footage, output)
+        return Path(output)
+
+    monkeypatch.setattr(sources, "ytdlp_command", lambda **kwargs: ["yt-dlp"])  # yt-dlp itself is not needed (nor installed in CI)
+    monkeypatch.setattr(sources, "fetch_info", lambda u, ytdlp=None: asked.append("info") or {"id": "abcdef12345", "title": "【雑談】朝活", "webpage_url": u, "duration": 1800})
+    monkeypatch.setattr(sources, "download_chat", fake_chat)
+    monkeypatch.setattr(sources, "download_section", fake_section)
+
+    out = tmp_path / "clips"
+    assert window.audio_check.isEnabled() and window.singing_combo.isEnabled()
+    window.set_paths(video=url, output=str(out))
+    assert not window.audio_check.isEnabled() and not window.laughter_check.isEnabled() and not window.singing_combo.isEnabled()  # they need the video file
+    window.audio_check.setChecked(True)
+    window.top_spin.setValue(1)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    work = out / "sources" / "youtube_abcdef12345"
+    assert asked == ["info", "chat"] and fetched == []  # no video yet
+    assert window.info_edit.text() == str(work / "info.json") and window.chat_edit.text() == str(work / "chat.csv")
+    assert window.list.count() == 1 and "하이라이트 1개" in window.status.text()
+    assert "내보내면" in window.preview.text()  # nothing to show a still from
+
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("gif"))
+    window.export()
+    wait(app, lambda: not window.busy, 60)
+    assert "저장됨" in window.status.text(), window.status.text()
+    h = window.timeline.highlights[0]
+    assert fetched == [(url, pytest.approx(h.start - 2), pytest.approx(h.end + 2))]  # only the highlight, with a little room
+    assert (out / "clip_01.gif").is_file() and len(list((work / "sections").glob("section_01_*.mp4"))) == 1
+    assert url in (out / "clip_01.txt").read_text(encoding="utf-8")  # the description names the stream
+    assert window.progress.value() == window.progress.maximum() == 1
+    wait(app, lambda: window.preview.pixmap() is not None and not window.preview.pixmap().isNull(), 20)  # the still comes from the downloaded section
+
+    window.analyse()  # again: the chat and info on disk are used
+    wait(app, lambda: not window.busy)
+    assert asked == ["info", "chat"]
+    window.export()
+    wait(app, lambda: not window.busy, 60)
+    assert len(fetched) == 1  # and so is the footage
+
+    window.video_edit.setText(str(footage))  # back to a file: the audio options are available again
+    assert window.audio_check.isEnabled() and window.sections == {}
+    assert window.info_edit.text() == "" and window.chat_edit.text() == ""  # what was fetched for that stream does not stay for another source
+
+    mine = tmp_path / "my_chat.csv"
+    mine.write_text("time,author,text\n1,a,草\n", encoding="utf-8")
+    window.set_paths(video=url, chat=str(mine))
+    window.video_edit.setText(url + "0")
+    assert window.chat_edit.text() == str(mine)  # a file the user chose is left alone

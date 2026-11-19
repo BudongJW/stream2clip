@@ -1,6 +1,6 @@
 """Highlights window: 방송 → 클립.
 
-Pick a VOD and its chat replay, find the highlights, fine-tune each span by dragging
+Pick a VOD and its chat replay (or paste the stream's address), find the highlights, fine-tune each span by dragging
 it on the timeline, look at a still preview with the chosen layout and export the
 checked ones. All the work is done by the core (``pipeline.find_highlights`` /
 ``pipeline.make_clips``); this module only draws and collects settings.
@@ -48,7 +48,8 @@ __all__ = ["HighlightsWindow", "TimelineWidget", "default_clip_dir", "mood_for"]
 _LAYOUT_LABELS = {"blur": tr("blur · 블러 배경"), "center": tr("center · 가운데 채우기"), "fit": tr("fit · 전체 보이기"), "stack": tr("stack · 아바타 위 / 게임 아래"), "none": tr("원본 화면 그대로")}
 _STAGES = {
     "chat": tr("채팅 읽는 중…"), "audio": tr("음량 분석 중… (영상 길이에 따라 수십 초)"), "laughter": tr("웃음소리 찾는 중…"),
-    "singing": tr("노래 구간 찾는 중…"), "detect": tr("하이라이트 찾는 중…"),
+    "singing": tr("노래 구간 찾는 중…"), "detect": tr("하이라이트 찾는 중…"), "avatar": tr("아바타 찾는 중…"),
+    "fetch-info": tr("방송 정보 받는 중…"), "fetch-chat": tr("채팅 다시보기 받는 중… (긴 방송은 몇 분 걸립니다)"),
 }
 _SINGING = [("off", tr("노래 구간 안 봄")), ("mark", tr("노래 구간 표시")), ("skip", tr("노래 구간 제외"))]
 _PICK_FILE = "\x00file"  # the "choose a .py file" entry of the translator list
@@ -252,7 +253,7 @@ class TimelineWidget(QWidget):
         p.setFont(small)
         if self.result is None:
             p.setPen(QColor(theme.MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, tr("영상과 채팅을 고르고 ‘하이라이트 찾기’를 누르세요"))
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, tr("영상과 채팅을 고르거나 방송 주소를 넣고 ‘하이라이트 찾기’를 누르세요"))
             p.end()
             return
 
@@ -303,6 +304,7 @@ class HighlightsWindow(QMainWindow):
     _progress = Signal(int, int, str)
     _exported = Signal(object)
     _failed = Signal(str)
+    _fetched = Signal(str, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -315,6 +317,8 @@ class HighlightsWindow(QMainWindow):
         self.upload_dialog = None
         self.last_dir = ""
         self._preview_token = 0
+        self.sections: dict[int, tuple[Path, float]] = {}  # footage fetched for the highlights of an address: rank -> (file, stream time at its start)
+        self._fetched_paths: dict[QLineEdit, str] = {}  # the info / chat fields this window filled in from an address
 
         root = QWidget(objectName="Root")
         outer = QVBoxLayout(root)
@@ -352,7 +356,7 @@ class HighlightsWindow(QMainWindow):
         bottom.addWidget(self.mascot_label)
         self.mood = ""
         self.set_mood("wink")
-        self.status = QLabel(tr("영상과 채팅 다시보기를 고르세요"), objectName="Muted")
+        self.status = QLabel(tr("영상과 채팅 다시보기를 고르거나 방송 주소를 넣으세요"), objectName="Muted")
         bottom.addWidget(self.status, 1)
         self.progress = QProgressBar()
         self.progress.setFixedWidth(220)
@@ -383,6 +387,7 @@ class HighlightsWindow(QMainWindow):
         self._progress.connect(self._on_progress)
         self._exported.connect(self._on_exported)
         self._failed.connect(self._on_failed)
+        self._fetched.connect(self._on_fetched)
 
     # ------------------------------------------------------------------ layout
     def _path_row(self, grid: QGridLayout, row: int, column: int, label: str, placeholder: str, filters: str) -> QLineEdit:
@@ -409,10 +414,11 @@ class HighlightsWindow(QMainWindow):
         grid.setContentsMargins(14, 12, 14, 12)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(6)
-        self.video_edit = self._path_row(grid, 0, 0, tr("영상"), tr("다시보기 파일 (video.mp4)"), "Video (*.mp4 *.mkv *.webm *.mov *.flv *.ts);;All files (*)")
+        self.video_edit = self._path_row(grid, 0, 0, tr("영상"), tr("다시보기 파일 (video.mp4) 또는 방송 주소 (https://…)"), "Video (*.mp4 *.mkv *.webm *.mov *.flv *.ts);;All files (*)")
         self.chat_edit = self._path_row(grid, 0, 3, tr("채팅"), "yt-dlp live_chat.json · chat-downloader · TwitchDownloader · CSV", "Chat (*.json *.jsonl *.csv);;All files (*)")
         self.info_edit = self._path_row(grid, 1, 0, tr("정보"), tr("(선택) yt-dlp info.json — 원본 제목 · URL · 많이 다시 본 구간"), "JSON (*.json);;All files (*)")
         self.subs_edit = self._path_row(grid, 1, 3, tr("자막"), tr("(선택) SRT · WebVTT — YouTube 자동 자막도 됩니다"), "Subtitles (*.vtt *.srt *.json);;All files (*)")
+        self.video_edit.setToolTip(tr("방송 주소를 넣으면 채팅 다시보기로 하이라이트를 찾고 그 구간의 영상만 내려받습니다.\n음량 · 웃음소리 · 노래 구간은 영상 파일이 있어야 씁니다."))
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(4, 1)
         grid.setColumnMinimumWidth(3, 44)
@@ -444,6 +450,7 @@ class HighlightsWindow(QMainWindow):
         self.analyse_button.clicked.connect(self.analyse)
         options.addWidget(self.analyse_button)
         grid.addLayout(options, 2, 0, 1, 6)
+        self.video_edit.textChanged.connect(self._on_source_changed)
         return card
 
     def _export_card(self) -> QWidget:
@@ -615,6 +622,56 @@ class HighlightsWindow(QMainWindow):
             if value:
                 edit.setText(str(value))
 
+    def source_url(self) -> str:
+        """The address in the video field, or ``""`` when it holds a file."""
+        from ..sources import is_url
+
+        text = self.video_edit.text().strip()
+        return text if is_url(text) else ""
+
+    def source_folder(self, url: str) -> Path:
+        """Where the info, chat and footage fetched from ``url`` are kept: one folder per stream under the output folder."""
+        from ..sources import source_folder_name
+
+        return Path(self.output_edit.text().strip() or default_clip_dir()) / "sources" / source_folder_name(url)
+
+    def footage(self, highlight: Highlight) -> tuple[str, float] | None:
+        """``(file, stream time at its start)`` to read ``highlight`` from, or ``None`` when nothing is on disk yet."""
+        video = self.video_edit.text().strip()
+        if not video:
+            return None
+        if not self.source_url():
+            return video, 0.0
+        got = self.sections.get(highlight.rank)
+        if got is None or not got[0].is_file() or highlight.peak < got[1]:
+            return None
+        return str(got[0]), got[1]
+
+    def _on_source_changed(self) -> None:
+        """An address has no audio to analyse; footage fetched for another stream is forgotten."""
+        local = not self.source_url()
+        for widget in (self.audio_check, self.laughter_check, self.singing_combo):
+            widget.setEnabled(local)
+        self.sections = {}
+        for edit, value in self._fetched_paths.items():  # the chat of one stream must not be used with another
+            if edit.text() == value:
+                edit.clear()
+        self._fetched_paths = {}
+
+    def _on_fetched(self, info: str, chat: str) -> None:
+        for edit, value in ((self.info_edit, info), (self.chat_edit, chat)):
+            if value and not edit.text().strip():
+                edit.setText(value)
+                self._fetched_paths[edit] = value
+
+    def _download(self, url: str, folder: Path, highlights: list[Highlight], on_progress=None) -> dict[int, tuple[Path, float]]:
+        """Fetch the footage of ``highlights`` into ``folder`` (called from a worker thread); files that are already there are reused."""
+        from .. import sources
+
+        got = sources.download_highlight_sections(url, highlights, folder / "sections", ytdlp=sources.ytdlp_command(), on_progress=on_progress)
+        self.sections.update(got)
+        return got
+
     def set_mood(self, mood: str) -> None:
         """Kiri next to the status line: wink = ready, focus = working, cut = clips done, surprised = failed."""
         if mood != self.mood:
@@ -675,12 +732,14 @@ class HighlightsWindow(QMainWindow):
             return
         video, chat, info = self.video_edit.text().strip(), self.chat_edit.text().strip(), self.info_edit.text().strip()
         if not video:
-            self._on_failed(tr("영상 파일을 고르세요."))
+            self._on_failed(tr("영상 파일을 고르거나 방송 주소를 넣으세요."))
             return
+        url = self.source_url()
         config = HighlightConfig(threshold=self.threshold_spin.value(), top=self.top_spin.value())
-        audio = self.audio_check.isChecked()
-        laughter = self.laughter_check.isChecked()
-        singing = self.singing_combo.currentData()
+        audio = self.audio_check.isChecked() and not url
+        laughter = self.laughter_check.isChecked() and not url
+        singing = self.singing_combo.currentData() if not url else "off"
+        folder = self.source_folder(url) if url else None
         self.remember()
         self._set_busy(True, tr("분석 시작…"))
         self.progress.setRange(0, 0)  # busy indicator
@@ -688,13 +747,22 @@ class HighlightsWindow(QMainWindow):
         def work() -> None:
             from ..pipeline import find_highlights
 
+            nonlocal chat, info
+            if url and not (chat and info):  # the video itself comes later, and only the parts that are exported
+                from .. import sources
+
+                got_info, got_chat = sources.fetch_replay(url, folder, info=not info, chat=not chat, reuse=True, ytdlp=sources.ytdlp_command(), on_stage=self._stage.emit)
+                info, chat = info or str(got_info or ""), chat or str(got_chat or "")
+                self._fetched.emit(info, chat)
             source = {}
             if info:
                 from ..sources import load_info, source_from_info
 
                 src = source_from_info(load_info(info))
                 source = {"url": src.url, "title": src.title}
-            result = find_highlights(video, chat=chat or None, info=info or None, audio=audio, laughter=laughter, config=config, source=source, on_stage=self._stage.emit)
+            elif url:
+                source = {"url": url}
+            result = find_highlights(None if url else video, chat=chat or None, info=info or None, audio=audio, laughter=laughter, config=config, source=source, on_stage=self._stage.emit)
             if singing != "off":
                 from ..audio import singing_sections
                 from ..highlights import mark_singing
@@ -753,11 +821,17 @@ class HighlightsWindow(QMainWindow):
     def refresh_preview(self) -> None:
         """Render one frame of the selected highlight with the current layout (in the background)."""
         index = self.timeline.current
-        video = self.video_edit.text().strip()
-        if index < 0 or not video:
+        if index < 0 or not self.video_edit.text().strip():
             self.preview.setPixmap(QPixmap())
             self.preview.setText(tr("미리보기"))
             return
+        found = self.footage(self.timeline.highlights[index])
+        if found is None:  # an address: the footage of this highlight has not been downloaded yet
+            self._preview_token += 1
+            self.preview.setPixmap(QPixmap())
+            self.preview.setText(tr("내보내면\n미리보기가 보입니다"))
+            return
+        video, offset = found
         try:
             layout = self.layout_choice()
         except ValueError:
@@ -766,7 +840,7 @@ class HighlightsWindow(QMainWindow):
             return
         if layout is not None:  # a small canvas is enough for a still and renders quickly
             layout = VerticalLayout(layout.kind, 360, 640, avatar=layout.avatar, game=layout.game, split=layout.split)
-        moment = self.timeline.highlights[index].peak
+        moment = self.timeline.highlights[index].peak - offset
         self._preview_token += 1
         token = self._preview_token
 
@@ -799,12 +873,25 @@ class HighlightsWindow(QMainWindow):
         video = self.video_edit.text().strip()
         if self.busy or not video:
             return
-        self._set_busy(True, tr("아바타 찾는 중…"))
+        url = self.source_url()
+        sample = None
+        if url:  # look at the footage of one highlight instead of the whole stream
+            index = self.timeline.current
+            if not 0 <= index < len(self.timeline.highlights):
+                self._on_failed(tr("먼저 하이라이트를 찾으세요."))
+                return
+            sample = self.timeline.highlights[index]
+        folder = self.source_folder(url) if url else None
+        self._set_busy(True, tr("구간 내려받는 중…") if url else tr("아바타 찾는 중…"))
 
         def work() -> None:
             from ..detect import default_detector, suggest_avatar_for_video
 
-            self._exported.emit(("avatar", suggest_avatar_for_video(video, default_detector())))
+            footage = video
+            if sample is not None:
+                footage = str(self._download(url, folder, [sample])[sample.rank][0])
+                self._stage.emit("avatar")
+            self._exported.emit(("avatar", suggest_avatar_for_video(footage, default_detector())))
 
         self._run(work)
 
@@ -830,6 +917,7 @@ class HighlightsWindow(QMainWindow):
         info_path = self.info_edit.text().strip()
         agency = self.agency_combo.currentData()
         out_dir = self.output_edit.text().strip() or str(default_clip_dir())
+        url = self.source_url()
         translator_spec = self.translator_choice()
         target = self.target_edit.text().strip() or "ko"
         glossary_path = self.glossary_edit.text().strip()
@@ -839,7 +927,9 @@ class HighlightsWindow(QMainWindow):
             return
         self.remember()
         self._set_busy(True, tr("클립 {0}개 내보내는 중…").format(len(chosen)))
-        self.progress.setRange(0, len(chosen))
+        folder = self.source_folder(url) if url else None
+        steps = len(chosen) * (2 if url else 1)  # an address: download each section, then encode it
+        self.progress.setRange(0, steps)
         self.progress.setValue(0)
 
         def work() -> None:
@@ -858,11 +948,15 @@ class HighlightsWindow(QMainWindow):
 
                 subtitle_translator = get_translator(translator_spec)
                 glossary = Glossary.load(glossary_path) if glossary_path else None
+            sections = None
+            if url:
+                sections = self._download(url, folder, chosen, lambda i, n, h: self._progress.emit(i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} – {4} 내려받는 중…").format(i, n, h.rank, _clock(h.start), _clock(h.end))))
+            done = len(chosen) if url else 0
             results = make_clips(
-                video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
+                None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
-                source=source, profile=profile,
-                on_progress=lambda i, n, h: self._progress.emit(i - 1, n, tr("[{0}/{1}] #{2:02d} {3} – {4} 인코딩 중…").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
+                source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
+                on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} – {4} 인코딩 중…").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )
             self._exported.emit(("clips", results))
 
@@ -892,6 +986,8 @@ class HighlightsWindow(QMainWindow):
         where = value[0].path.parent if value else self.output_edit.text()
         self._set_busy(False, tr("클립 {0}개 저장됨: {1}{2}").format(len(value), where, note))
         self.set_mood("cut")
+        if self.source_url():  # the footage is on disk now, so the still can be shown
+            self.refresh_preview()
 
     # ------------------------------------------------------------------ upload
     def upload_candidate(self):
