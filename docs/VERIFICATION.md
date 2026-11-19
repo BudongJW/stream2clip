@@ -23,8 +23,24 @@
 
 - GitHub Actions의 Windows 러너에서 빌드 후 3개 언어로 자동 설치, 설치된 프로그램의 시작 언어와 제거 확인
 - 언어 선택 창 표시 확인(러너 화면 캡쳐)
-- 미검증: 화면을 직접 조작하는 수동 설치
-- 코드 서명 미적용. Smart App Control 사용 PC에서 3회 빌드한 결과 `stream2clip.exe`는 매회, `stream2clip-gui.exe`는 1회 차단(2회는 실행)
+- 화면 단계별 설치: Windows 11 실기기에서 v0.8.0 설치 프로그램을 자동 옵션 없이 실행하여 언어 선택 창(English, 日本語, 한국어 제공)에서 일본어 선택, 설치 위치, 설치 준비, 설치, 완료 화면까지 진행. 15개 확인 항목 통과
+  - 설치 결과: 사용자 폴더의 `AppData\Local\Programs\stream2clip`에 프로그램, `language.txt`(`ja`), 제거 프로그램 생성. 시작 메뉴 바로 가기와 제거 항목 등록
+  - 완료 화면의 실행 선택으로 앱이 일본어 화면으로 시작. 명령줄 프로그램의 `language`도 `ja`
+  - 제거: 제거 프로그램의 확인 창을 거쳐 프로그램, 바로 가기, 제거 항목 삭제 확인
+- 코드 서명 미적용. Smart App Control 사용 PC에서 3회 빌드한 결과 `stream2clip.exe`는 매회, `stream2clip-gui.exe`는 1회 차단(2회는 실행). Smart App Control을 사용하지 않는 상태에서는 차단 없이 실행
+
+## 실행 파일
+
+Windows 11 실기기에서 v0.8.0 zip의 실행 파일을 직접 실행하여 확인(파이썬 소스가 아닌 빌드된 프로그램 기준, 13개 확인 항목 통과)
+
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 확인 내용 |
+|:---:|---|
+| 시작 | `stream2clip.exe --version`, 내장 yt-dlp 실행, `stream2clip-gui.exe` 창 표시와 종료 |
+| 클립 제작 | pip 레이아웃과 별도 아바타 영상 합성, 문장 경계 맞춤, 자막 스타일과 위치, 설치 폰트 조회(일본어 자막에 Yu Gothic 선택) |
+| 검출, 점검 | 스트리머 표시 구간, 영어와 일본어 근거 문구, `check --vrm` |
+| 라이브 채팅 | CHZZK, SOOP, Twitch의 실제 채팅을 각 75초 수신(OBS 미사용). 메시지 388개, 323개, 900개 |
+
+- 빌드된 프로그램은 출력을 파이프로 연결하면 시스템 코드 페이지(한국어 Windows는 cp949)로 기록. 콘솔 출력은 영향 없음
 
 ## 수집
 
