@@ -19,6 +19,7 @@ STYLE_SHEET = f"""
 }}
 QMainWindow, QDialog, QWidget#Root {{ background: {INK}; }}
 QWidget#Card {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 14px; }}
+QWidget#Notice {{ background: {SURFACE_2}; border: 1px solid {LIVE_PINK}; border-radius: 12px; }}
 QWidget#Toolbar, QWidget#BottomBar {{ background: {SURFACE}; }}
 QWidget#Toolbar {{ border-bottom: 1px solid {BORDER}; }}
 QWidget#BottomBar {{ border-top: 1px solid {BORDER}; }}

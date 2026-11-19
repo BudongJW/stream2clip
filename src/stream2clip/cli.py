@@ -654,6 +654,45 @@ def cmd_language(args: argparse.Namespace) -> int:
     return 0
 
 
+def _download_progress(megabytes: int, step: int = 10):
+    """Called with (done, total) bytes: prints a line every ``step`` percent."""
+    shown = [0]
+
+    def progress(done: int, total: int) -> None:
+        percent = int(done * 100 / total) if total else 0
+        if percent >= shown[0] + step or (total and done >= total and shown[0] < 100):
+            shown[0] = 100 if done >= total else percent - percent % step
+            print(f"  {shown[0]:3d}%  {done / 1e6:.0f} / {megabytes} MB", flush=True)
+
+    return progress
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    from . import tools
+    from .ffmpeg import find_ffmpeg
+    from .i18n import tr
+
+    if (args.archive or args.force) and not args.ffmpeg:
+        raise ValueError("--from and --force go with --ffmpeg")
+    if args.ffmpeg:
+        build = tools.FFMPEG_BUILD
+        if tools.ffmpeg_ready() and not args.force:
+            print(tr("ffmpeg 이미 있음: {0}").format(find_ffmpeg()))
+        else:
+            if not args.archive:
+                print(tr("ffmpeg {0} 내려받는 중 ({1} MB): {2}").format(build.version, build.megabytes, build.url), flush=True)
+            for path in tools.install_ffmpeg(archive=args.archive, on_progress=_download_progress(build.megabytes)):
+                print(tr("저장: {0}").format(path))
+    if args.model:
+        from .detect import ensure_model
+
+        print(tr("얼굴 검출 모델: {0}").format(ensure_model()))
+    found = tools.components(obs=None if args.no_obs else ("127.0.0.1", args.obs_port))
+    for line in tools.report_lines(found):
+        print(line)
+    return 1 if tools.missing_required(found) else 0
+
+
 def cmd_upload(args: argparse.Namespace) -> int:
     from .export import probe
     from .upload import load_credentials, shorts_problems, upload_video, video_resource, video_url
@@ -933,6 +972,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("language", help="show the interface language the app starts in (before a choice made in the app itself)")
     p.add_argument("-v", "--verbose", action="store_true", help="also show where it could come from")
     p.set_defaults(func=cmd_language)
+
+    p = sub.add_parser("setup", help="show what the features need on this PC and what is missing (ffmpeg, yt-dlp, OBS ...); --ffmpeg fetches ffmpeg")
+    p.add_argument("--ffmpeg", action="store_true", help="Windows: download ffmpeg and ffprobe (115 MB, checked against a pinned SHA-256) into the user's tools folder; nothing is fetched when ffmpeg is already found")
+    p.add_argument("--from", dest="archive", metavar="ZIP", help="with --ffmpeg: take the programs out of this already downloaded archive of the pinned build instead of downloading")
+    p.add_argument("--force", action="store_true", help="with --ffmpeg: fetch even when ffmpeg is already found")
+    p.add_argument("--model", action="store_true", help="download the face detection model now (12 MB) instead of on first use")
+    p.add_argument("--obs-port", type=int, default=4455, help="port of OBS's WebSocket server to look for (default: 4455)")
+    p.add_argument("--no-obs", action="store_true", help="do not look for OBS")
+    p.set_defaults(func=cmd_setup)
 
     p = sub.add_parser("upload", help="upload a clip to YouTube (private unless you say otherwise)")
     p.add_argument("video")

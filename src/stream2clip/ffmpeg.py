@@ -31,6 +31,7 @@ __all__ = [
     "FFmpegNotFoundError",
     "find_ffmpeg",
     "find_ffprobe",
+    "tools_dir",
     "build_video_filter",
     "build_export_command",
     "build_capture_command",
@@ -57,6 +58,12 @@ def app_dir() -> Path | None:
     return Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else None
 
 
+def tools_dir() -> Path:
+    """Where a downloaded ffmpeg is kept: ``STREAM2CLIP_TOOLS_DIR`` or the user cache (see :mod:`stream2clip.tools`)."""
+    base = os.environ.get("STREAM2CLIP_TOOLS_DIR")
+    return Path(base) if base else Path.home() / ".cache" / "stream2clip" / "tools"
+
+
 def _find_binary(name: str, env: str) -> str:
     candidate = os.environ.get(env)
     if candidate:
@@ -66,6 +73,10 @@ def _find_binary(name: str, env: str) -> str:
         for filename in (name + ".exe", name):
             if (bundled / filename).is_file():
                 return str(bundled / filename)
+    fetched = tools_dir()  # what "stream2clip setup --ffmpeg" (or the installer, or the app's button) downloaded
+    for filename in (name + ".exe", name):
+        if (fetched / filename).is_file():
+            return str(fetched / filename)
     found = shutil.which(name)
     if found:
         return found
@@ -76,10 +87,8 @@ def _find_binary(name: str, env: str) -> str:
             return imageio_ffmpeg.get_ffmpeg_exe()
         except Exception:  # pragma: no cover - optional dependency
             pass
-    raise FFmpegNotFoundError(
-        f"{name} not found. Install ffmpeg (https://ffmpeg.org/download.html), add it to PATH, "
-        f"or set the {env} environment variable."
-    )
+    get = "run 'stream2clip setup --ffmpeg' (or use the download button of the app)" if sys.platform == "win32" else "install ffmpeg (https://ffmpeg.org/download.html) and add it to PATH"
+    raise FFmpegNotFoundError(f"{name} not found: {get}, or set the {env} environment variable.")
 
 
 def find_ffmpeg() -> str:

@@ -1,4 +1,7 @@
-"""Main window: capture buttons, recording settings, global hotkeys (F8 / F9), OBS replay and live mode."""
+"""Main window: capture buttons, recording settings, global hotkeys (F8 / F9), OBS replay and live mode.
+
+While ffmpeg is missing, a notice under the header says so and (on Windows) offers to download it.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import tools
 from ..editor import Document
 from ..ffmpeg import ExportOptions
 from ..i18n import LANGUAGES, language, tr
@@ -80,6 +84,8 @@ class LauncherWindow(QMainWindow):
     _replay_done = Signal(str)
     _replay_failed = Signal(str)
     _live_note = Signal(str, str)
+    _ffmpeg_progress = Signal(int, int)
+    _ffmpeg_done = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -94,6 +100,9 @@ class LauncherWindow(QMainWindow):
         self.live_poll = 1.0  # seconds between two looks at the chat
         self._live_stop = threading.Event()
         self._live_thread: threading.Thread | None = None
+        self.ffmpeg_busy = False
+        self._ffmpeg_stop = threading.Event()
+        self._ffmpeg_thread: threading.Thread | None = None
         self.dialogs = True  # show failures in a message box too (tests turn this off)
 
         root = QWidget(objectName="Root")
@@ -109,6 +118,8 @@ class LauncherWindow(QMainWindow):
         tagline = QLabel(tr("화면 캡쳐, 녹화, 방송 클립 제작"), objectName="Muted")
         header.addWidget(tagline)
         outer.addLayout(header)
+        self.ffmpeg_notice = self._ffmpeg_notice()
+        outer.addWidget(self.ffmpeg_notice)
 
         outer.addWidget(_eyebrow(tr("캡쳐")))
         outer.addWidget(self._capture_card())
@@ -139,6 +150,8 @@ class LauncherWindow(QMainWindow):
         self._replay_done.connect(self._on_replay_done)
         self._replay_failed.connect(self._on_replay_failed)
         self._live_note.connect(self._on_live)
+        self._ffmpeg_progress.connect(self._on_ffmpeg_progress)
+        self._ffmpeg_done.connect(self._on_ffmpeg_done)
 
         self.controller = RecordController(lambda: self.settings, self)
         self.controller.stateChanged.connect(self._on_record_state)
@@ -155,6 +168,91 @@ class LauncherWindow(QMainWindow):
         self._idle_status = tr("{0}, 저장: {1}").format(self._hotkey_note, self.settings.save_dir)
         self.status.setText(self._idle_status)
         self.resize(760, 780)
+        self.check_ffmpeg()
+
+    # ------------------------------------------------------------------ ffmpeg
+    def _ffmpeg_notice(self) -> QWidget:
+        """The row shown while ffmpeg is missing: what it is needed for, a download button (Windows) and "look again"."""
+        build = tools.FFMPEG_BUILD
+        card = QWidget(objectName="Notice")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(14, 10, 14, 10)
+        row.setSpacing(10)
+        self.ffmpeg_label = QLabel()
+        self.ffmpeg_label.setWordWrap(True)
+        row.addWidget(self.ffmpeg_label, 1)
+        self.ffmpeg_button = QPushButton(tr("ffmpeg 내려받기 ({0} MB)").format(build.megabytes), objectName="Primary")
+        self.ffmpeg_button.setToolTip(tr("ffmpeg.org가 안내하는 Windows용 빌드 {0}을 GitHub에서 내려받아 SHA-256 확인 후 사용자 폴더에 저장").format(build.version))
+        self.ffmpeg_button.clicked.connect(self.fetch_ffmpeg)
+        self.ffmpeg_button.setVisible(tools.can_install_ffmpeg())
+        row.addWidget(self.ffmpeg_button)
+        self.ffmpeg_again = QPushButton(tr("다시 확인"))
+        self.ffmpeg_again.setToolTip(tr("ffmpeg를 직접 설치한 후 다시 확인"))
+        self.ffmpeg_again.clicked.connect(self.check_ffmpeg)
+        row.addWidget(self.ffmpeg_again)
+        return card
+
+    def ffmpeg_ready(self) -> bool:
+        """Whether ffmpeg and ffprobe are found (tests replace this)."""
+        return tools.ffmpeg_ready()
+
+    def install_ffmpeg(self, on_progress, cancelled) -> None:
+        """Download ffmpeg into the user's tools folder (tests replace this)."""
+        tools.install_ffmpeg(on_progress=on_progress, cancelled=cancelled)
+
+    def check_ffmpeg(self) -> bool:
+        """Show the notice when ffmpeg is missing, hide it when it is there."""
+        ready = self.ffmpeg_ready()
+        self.ffmpeg_notice.setVisible(not ready)
+        if not ready and not self.ffmpeg_busy:
+            hint = "" if tools.can_install_ffmpeg() else "\n" + tools.install_hint()
+            self.ffmpeg_label.setText(tr("ffmpeg 없음. 녹화, 영상 변환, 클립 제작에 필요") + hint)
+        return ready
+
+    def fetch_ffmpeg(self) -> None:
+        if self.ffmpeg_busy:
+            return
+        self.ffmpeg_busy = True
+        self.ffmpeg_button.setEnabled(False)
+        self.ffmpeg_again.setEnabled(False)
+        self.ffmpeg_label.setText(tr("ffmpeg 내려받는 중"))
+        self._ffmpeg_stop.clear()
+        seen = [-1]
+
+        def progress(done: int, total: int) -> None:
+            percent = int(done * 100 / total) if total else 0
+            if percent != seen[0]:  # one signal per percent, not one per block
+                seen[0] = percent
+                self._ffmpeg_progress.emit(done, total)
+
+        def work() -> None:
+            try:
+                self.install_ffmpeg(progress, self._ffmpeg_stop.is_set)
+                message = ""
+            except Exception as exc:  # shown in the notice and a dialog
+                message = str(exc) or type(exc).__name__
+            try:
+                self._ffmpeg_done.emit(message)
+            except RuntimeError:  # the window was closed meanwhile
+                pass
+
+        self._ffmpeg_thread = threading.Thread(target=work, name="stream2clip-ffmpeg", daemon=True)
+        self._ffmpeg_thread.start()
+
+    def _on_ffmpeg_progress(self, done: int, total: int) -> None:
+        percent = int(done * 100 / total) if total else 0
+        self.ffmpeg_label.setText(tr("ffmpeg 내려받는 중: {0}% ({1} / {2} MB)").format(percent, round(done / 1e6), round(total / 1e6)))
+
+    def _on_ffmpeg_done(self, message: str) -> None:
+        self.ffmpeg_busy = False
+        self.ffmpeg_button.setEnabled(True)
+        self.ffmpeg_again.setEnabled(True)
+        if message:
+            self.ffmpeg_label.setText(tr("ffmpeg 내려받기 실패: {0}").format(message.splitlines()[0][:110]))
+            if self.dialogs and self.isVisible():
+                QMessageBox.warning(self, "ffmpeg", message)
+        elif self.check_ffmpeg():
+            self.status.setText(tr("ffmpeg 준비됨"))
 
     # ------------------------------------------------------------------ layout
     def _capture_card(self) -> QWidget:
@@ -700,6 +798,9 @@ class LauncherWindow(QMainWindow):
         self._live_stop.set()  # the watcher lets go of yt-dlp within a moment
         if self._live_thread is not None:
             self._live_thread.join(timeout=5)
+        self._ffmpeg_stop.set()  # a download in progress stops at the next block; its partial file is removed
+        if self._ffmpeg_thread is not None:
+            self._ffmpeg_thread.join(timeout=5)
         self.hotkeys.unregister()
         self.remember()
         super().closeEvent(event)

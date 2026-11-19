@@ -21,6 +21,8 @@ def isolated_settings(tmp_path_factory, monkeypatch):
     """The app remembers its settings in a file: tests get an empty folder, never the user's own."""
     folder = tmp_path_factory.mktemp("config")
     monkeypatch.setenv("STREAM2CLIP_CONFIG_DIR", str(folder))
+    # ... and an empty tools folder: an ffmpeg downloaded by the app on this machine is not what the tests find.
+    monkeypatch.setenv("STREAM2CLIP_TOOLS_DIR", str(tmp_path_factory.mktemp("tools")))
     return folder
 
 

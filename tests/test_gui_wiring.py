@@ -115,6 +115,97 @@ def test_launcher_ignores_settings_it_cannot_use(app):
     win.close()
 
 
+# ----------------------------------------------------------------------------- ffmpeg notice
+
+
+def test_start_window_offers_ffmpeg_when_it_is_missing(app, monkeypatch):
+    from stream2clip import tools
+
+    state = {"ready": False, "calls": 0}
+    monkeypatch.setattr(LauncherWindow, "ffmpeg_ready", lambda self: state["ready"])
+    monkeypatch.setattr(tools, "can_install_ffmpeg", lambda: True)
+    win = LauncherWindow()
+    win.dialogs = False
+    assert not win.ffmpeg_notice.isHidden() and not win.ffmpeg_button.isHidden()
+    assert win.ffmpeg_label.text() == "ffmpeg 없음. 녹화, 영상 변환, 클립 제작에 필요"
+    assert win.ffmpeg_button.text() == f"ffmpeg 내려받기 ({tools.FFMPEG_BUILD.megabytes} MB)"
+
+    def fails(on_progress, cancelled):
+        state["calls"] += 1
+        on_progress(50, 100)
+        raise OSError("no route to host")
+
+    win.install_ffmpeg = fails
+    win.fetch_ffmpeg()
+    assert win.ffmpeg_busy and not win.ffmpeg_button.isEnabled()
+    win.fetch_ffmpeg()  # a second press while busy does nothing
+    wait(app, lambda: not win.ffmpeg_busy)
+    assert state["calls"] == 1 and win.ffmpeg_label.text() == "ffmpeg 내려받기 실패: no route to host"
+    assert win.ffmpeg_button.isEnabled() and not win.ffmpeg_notice.isHidden()  # it can be tried again
+
+    shown = []
+    win._ffmpeg_progress.connect(lambda done, total: shown.append(win.ffmpeg_label.text()))
+
+    def works(on_progress, cancelled):
+        for done in (1_000_000, 57_000_000, 57_100_000, 114_000_000):  # 57.0 and 57.1 MB are the same percent: one update
+            on_progress(done, 114_000_000)
+        state["ready"] = True
+
+    win.install_ffmpeg = works
+    win.fetch_ffmpeg()
+    wait(app, lambda: not win.ffmpeg_busy)
+    assert shown == ["ffmpeg 내려받는 중: 0% (1 / 114 MB)", "ffmpeg 내려받는 중: 50% (57 / 114 MB)", "ffmpeg 내려받는 중: 100% (114 / 114 MB)"]
+    assert win.ffmpeg_notice.isHidden() and win.status.text() == "ffmpeg 준비됨"
+    win.close()
+
+
+def test_start_window_shows_no_notice_when_ffmpeg_is_there_and_no_button_without_a_download(app, monkeypatch):
+    from stream2clip import tools
+
+    monkeypatch.setattr(LauncherWindow, "ffmpeg_ready", lambda self: True)
+    win = LauncherWindow()
+    assert win.ffmpeg_notice.isHidden()
+    win.close()
+
+    state = {"ready": False}
+    monkeypatch.setattr(LauncherWindow, "ffmpeg_ready", lambda self: state["ready"])
+    monkeypatch.setattr(tools, "can_install_ffmpeg", lambda: False)  # macOS, Linux: a package manager has it
+    monkeypatch.setattr(tools, "install_hint", lambda: "brew install ffmpeg")
+    win = LauncherWindow()
+    assert not win.ffmpeg_notice.isHidden() and win.ffmpeg_button.isHidden()
+    assert win.ffmpeg_label.text().endswith("brew install ffmpeg")
+    state["ready"] = True  # installed by hand meanwhile
+    win.ffmpeg_again.click()
+    assert win.ffmpeg_notice.isHidden()
+    win.close()
+
+
+def test_closing_the_start_window_stops_a_download(app, monkeypatch):
+    import threading
+
+    from stream2clip import tools
+
+    monkeypatch.setattr(LauncherWindow, "ffmpeg_ready", lambda self: False)
+    monkeypatch.setattr(tools, "can_install_ffmpeg", lambda: True)
+    win = LauncherWindow()
+    win.dialogs = False
+    started, stopped = threading.Event(), []
+
+    def slow(on_progress, cancelled):
+        started.set()
+        for _ in range(400):
+            if cancelled():
+                stopped.append(True)
+                raise tools.DownloadCancelled("The download was cancelled")
+            time.sleep(0.01)
+
+    win.install_ffmpeg = slow
+    win.fetch_ffmpeg()
+    assert started.wait(5)
+    win.close()
+    assert stopped == [True]
+
+
 # ----------------------------------------------------------------------------- OBS replay button
 
 
