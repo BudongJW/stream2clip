@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 
 from ..editor import Document
 from ..ffmpeg import ExportOptions
+from ..i18n import LANGUAGES, language, tr
 from . import theme
 from .editor import EditorWindow
 from .hotkeys import GlobalHotkeys
@@ -42,8 +43,8 @@ from .settings import load_section, save_section
 
 __all__ = ["LauncherWindow", "ObsDialog"]
 
-_FORMATS = [("gif", "GIF", "어디서나 재생"), ("mp4", "MP4", "가벼운 용량"), ("webp", "WebP", "선명한 화질"), ("webm", "WebM", "투명 영상")]
-_WIDTHS = [("원본 크기", None), ("1280px", 1280), ("960px", 960), ("720px", 720), ("480px", 480), ("320px", 320)]
+_FORMATS = [("gif", "GIF", tr("어디서나 재생")), ("mp4", "MP4", tr("가벼운 용량")), ("webp", "WebP", tr("선명한 화질")), ("webm", "WebM", tr("투명 영상"))]
+_WIDTHS = [(tr("원본 크기"), None), ("1280px", 1280), ("960px", 960), ("720px", 720), ("480px", 480), ("320px", 320)]
 
 
 def _eyebrow(text: str) -> QLabel:
@@ -55,17 +56,17 @@ class ObsDialog(QDialog):
 
     def __init__(self, host: str, port: int, password: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("OBS 연결")
+        self.setWindowTitle(tr("OBS 연결"))
         form = QFormLayout(self)
         self.host_edit = QLineEdit(host)
         self.port_spin = QSpinBox(minimum=1, maximum=65535, value=port)
         self.password_edit = QLineEdit(password)
         self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_edit.setPlaceholderText("비워 두면 OBS_WEBSOCKET_PASSWORD 환경 변수")
-        form.addRow("주소", self.host_edit)
-        form.addRow("포트", self.port_spin)
-        form.addRow("비밀번호", self.password_edit)
-        note = QLabel("OBS의 도구 → WebSocket 서버 설정에서 서버를 켜고, 리플레이 버퍼를 시작해 두세요.\n비밀번호는 저장하지 않습니다.", objectName="Muted")
+        self.password_edit.setPlaceholderText(tr("비워 두면 OBS_WEBSOCKET_PASSWORD 환경 변수"))
+        form.addRow(tr("주소"), self.host_edit)
+        form.addRow(tr("포트"), self.port_spin)
+        form.addRow(tr("비밀번호"), self.password_edit)
+        note = QLabel(tr("OBS의 도구 → WebSocket 서버 설정에서 서버를 켜고, 리플레이 버퍼를 시작해 두세요.\n비밀번호는 저장하지 않습니다."), objectName="Muted")
         note.setWordWrap(True)
         form.addRow(note)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -98,7 +99,7 @@ class LauncherWindow(QMainWindow):
         logo.setPixmap(pixmap("lockup-on-dark.png").scaledToHeight(48, Qt.TransformationMode.SmoothTransformation))
         header.addWidget(logo)
         header.addStretch(1)
-        tagline = QLabel("캡쳐부터 움짤 녹화까지, 한 프로그램으로", objectName="Muted")
+        tagline = QLabel(tr("캡쳐부터 움짤 녹화까지, 한 프로그램으로"), objectName="Muted")
         header.addWidget(tagline)
         outer.addLayout(header)
 
@@ -112,12 +113,19 @@ class LauncherWindow(QMainWindow):
         footer = QHBoxLayout()
         self.status = QLabel(objectName="Muted")
         footer.addWidget(self.status, 1)
-        open_folder = QPushButton("저장 폴더 열기")
+        open_folder = QPushButton(tr("저장 폴더 열기"))
         open_folder.clicked.connect(lambda: self._open_dir(self.settings.save_dir))
-        change = QPushButton("폴더 변경")
+        change = QPushButton(tr("폴더 변경"))
         change.clicked.connect(self._change_dir)
         footer.addWidget(open_folder)
         footer.addWidget(change)
+        self.language_combo = QComboBox()
+        self.language_combo.setToolTip("언어 · 言語 · Language")
+        for code, name in LANGUAGES.items():
+            self.language_combo.addItem(name, code)
+        self.language_combo.setCurrentIndex(max(0, self.language_combo.findData(language())))
+        self.language_combo.activated.connect(self._set_language)
+        footer.addWidget(self.language_combo)
         outer.addLayout(footer)
         self.setCentralWidget(root)
         self._restore()
@@ -135,8 +143,8 @@ class LauncherWindow(QMainWindow):
         if backend == "none":
             QShortcut(QKeySequence("F8"), self, activated=self.capture_region)
             QShortcut(QKeySequence("F9"), self, activated=self.controller.toggle)
-        hotkey_note = "F8 영역 캡쳐 · F9 녹화 시작/정지" + ("" if backend != "none" else " (창이 활성일 때)")
-        self._idle_status = f"{hotkey_note} · 저장: {self.settings.save_dir}"
+        self._hotkey_note = tr("F8 영역 캡쳐 · F9 녹화 시작/정지") + ("" if backend != "none" else tr(" (창이 활성일 때)"))
+        self._idle_status = tr("{0} · 저장: {1}").format(self._hotkey_note, self.settings.save_dir)
         self.status.setText(self._idle_status)
         self.resize(760, 780)
 
@@ -147,9 +155,9 @@ class LauncherWindow(QMainWindow):
         grid.setContentsMargins(14, 14, 14, 14)
         grid.setSpacing(10)
         for label, slot, tip in (
-            ("영역 캡쳐\nF8", self.capture_region, "드래그로 영역을 골라 바로 편집"),
-            ("전체 화면 캡쳐\n모든 모니터", self.capture_fullscreen, "모든 모니터를 캡쳐해 편집"),
-            ("이미지 열어 편집\nPNG · JPG · WebP", self.open_image, "PNG/JPG/WebP 파일 편집"),
+            (tr("영역 캡쳐\nF8"), self.capture_region, tr("드래그로 영역을 골라 바로 편집")),
+            (tr("전체 화면 캡쳐\n모든 모니터"), self.capture_fullscreen, tr("모든 모니터를 캡쳐해 편집")),
+            (tr("이미지 열어 편집\nPNG · JPG · WebP"), self.open_image, tr("PNG/JPG/WebP 파일 편집")),
         ):
             btn = QPushButton(label, objectName="BigAction")
             btn.setToolTip(tip)
@@ -168,10 +176,10 @@ class LauncherWindow(QMainWindow):
         kiri.setPixmap(mascot("wink", 52))
         row.addWidget(kiri)
         text = QVBoxLayout()
-        text.addWidget(QLabel("방송 → 클립", objectName="Title"))
-        text.addWidget(QLabel("채팅 반응으로 하이라이트를 찾아 구간을 다듬고 9:16 클립으로 내보냅니다.", objectName="Muted"))
+        text.addWidget(QLabel(tr("방송 → 클립"), objectName="Title"))
+        text.addWidget(QLabel(tr("채팅 반응으로 하이라이트를 찾아 구간을 다듬고 9:16 클립으로 내보냅니다."), objectName="Muted"))
         row.addLayout(text, 1)
-        self.highlights_button = QPushButton("하이라이트 찾기")
+        self.highlights_button = QPushButton(tr("하이라이트 찾기"))
         self.highlights_button.setMinimumHeight(44)
         self.highlights_button.clicked.connect(self.open_highlights)
         row.addWidget(self.highlights_button)
@@ -179,25 +187,25 @@ class LauncherWindow(QMainWindow):
 
         replay = QHBoxLayout()
         replay.setSpacing(8)
-        label = QLabel("OBS 리플레이 → 클립")
+        label = QLabel(tr("OBS 리플레이 → 클립"))
         label.setStyleSheet("font-weight:800;")
         replay.addWidget(label)
-        replay.addWidget(QLabel("방금 지나간 장면을 위 녹화 형식으로 저장", objectName="Muted"), 1)
-        replay.addWidget(QLabel("마지막"))
+        replay.addWidget(QLabel(tr("방금 지나간 장면을 위 녹화 형식으로 저장"), objectName="Muted"), 1)
+        replay.addWidget(QLabel(tr("마지막")))
         self.replay_last = QSpinBox(minimum=0, maximum=600, value=15)
-        self.replay_last.setSuffix("초")
-        self.replay_last.setSpecialValueText("전체")
-        self.replay_last.setToolTip("리플레이 버퍼에서 마지막 몇 초만 남길지 (전체 = 버퍼 그대로)")
+        self.replay_last.setSuffix(tr("초"))
+        self.replay_last.setSpecialValueText(tr("전체"))
+        self.replay_last.setToolTip(tr("리플레이 버퍼에서 마지막 몇 초만 남길지 (전체 = 버퍼 그대로)"))
         replay.addWidget(self.replay_last)
         self.replay_hotkey_check = QCheckBox("F10")
-        self.replay_hotkey_check.setToolTip("켜면 방송 중 어느 프로그램에서든 F10으로 리플레이를 저장합니다.\n켜 둔 동안 다른 프로그램은 F10을 받지 못합니다.")
+        self.replay_hotkey_check.setToolTip(tr("켜면 방송 중 어느 프로그램에서든 F10으로 리플레이를 저장합니다.\n켜 둔 동안 다른 프로그램은 F10을 받지 못합니다."))
         self.replay_hotkey_check.toggled.connect(self._set_replay_hotkey)
         replay.addWidget(self.replay_hotkey_check)
-        connect = QPushButton("연결 설정")
+        connect = QPushButton(tr("연결 설정"))
         connect.clicked.connect(self.edit_obs)
         replay.addWidget(connect)
-        self.replay_button = QPushButton("리플레이 저장")
-        self.replay_button.setToolTip("OBS의 리플레이 버퍼를 저장해 클립으로 만듭니다 (OBS 28 이상, WebSocket 서버 켜기)")
+        self.replay_button = QPushButton(tr("리플레이 저장"))
+        self.replay_button.setToolTip(tr("OBS의 리플레이 버퍼를 저장해 클립으로 만듭니다 (OBS 28 이상, WebSocket 서버 켜기)"))
         self.replay_button.clicked.connect(self.save_replay)
         replay.addWidget(self.replay_button)
         rows.addLayout(replay)
@@ -232,7 +240,7 @@ class LauncherWindow(QMainWindow):
             return
         self.replay_busy = True
         self.replay_button.setEnabled(False)
-        self.status.setText("OBS 리플레이 저장 중…")
+        self.status.setText(tr("OBS 리플레이 저장 중…"))
         output = self.settings.save_dir / f"replay_{time.strftime('%Y%m%d_%H%M%S')}.{self.settings.format}"
         options = ExportOptions(format=self.settings.format, fps=self.settings.fps, width=self.settings.width)
         last = float(self.replay_last.value()) or None
@@ -256,14 +264,14 @@ class LauncherWindow(QMainWindow):
     def _on_replay_done(self, path: str) -> None:
         self.replay_busy = False
         self.replay_button.setEnabled(True)
-        self.status.setText(f"저장됨: {path}  ·  {time.strftime('%H:%M:%S')}")
+        self.status.setText(tr("저장됨: {0}  ·  {1}").format(path, time.strftime('%H:%M:%S')))
 
     def _on_replay_failed(self, message: str) -> None:
         self.replay_busy = False
         self.replay_button.setEnabled(True)
-        self.status.setText(f"리플레이 실패: {message.splitlines()[0][:110]}")
+        self.status.setText(tr("리플레이 실패: {0}").format(message.splitlines()[0][:110]))
         if self.dialogs and self.isVisible():
-            QMessageBox.warning(self, "OBS 리플레이", message)
+            QMessageBox.warning(self, tr("OBS 리플레이"), message)
 
     def open_highlights(self):
         from .highlights import HighlightsWindow
@@ -283,12 +291,12 @@ class LauncherWindow(QMainWindow):
 
         top = QHBoxLayout()
         title = QVBoxLayout()
-        t = QLabel("보이는 그대로 움짤 녹화", objectName="Title")
-        sub = QLabel("F9 한 번이면 녹화가 시작됩니다. 다시 F9를 누르면 저장.", objectName="Muted")
+        t = QLabel(tr("보이는 그대로 움짤 녹화"), objectName="Title")
+        sub = QLabel(tr("F9 한 번이면 녹화가 시작됩니다. 다시 F9를 누르면 저장."), objectName="Muted")
         title.addWidget(t)
         title.addWidget(sub)
         top.addLayout(title, 1)
-        self.record_button = QPushButton("●  영역 녹화 (F9)", objectName="Primary")
+        self.record_button = QPushButton(tr("●  영역 녹화 (F9)"), objectName="Primary")
         self.record_button.setMinimumHeight(44)
         self.record_button.clicked.connect(self.controller_toggle)
         top.addWidget(self.record_button)
@@ -313,20 +321,20 @@ class LauncherWindow(QMainWindow):
         opts = QGridLayout()
         opts.setHorizontalSpacing(10)
         opts.setVerticalSpacing(8)
-        opts.addWidget(QLabel("프레임"), 0, 0)
+        opts.addWidget(QLabel(tr("프레임")), 0, 0)
         self.fps_combo = QComboBox()
         for fps in (10, 15, 24, 30):
             self.fps_combo.addItem(f"{fps} fps", fps)
         self.fps_combo.setCurrentIndex(1)
         self.fps_combo.currentIndexChanged.connect(lambda _: setattr(self.settings, "fps", float(self.fps_combo.currentData())))
         opts.addWidget(self.fps_combo, 0, 1)
-        opts.addWidget(QLabel("크기"), 0, 2)
+        opts.addWidget(QLabel(tr("크기")), 0, 2)
         self.width_combo = QComboBox()
         for label, width in _WIDTHS:
             self.width_combo.addItem(label, width)
         self.width_combo.currentIndexChanged.connect(lambda _: setattr(self.settings, "width", self.width_combo.currentData()))
         opts.addWidget(self.width_combo, 0, 3)
-        self.cursor_check = QCheckBox("마우스 커서 표시", checked=True)
+        self.cursor_check = QCheckBox(tr("마우스 커서 표시"), checked=True)
         self.cursor_check.toggled.connect(lambda on: setattr(self.settings, "cursor", on))
         opts.addWidget(self.cursor_check, 0, 4)
         opts.setColumnStretch(5, 1)
@@ -338,19 +346,19 @@ class LauncherWindow(QMainWindow):
         tl.setContentsMargins(12, 10, 12, 10)
         tl.setSpacing(10)
         tl.addWidget(QLabel("NEW", objectName="Badge"))
-        self.transparent_check = QCheckBox("투명 배경 녹화")
+        self.transparent_check = QCheckBox(tr("투명 배경 녹화"))
         self.transparent_check.setStyleSheet("font-weight:800;")
         self.transparent_check.toggled.connect(self._set_transparent)
         tl.addWidget(self.transparent_check)
-        tl.addWidget(QLabel("고른 색을 지워 GIF · WebP · WebM을 투명하게", objectName="Muted"), 1)
+        tl.addWidget(QLabel(tr("고른 색을 지워 GIF · WebP · WebM을 투명하게"), objectName="Muted"), 1)
         self.key_button = QToolButton(objectName="Swatch")
-        self.key_button.setToolTip("지울 색")
+        self.key_button.setToolTip(tr("지울 색"))
         tl.addWidget(self.key_button)
-        pick = QToolButton(text="스포이드")
-        pick.setToolTip("화면에서 지울 색 고르기 (그린스크린 등)")
+        pick = QToolButton(text=tr("스포이드"))
+        pick.setToolTip(tr("화면에서 지울 색 고르기 (그린스크린 등)"))
         pick.clicked.connect(self.pick_key_color)
         tl.addWidget(pick)
-        tl.addWidget(QLabel("허용 범위"))
+        tl.addWidget(QLabel(tr("허용 범위")))
         self.similarity = QSlider(Qt.Orientation.Horizontal, minimum=1, maximum=50, value=12)
         self.similarity.setFixedWidth(110)
         self.similarity.valueChanged.connect(lambda v: setattr(self.settings, "similarity", v / 100))
@@ -392,6 +400,15 @@ class LauncherWindow(QMainWindow):
         if isinstance(obs.get("hotkey"), bool):
             self.replay_hotkey_check.setChecked(obs["hotkey"])
 
+    def _set_language(self, index: int) -> None:
+        """Remember the language; windows that are already open keep theirs, so it applies from the next start."""
+        code = self.language_combo.itemData(index)
+        save_section("app", {"language": code})
+        if code != language():
+            # said in the language that was chosen, so it can be read by whoever chose it
+            notice = {"ko": "다시 시작하면 한국어로 표시됩니다", "ja": "再起動すると日本語で表示されます", "en": "English is used after a restart"}
+            self.status.setText(notice.get(code, ""))
+
     def remember(self) -> None:
         save_section("record", {
             "format": self.settings.format, "fps": self.fps_combo.currentData(), "width": self.width_combo.currentData(),
@@ -405,7 +422,7 @@ class LauncherWindow(QMainWindow):
         self.format_buttons[key].setChecked(True)
         mp4 = key == "mp4"
         self.transparent_check.setEnabled(not mp4)
-        self.transparent_check.setToolTip("MP4는 투명 배경을 지원하지 않습니다" if mp4 else "")
+        self.transparent_check.setToolTip(tr("MP4는 투명 배경을 지원하지 않습니다") if mp4 else "")
 
     def _set_transparent(self, on: bool) -> None:
         self.settings.transparent = on
@@ -413,13 +430,13 @@ class LauncherWindow(QMainWindow):
     def _set_key_color(self, color: str) -> None:
         self.settings.key_color = color
         self.key_button.setStyleSheet(f"QToolButton#Swatch {{ background: {color}; border: 2px solid {theme.PAPER}; }}")
-        self.key_button.setToolTip(f"지울 색 {color}")
+        self.key_button.setToolTip(tr("지울 색 {0}").format(color))
 
     def _change_dir(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "저장 폴더", str(self.settings.save_dir))
+        path = QFileDialog.getExistingDirectory(self, tr("저장 폴더"), str(self.settings.save_dir))
         if path:
             self.settings.save_dir = Path(path)
-            self._idle_status = self._idle_status.rsplit("저장:", 1)[0] + f"저장: {path}"
+            self._idle_status = tr("{0} · 저장: {1}").format(self._hotkey_note, path)
             self.status.setText(self._idle_status)
 
     @staticmethod
@@ -444,7 +461,7 @@ class LauncherWindow(QMainWindow):
             selector = ScreenSelector("region")
         except Exception as exc:
             self.show()
-            QMessageBox.warning(self, "캡쳐 실패", str(exc))
+            QMessageBox.warning(self, tr("캡쳐 실패"), str(exc))
             return
         selector.regionSelected.connect(lambda _region, image, _rect: self._open_editor(Document(image)))
         selector.cancelled.connect(self.show)
@@ -461,12 +478,12 @@ class LauncherWindow(QMainWindow):
             image, _ = grab_virtual_screen()
         except Exception as exc:
             self.show()
-            QMessageBox.warning(self, "캡쳐 실패", str(exc))
+            QMessageBox.warning(self, tr("캡쳐 실패"), str(exc))
             return
         self._open_editor(Document(image))
 
     def open_image(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "이미지 열기", str(Path.home()), "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)")
+        path, _ = QFileDialog.getOpenFileName(self, tr("이미지 열기"), str(Path.home()), "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)")
         if path:
             self.open_path(path)
 
@@ -491,7 +508,7 @@ class LauncherWindow(QMainWindow):
                 selector = ScreenSelector("color")
             except Exception as exc:
                 self.show()
-                QMessageBox.warning(self, "스포이드", str(exc))
+                QMessageBox.warning(self, tr("스포이드"), str(exc))
                 return
             selector.colorPicked.connect(lambda c: (self._set_key_color(c), self.transparent_check.setChecked(True), self.show()))
             selector.cancelled.connect(self.show)
@@ -515,25 +532,25 @@ class LauncherWindow(QMainWindow):
             self.save_replay()
 
     def _on_record_state(self, state: str) -> None:
-        labels = {"idle": "●  영역 녹화 (F9)", "selecting": "영역 선택 중…", "recording": "■  정지 (F9)", "encoding": "저장 중…"}
+        labels = {"idle": tr("●  영역 녹화 (F9)"), "selecting": tr("영역 선택 중…"), "recording": tr("■  정지 (F9)"), "encoding": tr("저장 중…")}
         self.record_button.setText(labels[state])
         self.record_button.setEnabled(state in ("idle", "recording"))
         if state == "selecting":
             self.hide()
         elif state == "encoding":
-            self.status.setText(f"{self.settings.format.upper()} 인코딩 중…")
+            self.status.setText(tr("{0} 인코딩 중…").format(self.settings.format.upper()))
             self.show()
         elif state == "idle" and not self.isVisible():
             self.show()
 
     def _on_record_finished(self, path: str) -> None:
-        self.status.setText(f"저장됨: {path}  ·  {time.strftime('%H:%M:%S')}")
+        self.status.setText(tr("저장됨: {0}  ·  {1}").format(path, time.strftime('%H:%M:%S')))
         self.show()
 
     def _on_record_failed(self, message: str) -> None:
         self.status.setText(self._idle_status)
         self.show()
-        QMessageBox.warning(self, "녹화", message)
+        QMessageBox.warning(self, tr("녹화"), message)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if self.controller.state == "recording":

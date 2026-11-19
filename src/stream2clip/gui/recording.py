@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from ..ffmpeg import ExportOptions, extension_for
 from ..geometry import Region
+from ..i18n import tr
 from ..record import Recorder, Recording
 from . import theme
 from .qt import app_icon, virtual_geometry
@@ -129,9 +130,9 @@ class RecordingBar(QWidget):
         self.timer_label = QLabel("REC 00:00")
         self.timer_label.setStyleSheet("font-weight:800; font-family:'JetBrains Mono','Consolas',monospace;")
         info = QLabel(description, objectName="Muted")
-        stop = QPushButton("정지 (F9)", objectName="Primary")
+        stop = QPushButton(tr("정지 (F9)"), objectName="Primary")
         stop.clicked.connect(self.stopRequested)
-        cancel = QPushButton("취소")
+        cancel = QPushButton(tr("취소"))
         cancel.clicked.connect(self.cancelRequested)
         for widget in (self.dot, self.timer_label, info, stop, cancel):
             row.addWidget(widget)
@@ -201,11 +202,11 @@ class RecordController(QObject):
         try:
             screenshot, physical = grab_virtual_screen()
         except Exception as exc:
-            self.failed.emit(f"화면을 캡처할 수 없습니다: {exc}")
+            self.failed.emit(tr("화면을 캡처할 수 없습니다: {0}").format(exc))
             return
         logical = virtual_geometry()
         self._mapping = (logical, physical, screenshot.width / max(1, logical.width()), screenshot.height / max(1, logical.height()))
-        self._selector = ScreenSelector("region", screenshot=screenshot, physical=physical, hint="녹화할 영역을 드래그  ·  Enter 전체 화면  ·  Esc 취소")
+        self._selector = ScreenSelector("region", screenshot=screenshot, physical=physical, hint=tr("녹화할 영역을 드래그  ·  Enter 전체 화면  ·  Esc 취소"))
         # Give the compositor / X server time to repaint what was under the overlay,
         # otherwise the first frames show the dimmed selection screen.
         self._selector.regionSelected.connect(lambda region, _img, rect: QTimer.singleShot(START_DELAY_MS, lambda: self.start(region, rect)))
@@ -226,11 +227,11 @@ class RecordController(QObject):
             self._recorder.start()
         except Exception as exc:
             self._recorder = None
-            self.failed.emit(f"녹화를 시작할 수 없습니다: {exc}")
+            self.failed.emit(tr("녹화를 시작할 수 없습니다: {0}").format(exc))
             return
         self._frame = RecordingFrame(rect)
         self._frame.show()
-        desc = f"{settings.format.upper()} · {settings.fps:g}fps" + (" · 투명" if settings.transparent and settings.format != "mp4" else "")
+        desc = f"{settings.format.upper()} · {settings.fps:g}fps" + (tr(" · 투명") if settings.transparent and settings.format != "mp4" else "")
         self._bar = RecordingBar(desc)
         self._bar.stopRequested.connect(self.stop)
         self._bar.cancelRequested.connect(self.cancel)
@@ -256,7 +257,7 @@ class RecordController(QObject):
                 out = recording.export(settings.save_dir / name, settings.export_options())
                 self.finished.emit(str(out))
             except Exception as exc:  # surfaced in the UI
-                self.failed.emit(f"녹화 저장 실패: {exc}")
+                self.failed.emit(tr("녹화 저장 실패: {0}").format(exc))
             finally:
                 if recording is not None:
                     recording.discard()
@@ -295,7 +296,7 @@ class RecordController(QObject):
             if self._recorder.error is not None:
                 err = self._recorder.error
                 self.cancel()
-                self.failed.emit(f"녹화 중 오류: {err}")
+                self.failed.emit(tr("녹화 중 오류: {0}").format(err))
                 return
         if self._mapping is not None:
             logical, physical, sx, sy = self._mapping

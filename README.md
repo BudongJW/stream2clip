@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-282-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-291-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -421,7 +421,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 282개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 291개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -551,6 +551,8 @@ stream2clip gui
 | <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>S</kbd> | 복사 / 저장 |
 | <kbd>Ctrl</kbd>+휠, <kbd>Ctrl</kbd>+<kbd>0</kbd> | 확대 · 축소, 100% |
 | <kbd>Delete</kbd> | 선택한 주석 삭제 |
+
+**화면 언어** — 한국어 · 日本語 · English. 런처 오른쪽 아래에서 고르면 다음 실행부터 적용됩니다. 처음에는 시스템 언어를 따르고(한국어 · 일본어가 아니면 영어), `STREAM2CLIP_LANG=ja`처럼 환경 변수로도 정할 수 있습니다.
 
 하이라이트 창(런처 → **하이라이트 찾기**):
 
@@ -853,7 +855,8 @@ src/stream2clip/
 - [x] 📊 여러 방송 평가 — `evaluate`: 시청자 댓글 타임스탬프와 비교해 precision · recall · 무작위 대비 배수
 - [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항)
 - [ ] 📡 라이브 모드 — 방송 중 채팅 급증을 보고 리플레이를 자동 저장
-- [ ] 🌏 앱 화면 일본어 · 영어
+- [x] 🌏 앱 화면 일본어 · 영어 — 런처 · 하이라이트 창 · 업로드 창 · 편집기 · 녹화 화면의 문구 230개
+- [ ] 🌏 하이라이트 근거 · 가이드라인 점검 · 명령줄 출력의 일본어 · 영어 (지금은 한국어), 원어민 검수
 - [ ] 🇰🇷 한국 기획사 가이드라인 프로필 — 공식 원문을 확인한 곳부터 (스텔라이브 · 이세계아이돌은 원문 미확보)
 - [x] 🌐 자막 번역 + 이름 용어집 — 번역기 플러그인으로 번역, 용어집으로 이름 고정, 원문 + 번역 두 줄 자막, Holodex 이름 초안 <sup>v0.3</sup>
 - [x] 😂 노래 구간(歌枠) 검출 · 웃음소리 신호(실험) <sup>v0.3</sup>
@@ -901,6 +904,7 @@ xvfb-run -a pytest
 | `test_detect.py` | 얼굴 검출 전처리 · 후처리, 계속 같은 자리에 있는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` · `--avatar auto` (실제 모델은 파일이 있을 때만) |
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지 · 이름 고정 · 두 줄 자막 · 묶음 전송, Holodex 초안, `--translate` |
+| `test_i18n.py` | 화면 문구와 일본어 · 영어 번역 목록이 빠짐없이 맞는지(자리 표시 · 줄바꿈 포함), 감싸지 않은 한국어 문구가 없는지, 언어 결정 순서(앱 설정 · 환경 변수 · 시스템), 영어 · 일본어로 실제 창 띄우기 |
 | `test_evaluation.py` | 댓글에서 타임스탬프 읽기(시각이 아닌 숫자 제외), 가까운 표시 묶기 · 댓글 수 세기, precision · recall · 무작위 기대값 계산, 설정값 바꿔 가며 비교, `evaluate` · `fetch --comments` |
 | `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 내려받기(여유 시간 · 이미 받은 파일 재사용), 구간 파일에서 잘라도 자막 · 설명란은 방송 시각 기준, CHZZK 구간에서만 ffmpeg 확장자 검사 끄기, `clips <주소>` · `auto <주소>` |
 | `test_translator_loading.py` | 번역기를 파일 · 모듈에서 불러오기(함수 · 클래스 · 객체, Windows 드라이브 경로), 잘못된 지정의 안내, 예제 번역기(가짜 응답: 목록 추출 · 줄 수가 틀리면 한 줄씩 다시), `--translator file.py` |
@@ -926,6 +930,7 @@ xvfb-run -a pytest
 | 🪟 Windows 10 | 🟡 같은 Win32 API를 쓰지만 실기기 미검증 |
 | 🍎 macOS | 🟡 시스템 설정의 화면 기록 권한 필요, 실기기 미검증 |
 | 🌊 Wayland | ❌ 화면 캡쳐(mss)는 X11/XWayland에서만 동작 |
+| 🌏 화면 언어 | 🟡 앱 화면의 문구는 한국어 · 일본어 · 영어로 나옵니다(Windows 11에서 세 언어 모두 화면을 띄워 배치 확인). 하이라이트 근거("채팅 급증…"), 가이드라인 점검 문구, 설명란 양식, 명령줄 출력은 아직 한국어입니다. 일본어 · 영어 번역은 원어민 검수를 거치지 않았습니다 |
 | 🌐 자막 번역 | ✅ 예제 번역기를 로컬 Ollama(qwen2.5:7b)에 연결해 실제 방송의 일본어 자동 자막 20초 구간을 한국어로 번역, 원문 + 번역 두 줄 자막 클립까지 확인(약 40초). 이 모델로는 한 줄에 영어 · 중국어가 섞여 나온 곳이 있었습니다 — 연결은 확인됐고 품질은 모델에 달려 있습니다. 유료 번역 서비스로는 확인하지 않았습니다. Holodex 이름 초안은 API 키가 없어 가짜 응답으로만 테스트 |
 | 🎤 노래 구간 검출 | ✅ 실제 노래 방송 1개(94분)에서 노래 구간 11개, 실제 게임 방송 1개(85분)에서 0개. YouTube 자동 자막의 [音楽] 표시 중 86%가 검출 구간 안. 방송 둘로만 본 결과입니다 |
 | 😂 웃음소리 신호 | 🟡 실험 기능(기본 꺼짐). 방송 하나에서 상위 순간 뒤 채팅의 웃음 반응이 평소의 2.1배(음량만 쓰면 1.9배). 실제로 웃음소리를 잡는지는 확인하지 못했습니다 |
