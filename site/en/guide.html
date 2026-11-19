@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.5</dd>
+    <dt>Version</dt><dd>v0.6</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -238,6 +238,7 @@
           <tr><th scope="row">center</th><td>Centre of the picture enlarged to the vertical frame. Left and right are cut off</td></tr>
           <tr><th scope="row">fit</th><td>Whole picture scaled down to fit</td></tr>
           <tr><th scope="row">stack</th><td>Avatar on top, game picture below. <strong>Find it</strong> detects the avatar position</td></tr>
+          <tr><th scope="row">pip</th><td>Game picture fills the frame, avatar in a corner. <strong>Find it</strong> detects the avatar position</td></tr>
         </tbody>
       </table>
     </div>
@@ -262,6 +263,7 @@
         <tbody>
           <tr><th scope="row">Subtitle file</th><td>SRT and WebVTT. YouTube automatic captions can be used</td></tr>
           <tr><th scope="row">Karaoke</th><td>Colour follows the spoken word. Applies to subtitles with word timing</td></tr>
+          <tr><th scope="row">Snap to spoken lines</th><td>With a subtitle file, the start and the end of each span move to the edge of a subtitle line. Limit 3 seconds. Applied when highlights are searched</td></tr>
           <tr><th scope="row">Transcription</th><td>Subtitles made from speech when there is no file (Whisper). Provided by the Python package</td></tr>
           <tr><th scope="row">Translation</th><td><strong>Choose a translator file</strong> in the translator list with <code>translators\openai_compatible.py</code> translates through an OpenAI compatible address such as a local Ollama</td></tr>
           <tr><th scope="row">Glossary</th><td>CSV with two columns, source and translation. Fixes names and other set terms</td></tr>
@@ -298,7 +300,7 @@
     </ul>
     <h3>Procedure</h3>
     <ol>
-      <li>Enter the address of a live YouTube stream in the Live mode field of the launcher</li>
+      <li>Enter the address of a live YouTube stream or of a Twitch channel in the Live mode field of the launcher</li>
       <li>Choose the sensitivity. High saves on small surges, Low only on large ones</li>
       <li>Run <strong>Start live mode</strong>. A chat surge creates a clip named <code>live_DATE_TIME</code> in the save folder</li>
       <li>End with <strong>Stop live mode</strong></li>
@@ -308,7 +310,8 @@
       <li>Chat volume, number of chatters, reaction words and paid messages per 5 seconds are compared with the 15 minutes before</li>
       <li>The first 2 minutes only collect the baseline. Clips are at least 90 seconds apart</li>
       <li>The moment is taken to be 8 seconds before the surge. The clip keeps 20 seconds before and 10 seconds after</li>
-      <li>Supported: live YouTube streams</li>
+      <li><code>!clip</code> typed in chat by the streamer or a moderator saves a clip at once, surge or not</li>
+      <li>Supported: live YouTube streams, Twitch</li>
     </ul>
     <h3>Command line</h3>
     <pre><code>stream2clip.exe live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips</code></pre>

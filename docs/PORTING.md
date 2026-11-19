@@ -231,13 +231,17 @@ for h in result.highlights:
 ```
 
 ```python
-from stream2clip.ffmpeg import build_video_filter, ExportOptions
+from stream2clip.ffmpeg import build_export_command, build_video_filter, ExportOptions
 from stream2clip.geometry import Region
 from stream2clip.layouts import VerticalLayout
 
 layout = VerticalLayout("stack", avatar=Region(1280, 0, 640, 720))
 print(layout.graph("[0:v]", "[v]"))  # 9:16 필터그래프 조각만
 print(build_video_filter(ExportOptions(format="mp4", layout=layout, subtitles="clip.ass")))
+
+# 게임 화면 구석에 아바타 삽입. 아바타만 녹화한 그린스크린 영상을 두 번째 입력으로 사용
+cutout = VerticalLayout("pip", avatar_source="avatar.mp4", avatar_key="#00FF00", corner="top-left")
+print(build_export_command("vod.mp4", "clip.mp4", ExportOptions(format="mp4", start=3723, end=3753, layout=cutout)))
 ```
 
 ```python
@@ -245,6 +249,12 @@ from stream2clip.subtitles import load_subtitles, slice_cues, write_ass
 
 cues = slice_cues(load_subtitles("VIDEO_ID.ja.vtt"), 3723, 3778)   # 클립 기준 시간으로
 write_ass(cues, "clip.ass", play_res=(1080, 1920))                  # 카라오케 \k 태그
+```
+
+```python
+from stream2clip.highlights import snap_to_cues
+
+snap_to_cues(result.highlights, load_subtitles("VIDEO_ID.ja.vtt"), max_shift=3.0)  # 구간의 시작과 끝을 자막 줄의 경계로
 ```
 
 아바타 박스만 필요한 경우 `detect` 사용. 검출기는 `detect(image) -> list[Face]` 메서드만 있으면 되므로 다른 얼굴 검출 모델로 교체 가능

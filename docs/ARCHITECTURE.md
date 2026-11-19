@@ -88,10 +88,12 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 | 자막 번역 | `translation.py` | `make_clips`가 클립 자막 생성 후 `translate_cues`로 번역기(플러그인)에 전달. 용어집은 번역 전후에 문자열을 치환하는 단순 방식이므로 번역기 종류와 무관. 번역 자막에는 단어 시각 없음 |
 | 노래 구간, 웃음소리 | `audio.py` | `singing_sections`는 소리가 끊기지 않고(음량 변화가 작고) 음을 길게 유지하는 구간 검출. `laughter_levels`는 크고 초당 3.5~8회 끊어지는 소리에 점수를 주는 실험 신호이며, 평균에 포함하지 않고 점수에 가산만 수행(`BONUS_SIGNALS`). 사용 시 다른 하이라이트가 감소하지 않도록 하기 위함 |
 | OBS | `obs.py` | obs-websocket 5 클라이언트. `SaveReplayBuffer` 후 `ReplayBufferSaved` 이벤트(없으면 `GetLastReplayBufferReplay`)로 파일 경로를 받아 `export`로 변환 |
-| 라이브 모드 | `live.py` | `SurgeDetector`가 5초 구간마다 채팅 신호를 직전 15분의 구간과 비교(`highlights.robust_z` 사용). 구간은 확정된 이후에만 판정하며 도착 시각이 아닌 메시지에 기록된 시각 기준. 채팅 입력은 `read()`가 새 메시지를 반환하는 객체(`FileFollower`, `YtDlpLiveChat`), 발동 후 동작은 호출 가능한 객체 1개(`ReplayClipper`)이므로 교체 가능. PySide6, websocket, yt-dlp를 import하지 않음 |
+| 라이브 모드 | `live.py` | `SurgeDetector`가 5초 구간마다 채팅 신호를 직전 15분의 구간과 비교(`highlights.robust_z` 사용). 구간은 확정된 이후에만 판정하며 도착 시각이 아닌 메시지에 기록된 시각 기준. 스트리머의 표시 명령은 점수 계산 없이 발동. 채팅 입력은 `read()`가 새 메시지를 반환하는 객체(`FileFollower`, `YtDlpLiveChat`, `TwitchLiveChat`)이며 `open_chat`이 주소에 따라 선택. 발동 후 동작은 호출 가능한 객체 1개(`ReplayClipper`)이므로 교체 가능. PySide6, websocket, yt-dlp를 import하지 않으며 Twitch 채팅은 표준 라이브러리 소켓으로 수신 |
+| 레이아웃 | `layouts.py` | 필터그래프 조각을 만드는 순수 함수. `stack`, `pip`는 아바타를 방송 화면의 영역에서 잘라 쓰거나 별도 아바타 영상(`avatar_source`)에서 가져옴. 별도 영상은 두 번째 입력(`[1:v]`)으로 받아 색을 제거한 후 합성하며, `ffmpeg.avatar_input_args`가 방송 영상과 같은 구간으로 맞춤 |
+| 문장 경계, 표시 구간 | `highlights.py` | `snap_to_cues`가 구간의 시작과 끝을 자막 줄의 경계로 이동. `marker_times`가 스트리머, 모더레이터의 표시 명령 시각을 찾고 `detect_highlights`가 해당 시점을 항상 구간으로 포함 |
 | YouTube 업로드 | `upload.py` | 요청 본문을 만드는 순수 함수(`video_resource`)와 실제 전송(`upload_video`)을 분리. 공개 범위 기본값은 비공개 |
 | CHZZK, SOOP | `sources.py`, `chat.py` | 채팅을 yt-dlp 대신 각 플랫폼의 다시보기 API에서 수신(`fetch_chzzk_chat`, `fetch_soop_chat`, 표준 라이브러리 `urllib`). 응답 해석은 순수 함수 `parse_chzzk`, `parse_soop`. 저장 형식은 작성자를 해시한 정규화 JSONL 1종. 네트워크 함수는 `get`을 교체할 수 있어 테스트가 실제 요청을 보내지 않음 |
-| 채팅 정리 | `chat.py`, `highlights.py` | `load_chat`은 YouTube 다시보기에서 0초로 기록된 대기실 채팅을 보낸 시각(`timestampUsec` − 오프셋 = 방송 시작 시각)으로 판별하여 제외. `highlights`는 인사, 작별(`ROUTINE`)을 채팅 신호에서 제외. 둘 다 실제 아카이브에서 방송 시작과 종료 시점에 가짜 봉우리를 만들던 요인 |
+| 채팅 정리 | `chat.py`, `highlights.py` | `load_chat`은 YouTube 다시보기에서 0초로 기록된 대기실 채팅을 보낸 시각(`timestampUsec` − 오프셋 = 방송 시작 시각)으로 판별하여 제외. `highlights`는 인사, 작별(`ROUTINE`)을 채팅 신호에서 제외. 둘 다 실제 아카이브에서 방송 시작과 종료 시점에 가짜 봉우리를 만들던 요인. `ChatMessage.role`은 스트리머(`owner`)와 모더레이터(`moderator`)를 구분하며 표시 명령 판정에만 사용 |
 
 필터 및 자막 처리:
 

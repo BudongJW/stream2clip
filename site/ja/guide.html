@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 取扱説明書</h1>
   <dl>
-    <dt>対象バージョン</dt><dd>v0.5</dd>
+    <dt>対象バージョン</dt><dd>v0.6</dd>
     <dt>対象</dt><dd>Windows用インストーラー、実行ファイルおよびPythonパッケージの利用者</dd>
     <dt>配布元</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -238,6 +238,7 @@
           <tr><th scope="row">center</th><td>画面の中央部を縦画面に合わせて拡大。左右は切り取られる</td></tr>
           <tr><th scope="row">fit</th><td>画面全体が見えるように縮小</td></tr>
           <tr><th scope="row">stack</th><td>上にアバター、下にゲーム画面。<strong>自動検出</strong>でアバターの位置を検出</td></tr>
+          <tr><th scope="row">pip</th><td>ゲーム画面を全体に表示し、隅にアバターを配置。<strong>自動検出</strong>でアバターの位置を検出</td></tr>
         </tbody>
       </table>
     </div>
@@ -262,6 +263,7 @@
         <tbody>
           <tr><th scope="row">字幕ファイル</th><td>SRT、WebVTTに対応。YouTubeの自動字幕も使用可能</td></tr>
           <tr><th scope="row">カラオケ</th><td>発話中の単語に合わせて色を変更。単語ごとの時刻情報がある字幕に適用</td></tr>
+          <tr><th scope="row">文の区切りに合わせる</th><td>字幕ファイルがある場合、区間の開始と終了を字幕行の境界へ移動。移動の上限は3秒。ハイライト検索の実行時に適用</td></tr>
           <tr><th scope="row">文字起こし</th><td>字幕がない場合に音声から字幕を作成(Whisper)。Pythonパッケージで提供</td></tr>
           <tr><th scope="row">翻訳</th><td>翻訳一覧の<strong>翻訳プログラムのファイルを選ぶ</strong>で <code>translators\openai_compatible.py</code> を選択すると、OpenAI互換のアドレス(ローカルのOllamaなど)で翻訳</td></tr>
           <tr><th scope="row">用語集</th><td>原文と訳語の2列で構成したCSV。人名などの固定表記に使用</td></tr>
@@ -298,7 +300,7 @@
     </ul>
     <h3>使用手順</h3>
     <ol>
-      <li>ランチャーのライブモード欄にYouTubeライブ配信のURLを入力</li>
+      <li>ランチャーのライブモード欄にYouTubeライブ配信またはTwitchチャンネルのURLを入力</li>
       <li>感度を選択。高は小さな急増でも保存、低は大きな急増のみ保存</li>
       <li><strong>ライブモード開始</strong>を実行。チャット急増時に保存フォルダへ <code>live_日付_時刻</code> 形式のクリップを作成</li>
       <li><strong>ライブモード停止</strong>で終了</li>
@@ -308,7 +310,8 @@
       <li>5秒単位のチャット量、参加者数、反応語彙、有料メッセージを直前の15分と比較</li>
       <li>開始後2分間は基準の収集のみ。クリップ間の最小間隔は90秒</li>
       <li>急増の8秒前を場面の時点と判断し、前20秒と後10秒を含める</li>
-      <li>対応: YouTubeライブ配信</li>
+      <li>配信者またはモデレーターがチャットに <code>!clip</code> を入力すると、急増の有無に関係なく即時保存</li>
+      <li>対応: YouTubeライブ配信、Twitch</li>
     </ul>
     <h3>コマンドラインでの実行</h3>
     <pre><code>stream2clip.exe live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips</code></pre>
