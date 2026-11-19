@@ -224,7 +224,7 @@ class LauncherWindow(QMainWindow):
         label.setStyleSheet("font-weight:800;")
         live.addWidget(label)
         self.live_edit = QLineEdit()
-        self.live_edit.setPlaceholderText(tr("YouTube 라이브 또는 Twitch 채널 주소"))
+        self.live_edit.setPlaceholderText(tr("YouTube, Twitch, CHZZK, SOOP 라이브 주소"))
         self.live_edit.setToolTip(tr("방송 중 채팅이 급증하면 OBS 리플레이 버퍼를 저장하고 해당 장면을 클립으로 만듭니다.\nOBS 리플레이 버퍼의 최대 시간을 60초 이상으로 설정하세요."))
         live.addWidget(self.live_edit, 1)
         live.addWidget(QLabel(tr("민감도")))
@@ -311,7 +311,7 @@ class LauncherWindow(QMainWindow):
         return LiveConfig(threshold=thresholds.get(self.live_level.currentData(), 3.5))
 
     def live_source(self, url: str, folder: Path):
-        """Where the chat comes from: Twitch's chat itself, or yt-dlp recording the live chat into ``folder`` (tests replace this)."""
+        """Where the chat comes from: the chat of Twitch, CHZZK or SOOP itself, or yt-dlp recording the live chat into ``folder`` (tests replace this)."""
         from ..live import open_chat
 
         return open_chat(url, folder)[0]
@@ -330,7 +330,7 @@ class LauncherWindow(QMainWindow):
             return
         url = self.live_edit.text().strip()
         if not is_url(url):
-            self._on_live("failed", tr("YouTube 라이브 또는 Twitch 채널 주소를 입력하세요."))
+            self._on_live("failed", tr("YouTube, Twitch, CHZZK, SOOP의 라이브 주소를 입력하세요."))
             return
         config = self.live_config()
         out = self.settings.save_dir

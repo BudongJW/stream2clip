@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.7</dd>
+    <dt>Version</dt><dd>v0.8</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -301,7 +301,7 @@
     </ul>
     <h3>Procedure</h3>
     <ol>
-      <li>Enter the address of a live YouTube stream or of a Twitch channel in the Live mode field of the launcher</li>
+      <li>Enter a live address on YouTube, Twitch, CHZZK or SOOP in the Live mode field of the launcher</li>
       <li>Choose the sensitivity. High saves on small surges, Low only on large ones</li>
       <li>Run <strong>Start live mode</strong>. A chat surge creates a clip named <code>live_DATE_TIME</code> in the save folder</li>
       <li>End with <strong>Stop live mode</strong></li>
@@ -312,7 +312,7 @@
       <li>The first 2 minutes only collect the baseline. Clips are at least 90 seconds apart</li>
       <li>The moment is taken to be 8 seconds before the surge. The clip keeps 20 seconds before and 10 seconds after</li>
       <li><code>!clip</code> typed in chat by the streamer or a moderator saves a clip at once, surge or not</li>
-      <li>Supported: live YouTube streams, Twitch</li>
+      <li>Supported: live YouTube streams, Twitch, CHZZK, SOOP. Adult-only and password streams on CHZZK and SOOP are excluded</li>
     </ul>
     <h3>Command line</h3>
     <pre><code>stream2clip.exe live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips</code></pre>

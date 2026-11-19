@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 사용 설명서</h1>
   <dl>
-    <dt>적용 버전</dt><dd>v0.7</dd>
+    <dt>적용 버전</dt><dd>v0.8</dd>
     <dt>대상</dt><dd>Windows 설치 프로그램, 실행 파일 및 파이썬 패키지 사용자</dd>
     <dt>배포처</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -301,7 +301,7 @@
     </ul>
     <h3>사용 절차</h3>
     <ol>
-      <li>런처의 라이브 모드 칸에 YouTube 라이브 방송 주소 또는 Twitch 채널 주소 입력</li>
+      <li>런처의 라이브 모드 칸에 YouTube, Twitch, CHZZK, SOOP의 라이브 주소 입력</li>
       <li>민감도 선택. 높음은 작은 급증에도 저장, 낮음은 큰 급증에만 저장</li>
       <li><strong>라이브 모드 시작</strong> 실행. 채팅 급증 시 저장 폴더에 <code>live_날짜_시각</code> 형식의 클립 생성</li>
       <li><strong>라이브 모드 중지</strong>로 종료</li>
@@ -312,7 +312,7 @@
       <li>시작 후 2분간은 기준 수집만 수행하며 클립 간 최소 간격은 90초</li>
       <li>급증 8초 전을 장면 시점으로 판단하여 앞 20초, 뒤 10초를 포함</li>
       <li>스트리머 또는 모더레이터가 채팅에 <code>!clip</code> 입력 시 급증 여부와 무관하게 즉시 저장</li>
-      <li>지원 대상: YouTube 라이브 방송, Twitch</li>
+      <li>지원 대상: YouTube 라이브 방송, Twitch, CHZZK, SOOP. CHZZK, SOOP의 성인 인증 및 비밀번호 방송은 제외</li>
     </ul>
     <h3>명령줄 실행</h3>
     <pre><code>stream2clip.exe live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips</code></pre>

@@ -17,13 +17,18 @@ from stream2clip import i18n
 SRC = Path(__file__).parents[1] / "src" / "stream2clip"
 
 
+TRANSLATED = ("tr", "mark")  # tr("...") where a text is shown, mark("...") for a text kept in a table
+
+
 def texts_in_code() -> dict[str, str]:
-    """Every literal passed to tr() in the GUI modules -> the file it is in."""
+    """Every literal passed to tr() or mark() anywhere in the package -> the file it is in."""
     found: dict[str, str] = {}
-    for path in sorted((SRC / "gui").glob("*.py")):
+    for path in sorted(SRC.rglob("*.py")):
+        if path.name == "i18n.py":  # where tr() and shown() are defined: shown(text) looks a marked text up
+            continue
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "tr":
-                assert node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str), f"{path.name}: tr() needs a literal"
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in TRANSLATED:
+                assert node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str), f"{path.name}: {node.func.id}() needs a literal"
                 found.setdefault(node.args[0].value, path.name)
     return found
 
@@ -44,7 +49,7 @@ def clean_language(monkeypatch):
 def test_catalog_covers_every_text_of_the_windows(code):
     used = texts_in_code()
     catalog = json.loads((SRC / "locales" / f"{code}.json").read_text(encoding="utf-8"))
-    assert len(used) > 200
+    assert len(used) > 300
     assert sorted(set(used) - set(catalog)) == [], "texts in the code without a translation"
     assert sorted(set(catalog) - set(used)) == [], "translations of texts that are no longer in the code"
     for key, value in catalog.items():
@@ -58,12 +63,22 @@ def test_no_korean_literal_is_left_outside_tr():
     """A new text added without tr() would stay Korean in every language."""
     import re
 
+    from stream2clip import highlights
+
     hangul = re.compile("[가-힣]")
-    allowed = {"launcher.py": {"언어 / 言語 / Language", "다시 시작하면 한국어로 표시됩니다"}}
+    allowed = {
+        "launcher.py": {"언어 / 言語 / Language", "다시 시작하면 한국어로 표시됩니다"},
+        "i18n.py": {"한국어"},  # the name of the language itself
+        "chat.py": {"별풍선", "애드벌룬"},  # units of SOOP donations, kept as data
+        # what viewers type, matched in the chat: patterns and commands, not texts of the program
+        "highlights.py": {pattern for patterns in highlights.REACTIONS.values() for pattern in patterns} | set(highlights.ROUTINE) | set(highlights.DEFAULT_MARKERS),
+    }
     left = []
-    for path in sorted((SRC / "gui").glob("*.py")):
+    for path in sorted(SRC.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        inside_tr = {id(n) for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "tr" for n in ast.walk(node)}
+        inside_tr = {id(n) for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in TRANSLATED for n in ast.walk(node)}
+        if path.name == "cli.py":  # option help is English; one help text quotes the default marker commands
+            inside_tr |= {id(n) for node in ast.walk(tree) if isinstance(node, ast.keyword) and node.arg == "help" for n in ast.walk(node)}
         docstrings = {
             id(node.body[0].value) for node in ast.walk(tree)
             if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef)) and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
@@ -216,3 +231,38 @@ def test_language_chosen_in_the_installer(tmp_path, monkeypatch, clean_language,
     assert main(["language", "-v"]) == 0
     out = capsys.readouterr().out.splitlines()
     assert out[0] == "ja" and "installer (language.txt): ja" in out and "system: en" in out
+
+
+def test_reasons_and_checks_follow_the_language(clean_language):
+    """What the detector and the checks say is shown in the app's lists: it follows the language too."""
+    import random
+
+    from stream2clip.chat import ChatMessage
+    from stream2clip.compliance import check_upload, get_profile
+    from stream2clip.highlights import detect_highlights
+    from stream2clip.sources import SourceInfo
+    from stream2clip.upload import shorts_problems
+
+    rng = random.Random(3)
+    messages = [ChatMessage(t + rng.random(), "なるほど", f"u{rng.randrange(80)}") for t in range(0, 1800, 2)]
+    messages += [ChatMessage(900 + rng.random() * 10, "草", f"r{i}") for i in range(150)] + [ChatMessage(300.0, "!clip", "s", role="owner")]
+    messages.sort(key=lambda m: m.time)
+    source = SourceInfo(url="", title="t", channel="c", live_status="was_live", availability="public")
+    expected = {
+        "ko": ("스트리머 표시 (!clip)", "채팅 급증", "웃음", "원본 방송 URL이 없습니다", "가로 영상입니다"),
+        "ja": ("配信者のマーク (!clip)", "チャット急増", "笑い", "元配信のURLがありません", "横長の動画です"),
+        "en": ("Marked by the streamer (!clip)", "Chat surge", "laughs", "There is no source stream URL", "The video is landscape"),
+    }
+    for code, (marker, surge, laugh, no_url, landscape) in expected.items():
+        i18n.set_language(code)
+        result = detect_highlights(messages, duration=1800)
+        reasons = [" / ".join(h.reasons) for h in result.highlights]
+        assert reasons[0] == marker or reasons[0].startswith(marker), (code, reasons)
+        assert any(surge in text and laugh in text for text in reasons), (code, reasons)
+        assert any(no_url in issue.message for issue in check_upload(source, get_profile("hololive"))), code
+        assert landscape in shorts_problems(1920, 1080, 30.0)[0], code
+    # A profile's notes are kept in Korean and translated where they are shown.
+    i18n.set_language("en")
+    notes = [issue.message for issue in check_upload(SourceInfo(url="https://youtu.be/x", title="t", channel="c", live_status="was_live", availability="public"), get_profile("generic"))]
+    assert "Check the derivative work guidelines of the VTuber and the agency yourself" in notes
+    assert get_profile("generic").name == "개인 / 기타 기획사"  # the table itself is untouched

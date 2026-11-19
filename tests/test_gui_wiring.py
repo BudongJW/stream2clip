@@ -626,4 +626,9 @@ def test_live_mode_reads_twitch_chat_for_a_twitch_address(app, tmp_path):
     source = win.live_source("https://www.twitch.tv/some_channel", tmp_path)
     assert isinstance(source, TwitchLiveChat) and source.channel == "some_channel"  # nothing is connected before the first read
     source.close()
+    from stream2clip.live import ChzzkLiveChat, SoopLiveChat
+
+    assert "CHZZK" in win.live_edit.placeholderText() and "SOOP" in win.live_edit.placeholderText()
+    assert isinstance(win.live_source("https://chzzk.naver.com/live/" + "ab" * 16, tmp_path), ChzzkLiveChat)
+    assert isinstance(win.live_source("https://play.sooplive.co.kr/some_id", tmp_path), SoopLiveChat)
     win.close()

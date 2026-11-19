@@ -88,7 +88,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 | 자막 번역 | `translation.py` | `make_clips`가 클립 자막 생성 후 `translate_cues`로 번역기(플러그인)에 전달. 용어집은 번역 전후에 문자열을 치환하는 단순 방식이므로 번역기 종류와 무관. 번역 자막에는 단어 시각 없음 |
 | 노래 구간, 웃음소리 | `audio.py` | `singing_sections`는 소리가 끊기지 않고(음량 변화가 작고) 음을 길게 유지하는 구간 검출. `laughter_levels`는 크고 초당 3.5~8회 끊어지는 소리에 점수를 주는 실험 신호이며, 평균에 포함하지 않고 점수에 가산만 수행(`BONUS_SIGNALS`). 사용 시 다른 하이라이트가 감소하지 않도록 하기 위함 |
 | OBS | `obs.py` | obs-websocket 5 클라이언트. `SaveReplayBuffer` 후 `ReplayBufferSaved` 이벤트(없으면 `GetLastReplayBufferReplay`)로 파일 경로를 받아 `export`로 변환 |
-| 라이브 모드 | `live.py` | `SurgeDetector`가 5초 구간마다 채팅 신호를 직전 15분의 구간과 비교(`highlights.robust_z` 사용). 구간은 확정된 이후에만 판정하며 도착 시각이 아닌 메시지에 기록된 시각 기준. 스트리머의 표시 명령은 점수 계산 없이 발동. 채팅 입력은 `read()`가 새 메시지를 반환하는 객체(`FileFollower`, `YtDlpLiveChat`, `TwitchLiveChat`)이며 `open_chat`이 주소에 따라 선택. 발동 후 동작은 호출 가능한 객체 1개(`ReplayClipper`)이므로 교체 가능. PySide6, websocket, yt-dlp를 import하지 않으며 Twitch 채팅은 표준 라이브러리 소켓으로 수신 |
+| 라이브 모드 | `live.py` | `SurgeDetector`가 5초 구간마다 채팅 신호를 직전 15분의 구간과 비교(`highlights.robust_z` 사용). 구간은 확정된 이후에만 판정하며 도착 시각이 아닌 메시지에 기록된 시각 기준(시각이 없는 SOOP 메시지는 도착 시각). 스트리머의 표시 명령은 점수 계산 없이 발동. 채팅 입력은 `read()`가 새 메시지를 반환하는 객체(`FileFollower`, `YtDlpLiveChat`, `TwitchLiveChat`, `ChzzkLiveChat`, `SoopLiveChat`)이며 `open_chat`이 주소에 따라 선택. 발동 후 동작은 호출 가능한 객체 1개(`ReplayClipper`)이므로 교체 가능. PySide6, yt-dlp를 import하지 않으며 Twitch는 표준 라이브러리 소켓, CHZZK와 SOOP은 OBS 연결과 같은 WebSocket 클라이언트를 첫 수신 시점에 import |
 | 레이아웃 | `layouts.py` | 필터그래프 조각을 만드는 순수 함수. `stack`, `pip`는 아바타를 방송 화면의 영역에서 잘라 쓰거나 별도 아바타 영상(`avatar_source`)에서 가져옴. 별도 영상은 두 번째 입력(`[1:v]`)으로 받아 색을 제거한 후 합성하며, `ffmpeg.avatar_input_args`가 방송 영상과 같은 구간으로 맞춤 |
 | 문장 경계, 표시 구간 | `highlights.py` | `snap_to_cues`가 구간의 시작과 끝을 자막 줄의 경계로 이동. `marker_times`가 스트리머, 모더레이터의 표시 명령 시각을 찾고 `detect_highlights`가 해당 시점을 항상 구간으로 포함 |
 | YouTube 업로드 | `upload.py` | 요청 본문을 만드는 순수 함수(`video_resource`)와 실제 전송(`upload_video`)을 분리. 공개 범위 기본값은 비공개 |
@@ -129,7 +129,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 | 미리보기 | 레이아웃만 적용한 정지 화면. 자막은 내보낸 클립에서 확인 |
 | 번역, 노래, 웃음 | 창은 선택한 값을 코어에 전달: `find_highlights(laughter=...)`, `audio.singing_sections`, `highlights.mark_singing`, `translation.get_translator(이름 또는 file.py)`, `make_clips(subtitle_translator=...)` |
 | 업로드 창 | `gui/upload.py`가 `upload.video_resource`로 본문을 만들고 작업 스레드에서 `upload.upload_video` 호출. 공개 범위는 저장하지 않아 매번 비공개에서 시작. 런처의 리플레이 버튼은 `obs.replay_to_clip` 호출 |
-| 화면 언어 | `i18n.py`, `locales/*.json`. 코드의 문구는 한국어이며 `tr()`이 현재 언어의 번역을 조회(없으면 한국어 유지). 표 형태의 상수는 모듈을 가져올 때 번역되므로 앱은 창 모듈을 가져오기 전에 언어를 결정(`gui/app.py`의 `apply_saved_language`). 따라서 언어 변경은 다음 실행부터 적용 |
+| 화면 언어 | `i18n.py`, `locales/*.json`. 코드의 문구는 한국어이며 `tr()`이 현재 언어의 번역을 조회(없으면 한국어 유지). 창의 문구뿐 아니라 하이라이트 근거, 가이드라인 점검, VRM 검사 문구도 같은 목록 사용. 표에 담아 두는 문구(기획사 프로필의 주의 사항 등)는 `mark()`로 표시하고 표시 시점에 `shown()`으로 번역. 표 형태의 상수는 모듈을 가져올 때 번역되므로 앱은 창 모듈을 가져오기 전에 언어를 결정(`gui/app.py`의 `apply_saved_language`). 따라서 언어 변경은 다음 실행부터 적용 |
 | 설정 저장 | `gui/settings.py`. 창마다 1개 구역을 가진 JSON 파일 1개. 읽을 때 값의 형식과 범위를 확인하여 사용할 수 없는 값은 건너뛰며, 파일이 손상되었거나 폴더에 쓸 수 없어도 앱은 기본값으로 동작. 비밀번호 미저장. 테스트는 `STREAM2CLIP_CONFIG_DIR`로 빈 폴더 사용 |
 | 마스코트 | 상태 줄의 키리는 창의 상태(`set_mood`: wink, focus, laugh, cut, surprised)를, 목록의 얼굴은 `mood_for(highlight)`가 `stats["react_*"]`에서 가장 많은 반응을 선택하여 표시. 이미지는 `gui/qt.py`의 `mascot()`이 화면 배율에 맞춰 로드 |
 
