@@ -148,6 +148,7 @@ def test_installer_offers_ffmpeg_when_there_is_none():
     missing = text.split("function FfmpegMissing")[1].split("end;")[0]
     assert "GetEnv('PATH')" in missing and "{%USERPROFILE}\\.cache\\stream2clip\\tools\\ffmpeg.exe" in missing and "BesideThePrograms" in missing
     assert "(CurPageID = wpFinished) and FfmpegMissing" in text  # the last page mentions ffmpeg only when it is still missing
+    assert "FinishedLabel.AdjustHeight" in text and "RunList.Top + Grown" in text  # ... in a label that grows for it, not one that cuts it off
     # a failed download does not stop the installation
     handler = text.split("DownloadPage.Download;")[1].split("finally")[0]
     assert "except" in handler and "Result := False" not in handler and "SuppressibleMsgBox" in handler

@@ -180,8 +180,16 @@ begin
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
+var
+  Grown: Integer;
 begin
   { ffmpeg is a separate program: when there still is none, the last page says where to get it. }
   if (CurPageID = wpFinished) and FfmpegMissing then
+  begin
     WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10 + #13#10 + CustomMessage('FfmpegNote');
+    { The label was sized for its own text: let it grow, and move the "start the app" box down by as much. }
+    Grown := WizardForm.FinishedLabel.AdjustHeight;
+    WizardForm.RunList.Top := WizardForm.RunList.Top + Grown;
+    WizardForm.RunList.Height := WizardForm.RunList.Height - Grown;
+  end;
 end;
