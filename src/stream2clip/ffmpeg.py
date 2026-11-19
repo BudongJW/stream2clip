@@ -36,6 +36,7 @@ __all__ = [
     "build_export_command",
     "build_capture_command",
     "build_concat_command",
+    "keep_filters",
     "extension_for",
     "filter_path",
 ]
@@ -136,6 +137,9 @@ class ExportOptions:
     layout: "VerticalLayout | None" = None
     #: Subtitle file (.ass/.srt/.vtt) burned in after the layout, timed from the clip start.
     subtitles: "str | os.PathLike[str] | None" = None
+    #: Parts of the cut that stay, as (start, end) seconds from its beginning; the rest is dropped and
+    #: what stays is closed up (see :func:`stream2clip.audio.sound_parts`). Subtitle times are those of the result.
+    keep: "tuple[tuple[float, float], ...] | None" = None
 
     def __post_init__(self) -> None:
         if self.format not in FORMATS:
@@ -156,6 +160,14 @@ class ExportOptions:
             raise ValueError("start must be >= 0")
         if self.start is not None and self.end is not None and self.end <= self.start:
             raise ValueError("end must be greater than start")
+        if self.keep is not None:
+            last = 0.0
+            if not self.keep:
+                raise ValueError("keep must name at least one part")
+            for a, b in self.keep:
+                if a < last or b <= a:
+                    raise ValueError("keep must be (start, end) parts in order, without overlap")
+                last = b
 
     @property
     def duration(self) -> float | None:
@@ -207,6 +219,43 @@ def filter_path(path: str | os.PathLike[str]) -> str:
     return re.sub(r"([\\'\[\],;])", r"\\\1", value)  # graph level
 
 
+#: The sound of a clip that loses parts is brought to this rate, so that its parts can be counted in samples.
+_KEEP_RATE = 48000
+
+
+def keep_filters(options: ExportOptions, *, audio_in: str = "[0:a:0]", audio_out: str = "[a]") -> tuple[list[str], str]:
+    """What drops everything outside ``options.keep`` and closes the result up: (video filters, audio graph).
+
+    Both are chosen by counting, not by timestamps: with a known frame rate the picture by frame
+    number, the sound - brought to 48 kHz - by sample number (``atrim`` per part, then ``concat``).
+    Each part is then a whole number of picture frames with exactly its sound, whatever timestamps
+    the file or the ffmpeg at hand gives its frames, and the two stay together across many cuts.
+    The audio graph reads ``audio_in`` and writes ``audio_out``.
+    """
+    if not options.keep:
+        return [], ""
+    fps = options.fps
+    if fps:
+        spans = [(int(round(a * fps)), int(round(b * fps))) for a, b in options.keep]
+        spans = [(i, j) for i, j in spans if j > i]
+        times = [(i / fps, j / fps) for i, j in spans]
+        picture = "+".join(f"between(n,{i},{j - 1})" for i, j in spans)
+        video = [f"select='{picture}'", f"setpts=N/({fps:g}*TB)"]
+    else:
+        times = list(options.keep)
+        picture = "+".join(f"gte(t,{a:.4f})*lt(t,{b:.4f})" for a, b in times)
+        video = [f"select='{picture}'", "setpts=N/FRAME_RATE/TB"]
+    cuts = [(int(round(a * _KEEP_RATE)), int(round(b * _KEEP_RATE))) for a, b in times]
+    cuts = [(i, j) for i, j in cuts if j > i]
+    if len(cuts) == 1:
+        i, j = cuts[0]
+        return video, f"{audio_in}aresample={_KEEP_RATE},atrim=start_sample={i}:end_sample={j},asetpts=N/SR/TB{audio_out}"
+    parts = [f"{audio_in}aresample={_KEEP_RATE},asplit={len(cuts)}" + "".join(f"[ka{k}]" for k in range(len(cuts)))]
+    parts += [f"[ka{k}]atrim=start_sample={i}:end_sample={j},asetpts=N/SR/TB[kb{k}]" for k, (i, j) in enumerate(cuts)]
+    parts.append("".join(f"[kb{k}]" for k in range(len(cuts))) + f"concat=n={len(cuts)}:v=0:a=1{audio_out}")
+    return video, ";".join(parts)
+
+
 def build_video_filter(options: ExportOptions) -> str:
     """Return a ``-filter_complex`` graph reading ``[0:v]`` and writing ``[v]``.
 
@@ -227,6 +276,7 @@ def build_video_filter(options: ExportOptions) -> str:
         chain: list[str] = [scale] if scale and (options.width or options.height) else []
     else:
         chain = pre + ([scale] if scale else [])
+    chain.extend(keep_filters(options)[0])  # before the captions: their times are those of the shortened clip
     if options.subtitles is not None:
         chain.append(f"subtitles=filename={filter_path(options.subtitles)}")
     chain.extend(options.extra_filters)
@@ -332,12 +382,14 @@ def build_export_command(
             raise ValueError("A layout with an avatar video needs a video file as its main input")
         cmd += raw_input.args()
 
-    cmd += ["-filter_complex", build_video_filter(options), "-map", "[v]"]
     wants_audio = options.audio and raw_input is None and options.format in _AUDIO_CODECS
-    if wants_audio:
-        cmd += ["-map", "0:a:0?"] + _AUDIO_CODECS[options.format]
+    graph = build_video_filter(options)
+    if wants_audio and options.keep:  # the sound loses the same parts as the picture (the input must have sound)
+        cmd += ["-filter_complex", f"{graph};{keep_filters(options)[1]}", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
+    elif wants_audio:
+        cmd += ["-filter_complex", graph, "-map", "[v]", "-map", "0:a:0?"] + _AUDIO_CODECS[options.format]
     else:
-        cmd += ["-an"]
+        cmd += ["-filter_complex", graph, "-map", "[v]", "-an"]
     cmd += _codec_args(options)
     cmd.append(os.fspath(output_path))
     return cmd

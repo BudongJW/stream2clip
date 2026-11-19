@@ -32,11 +32,14 @@ class ClipResult:
     subtitles: Path | None = None
     description: Path | None = None
     issues: list[Issue] = field(default_factory=list)
+    #: Seconds of silence taken out of the clip (``trim_silence``); the file is that much shorter than the highlight.
+    removed: float = 0.0
 
     def to_dict(self) -> dict:
         return {
             **self.highlight.to_dict(),
             "file": self.path.name,
+            "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
             "issues": [{"level": i.level, "message": i.message} for i in self.issues],
@@ -252,6 +255,17 @@ def _extract_audio(video: str | os.PathLike[str], start: float, end: float, out:
     return out
 
 
+def _sound_parts(video: str | os.PathLike[str], start: float, length: float, *, min_silence: float, level: float) -> list[tuple[float, float]]:
+    """What stays of one cut when its silences are shortened; empty when it has no sound to go by."""
+    from .audio import decode_pcm, sound_parts
+
+    if not probe(video).has_audio:
+        return []
+    rate = 16000
+    samples = decode_pcm(video, sample_rate=rate, start=start, duration=length)
+    return sound_parts(samples, rate, min_silence=min_silence, level=level)
+
+
 def make_clips(
     video: str | os.PathLike[str] | None,
     highlights: Sequence[Highlight],
@@ -276,11 +290,17 @@ def make_clips(
     section: Callable[[Highlight], "tuple[str | os.PathLike[str], float]"] | None = None,
     credit: str | None = None,
     credit_position: str = "top-left",
+    trim_silence: float | None = None,
+    silence_level: float = 24.0,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
     ``credit`` is a short line burned into a corner of every clip for its whole length, such as
     the name of the original channel.
+
+    ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
+    dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
+    Captions move with what is left.
 
     Normally every clip is cut from ``video``. With ``section`` each highlight has its own
     footage instead - ``section(h)`` returns ``(file, stream time at the file's start)`` - so
@@ -324,16 +344,27 @@ def make_clips(
             from .translation import translate_cues
 
             clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
+        length, removed = h.end - h.start, 0.0
+        if trim_silence and trim_silence > 0:
+            keep = _sound_parts(clip_video, opts.start or 0.0, length, min_silence=trim_silence, level=silence_level)
+            left = sum(b - a for a, b in keep)
+            if keep and length - left >= 0.3:  # a few frames are not worth another cut
+                removed, length = length - left, left
+                opts = replace(opts, keep=tuple(keep))
+                if clip_cues:
+                    from .subtitles import retime_cues
+
+                    clip_cues = retime_cues(clip_cues, keep)
         sub_path = None
         if clip_cues or credit:
             sub_path = write_ass(
                 clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
-                credit=credit, credit_position=credit_position, duration=h.end - h.start,
+                credit=credit, credit_position=credit_position, duration=length,
             )
             opts = replace(opts, subtitles=sub_path)
 
         clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
-        result = ClipResult(h, clip_path, sub_path)
+        result = ClipResult(h, clip_path, sub_path, removed=removed)
         if source is not None:
             text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai)
             result.description = out / f"{stem}.txt"

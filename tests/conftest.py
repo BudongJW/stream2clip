@@ -23,6 +23,8 @@ def isolated_settings(tmp_path_factory, monkeypatch):
     monkeypatch.setenv("STREAM2CLIP_CONFIG_DIR", str(folder))
     # ... and an empty tools folder: an ffmpeg downloaded by the app on this machine is not what the tests find.
     monkeypatch.setenv("STREAM2CLIP_TOOLS_DIR", str(tmp_path_factory.mktemp("tools")))
+    # ... and no question to GitHub about a newer release: the tests that look at it ask a stand-in.
+    monkeypatch.setenv("STREAM2CLIP_NO_UPDATE_CHECK", "1")
     return folder
 
 

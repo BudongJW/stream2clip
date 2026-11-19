@@ -25,6 +25,7 @@ __all__ = [
     "SubtitleStyle",
     "SUBTITLE_STYLES",
     "SUBTITLE_POSITIONS",
+    "retime_cues",
     "CREDIT_POSITIONS",
     "subtitle_style",
     "FONT_CANDIDATES",
@@ -169,6 +170,33 @@ def slice_cues(cues: Iterable[Cue], start: float, end: float) -> list[Cue]:
             continue
         words = tuple(Word(max(w.start, start) - start, min(w.end, end) - start, w.text) for w in c.words if w.end > start and w.start < end)
         out.append(Cue(max(c.start, start) - start, min(c.end, end) - start, c.text, words))
+    return out
+
+
+def retime_cues(cues: Iterable[Cue], keep: "Iterable[tuple[float, float]]") -> list[Cue]:
+    """Cue times on the clip that is left when only the ``keep`` (start, end) parts of it stay.
+
+    A moment inside a removed part moves to where the next kept part begins; a cue with nothing
+    left of it is dropped.
+    """
+    parts = sorted((float(a), float(b)) for a, b in keep)
+
+    def at(t: float) -> float:
+        passed = 0.0
+        for a, b in parts:
+            if t <= a:
+                return passed
+            if t < b:
+                return passed + (t - a)
+            passed += b - a
+        return passed
+
+    out = []
+    for c in cues:
+        start, end = at(c.start), at(c.end)
+        if end - start < 0.05:
+            continue
+        out.append(Cue(start, end, c.text, tuple(Word(at(w.start), at(w.end), w.text) for w in c.words)))
     return out
 
 

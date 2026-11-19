@@ -451,3 +451,41 @@ def test_export_for_an_editing_program_then_credit_and_compilation(app, window, 
     assert [p.name for p in window.last_handoff] == ["timestamps.txt"] and "영상 파일이 있어야" in window.status.text()
     assert not (tmp_path / "other" / "highlights.edl").exists()
 
+
+@needs_ffmpeg
+def test_quiet_parts_are_shortened_when_asked(app, window, tmp_path):
+    from stream2clip.export import probe
+
+    # 60 s: a tone for the first two seconds of every ten, silence otherwise; the chat bursts at 0:30.
+    video = tmp_path / "vod.mp4"
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=160x90:r=10:d=60",
+         "-f", "lavfi", "-i", "aevalsrc='0.5*sin(2*PI*440*t)*lt(mod(t,10),2)':s=48000:d=60", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(video)],
+        check=True,
+    )
+    rows = ["time,author,text"] + [f"{t}.5,u{t % 9},hm" for t in range(0, 60, 2)] + [f"{36 + i * 0.07:.2f},r{i},lol" for i in range(80)]
+    chat = tmp_path / "chat.csv"
+    chat.write_text("\n".join(rows), encoding="utf-8")
+    out = tmp_path / "clips"
+    window.set_paths(video=str(video), chat=str(chat), output=str(out))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert window.list.count() >= 1
+    h = window.timeline.highlights[0]
+    h.start, h.end = 20.0, 50.0
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    assert not window.silence_check.isChecked()  # off unless asked for
+    window.silence_check.setChecked(True)
+    window.export()
+    wait(app, lambda: not window.busy)
+    result = window.last_results[0]
+    assert result.removed == pytest.approx(3 * 7.5, abs=1.5)  # three 8 s silences, each cut down to half a second
+    assert probe(result.path).duration == pytest.approx(30.0 - result.removed, abs=0.4)
+    assert "조용한 부분" in window.status.text() and "초 줄임" in window.status.text()
+    window.remember()
+    again = HighlightsWindow()
+    assert again.silence_check.isChecked()
+    again.close()
+

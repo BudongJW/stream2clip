@@ -416,5 +416,16 @@
  ", 모음 영상 {0}": ", compilation {0}",
  "파일 {0}개 입력됨. 하이라이트 찾기를 눌러 분석": "{0} files taken. Press Find highlights to analyse",
  "타임스탬프 목록 저장됨: {0}. 클립보드에도 복사. 컷 목록(EDL)은 영상 파일이 있어야 저장": "Timestamp list saved: {0}. Also copied to the clipboard. A cut list (EDL) needs the video file",
- "편집용 파일 저장됨: {0} ({1}). 타임스탬프 목록은 클립보드에도 복사": "Files for editing saved: {0} ({1}). The timestamp list is also on the clipboard"
+ "편집용 파일 저장됨: {0} ({1}). 타임스탬프 목록은 클립보드에도 복사": "Files for editing saved: {0} ({1}). The timestamp list is also on the clipboard",
+ "최신 버전 사용 중 ({0})": "This is the latest version ({0})",
+ "새 버전 {0} 있음 (현재 {1})": "Version {0} is available (this is {1})",
+ "조용한 부분 줄이기": "Shorten quiet parts",
+ "클립 안에서 0.7초 넘게 조용한 부분을 짧은 쉼으로 줄임. 자막도 함께 이동.\n배경 음악이 큰 방송은 줄일 부분이 적고, 말 없이 게임 소리만 작게 나는 장면도 줄어듦": "Stretches of a clip that stay quiet for more than 0.7 s are cut down to a short pause. Captions move along.\nWith loud background music there is little to shorten, and scenes with only quiet game sound are shortened too",
+ "무음 구간": "Silence",
+ ", 조용한 부분 {0:.0f}초 줄임": ", {0:.0f} s of quiet parts cut",
+ "내려받기 페이지 열기": "Open the download page",
+ "이 버전 건너뛰기": "Skip this version",
+ "알림 끄기": "Stop asking",
+ "새 버전 확인 중지. 설정 파일(settings.json)의 update_check 항목을 지우면 다시 확인": "Stops looking for newer versions. Removing update_check from the settings file (settings.json) turns it on again",
+ "새 버전 알림 꺼짐": "No longer looking for newer versions"
 }
