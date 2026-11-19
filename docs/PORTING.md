@@ -6,9 +6,9 @@ stream2clip은 "앱 하나"보다 **가져다 끼우는 부품 묶음**을 목�
 |---|---|---|
 | ffmpeg 명령/필터그래프만 | `ffmpeg`, `chroma`, `geometry`, `color` | numpy, Pillow (명령 생성 자체는 표준 라이브러리 수준) |
 | 크로마키(투명 배경) 프레임 처리 | `chroma`, `frames` | numpy, Pillow |
-| 주석(펜·네모·화살표·글자·모자이크·투명·자르기) | `editor` | numpy, Pillow |
+| 주석(펜, 네모, 화살표, 글자, 모자이크, 투명, 자르기) | `editor` | numpy, Pillow |
 | 실시간 녹화 | `record`, `capture` | + ffmpeg 바이너리, (화면이면) mss |
-| 편집기 위젯·앱 | `gui` | + PySide6 |
+| 편집기 위젯, 앱 | `gui` | + PySide6 |
 
 공통 규약은 두 가지뿐입니다.
 
@@ -32,7 +32,7 @@ for start, end in highlights:  # 다른 프로젝트가 찾은 구간
 graph = build_video_filter(ExportOptions(format="webp", transparent=True, key_color="#00FF00"))
 ```
 
-- `format`: `gif` · `webp` · `mp4` · `webm` · `mov` · `apng`. 투명 배경(`transparent=True`)은 MP4를 뺀 전부 지원합니다(MP4로 요청하면 `ValueError`).
+- `format`: `gif`, `webp`, `mp4`, `webm`, `mov`, `apng`. 투명 배경(`transparent=True`)은 MP4를 뺀 전부 지원합니다(MP4로 요청하면 `ValueError`).
 - GIF는 `palettegen`/`paletteuse` 2단계를 한 그래프로 처리하고, 투명 GIF는 `reserve_transparent` + `alpha_threshold`를 씁니다. 움직이는 물체가 지나간 자리에 잔상이 남지 않는 것을 테스트로 확인합니다.
 - 파이썬이 아닌 프로젝트라면 CLI로 명령만 뽑아 쓸 수 있습니다: `stream2clip convert vod.mp4 -o clip.webp --start 1:00 --end 1:10 --transparent --print-command`
 
@@ -71,7 +71,7 @@ colorkey_filter("#00FF00", 0.12, 0.05)                                   # 'colo
 ```
 
 - 렌더링: `stream2clip.editor.render(base_image, state_from_dict(data))`, 또는 CLI `stream2clip annotate frame.png --annotations a.json -o out.png`
-- **오버레이 PNG**: `Document.render_overlay()` 또는 `annotate --overlay`는 주석만 있는 투명 PNG를 만듭니다. Kdenlive·Shotcut 트랙이나 OBS 이미지 소스에 원본 위로 얹으면 됩니다(영역 투명화/색상 키는 오버레이로 표현할 수 없어 빠집니다).
+- **오버레이 PNG**: `Document.render_overlay()` 또는 `annotate --overlay`는 주석만 있는 투명 PNG를 만듭니다. Kdenlive, Shotcut 트랙이나 OBS 이미지 소스에 원본 위로 얹으면 됩니다(영역 투명화/색상 키는 오버레이로 표현할 수 없어 빠집니다).
 - 도형 종류: `pen`, `highlighter`, `rect`, `arrow`, `text`, `mosaic`, `transparent`, `colorkey`. 항목은 순서대로 적용되고, 자르기(`crop`)는 마지막에 적용됩니다.
 
 ## 4. 내 프레임 소스를 녹화하기 (게임 엔진, 아바타 렌더러, OBS 등)
@@ -97,11 +97,11 @@ recording.discard()
 
 `frame_filter=`로 프레임마다 처리(워터마크, 얼굴 모자이크, 실시간 크로마키)를 끼울 수 있습니다.
 
-## 5. 플러그인: 캡처 백엔드 · OCR · 번역기
+## 5. 플러그인: 캡처 백엔드, OCR, 번역기
 
-포크하지 않고 기능을 넣는 방법은 두 가지입니다. 자막 번역기만 붙일 때는 더 짧은 길이 있습니다 — 아래 (c).
+포크하지 않고 기능을 넣는 방법은 두 가지입니다. 자막 번역기만 붙일 때는 더 짧은 길이 있습니다: 아래 (c).
 
-**(a) 실행 중 등록** — 호스트 앱에 넣을 때 가장 간단합니다.
+**(a) 실행 중 등록**: 호스트 앱에 넣을 때 가장 간단합니다.
 
 ```python
 from stream2clip.plugins import register_capture_backend, register_text_detector, register_translator
@@ -113,7 +113,7 @@ register_translator("my-llm", lambda: CallableTranslator(lambda texts, target, s
 register_capture_backend("obs", lambda: MyObsBackend())
 ```
 
-**(b) entry point** — 별도 패키지로 배포할 때 씁니다.
+**(b) entry point**: 별도 패키지로 배포할 때 씁니다.
 
 ```toml
 [project.entry-points."stream2clip.capture_backends"]
@@ -129,12 +129,12 @@ deepl = "my_pkg.deepl:make_translator"
 mine = "my_pkg.faces:make_detector"
 ```
 
-**(c) 번역기를 파일 하나로** — 패키지도 등록도 필요 없습니다. 함수가 있는 파일을 가리키기만 합니다.
+**(c) 번역기를 파일 하나로**: 패키지도 등록도 필요 없습니다. 함수가 있는 파일을 가리키기만 합니다.
 
 ```python
 # my_translator.py
 def translate(texts, target, source=None):
-    """texts와 같은 길이 · 같은 순서의 번역을 돌려준다."""
+    """texts와 같은 길이, 같은 순서의 번역을 돌려준다."""
     return [my_service(text, target) for text in texts]
 ```
 
@@ -142,7 +142,7 @@ def translate(texts, target, source=None):
 stream2clip clips video.mp4 --highlights h.json --subtitles ja.vtt --translate ko --translator my_translator.py
 ```
 
-`file.py:이름`이나 `package.module:이름`으로 다른 이름을 고를 수 있고, 이름이 가리키는 것은 함수 · `translate` 메서드가 있는 클래스 · 그런 객체 중 무엇이든 됩니다(`translation.load_translator`). `STREAM2CLIP_TRANSLATOR` 환경 변수는 기본 번역기를 정합니다. 앱의 하이라이트 창에서도 같은 파일을 고를 수 있습니다. 줄 수가 다른 답은 자막 시각이 어긋나므로 오류로 처리합니다. 바로 쓸 수 있는 예제: [`examples/translators/openai_compatible.py`](../examples/translators/openai_compatible.py).
+`file.py:이름`이나 `package.module:이름`으로 다른 이름을 고를 수 있고, 이름이 가리키는 것은 함수, `translate` 메서드가 있는 클래스, 그런 객체 중 무엇이든 됩니다(`translation.load_translator`). `STREAM2CLIP_TRANSLATOR` 환경 변수는 기본 번역기를 정합니다. 앱의 하이라이트 창에서도 같은 파일을 고를 수 있습니다. 줄 수가 다른 답은 자막 시각이 어긋나므로 오류로 처리합니다. 바로 쓸 수 있는 예제: [`examples/translators/openai_compatible.py`](../examples/translators/openai_compatible.py).
 
 인터페이스는 모두 `typing.Protocol`입니다(상속 불필요).
 
@@ -182,7 +182,7 @@ cues = translate_cues(load_subtitles("clip.vtt"), translator, target="ko", sourc
 
 ```python
 from stream2clip.editor import Document
-from stream2clip.gui.app import create_app        # 테마·아이콘을 적용한 QApplication
+from stream2clip.gui.app import create_app        # 테마, 아이콘을 적용한 QApplication
 from stream2clip.gui.editor import EditorWindow    # 또는 gui.canvas.EditorCanvas 위젯만
 
 app = create_app()
@@ -193,9 +193,9 @@ app.exec()
 
 `EditorCanvas(document, ToolState())`는 툴바 없이 캔버스만 쓰고 싶을 때 씁니다. 변경되면 `changed` 시그널이 나옵니다.
 
-하이라이트 타임라인만 필요하면 `gui.highlights.TimelineWidget`을 씁니다. `set_result(result)`로 `HighlightResult`를 넘기면 막대와 구간을 그리고, 사용자가 구간을 끌면 `result.highlights`의 `start` · `end`가 바뀌면서 `changed(index)`가 나옵니다. 전체 창은 `HighlightsWindow()`입니다.
+하이라이트 타임라인만 필요하면 `gui.highlights.TimelineWidget`을 씁니다. `set_result(result)`로 `HighlightResult`를 넘기면 막대와 구간을 그리고, 사용자가 구간을 끌면 `result.highlights`의 `start`, `end`가 바뀌면서 `changed(index)`가 나옵니다. 전체 창은 `HighlightsWindow()`입니다.
 
-## 7. 하이라이트 · 레이아웃 · 자막만 가져가기 (v0.2)
+## 7. 하이라이트, 레이아웃, 자막만 가져가기 (v0.2)
 
 이미 다운로드와 편집을 하는 프로젝트(autoclip, FunClip, biliup 등)라면 **구간 찾기**나 **세로 레이아웃**만 떼어 쓸 수 있습니다.
 
@@ -203,7 +203,7 @@ app.exec()
 from stream2clip.chat import load_chat
 from stream2clip.highlights import HighlightConfig, detect_highlights
 
-msgs = load_chat("VIDEO_ID.live_chat.json")          # 또는 CSV: time,author,text[,amount] / CHZZK · SOOP 다시보기 채팅
+msgs = load_chat("VIDEO_ID.live_chat.json")          # 또는 CSV: time,author,text[,amount] / CHZZK, SOOP 다시보기 채팅
 result = detect_highlights(msgs, duration=3 * 3600, config=HighlightConfig(top=5, chat_delay=10))
 for h in result.highlights:
     print(h.rank, h.start, h.end, h.reasons)        # 다른 파이프라인의 컷 리스트로 사용

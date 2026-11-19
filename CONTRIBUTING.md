@@ -8,7 +8,7 @@ stream2clip에 관심 가져 주셔서 고맙습니다. 버그 제보, 문서 �
 git clone https://github.com/BudongJW/stream2clip
 cd stream2clip
 python -m venv .venv
-# Windows: .venv\Scripts\activate    macOS · Linux: source .venv/bin/activate
+# Windows: .venv\Scripts\activate    macOS, Linux: source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
@@ -23,7 +23,7 @@ pytest -q
 
 - Windows에서 `pytest`를 그냥 실행하면 창을 띄우고 F8/F9를 실제로 누릅니다. 조용히 돌리려면 `QT_QPA_PLATFORM=offscreen`을 지정하세요.
 - 새 기능에는 테스트를 함께 넣어 주세요. 외부 서비스(OBS, YouTube, 번역 서비스 등)는 테스트에서 가짜로 대신하고, 실제 서비스로 확인했는지 여부를 PR에 적어 주세요.
-- 사용법이 바뀌면 README(기능 표 · 로드맵 · 테스트 수 배지)와 `CHANGELOG.md`, 필요하면 `docs/`도 함께 고칩니다.
+- 사용법이 바뀌면 README(기능 표, 로드맵, 테스트 수 배지)와 `CHANGELOG.md`, 필요하면 `docs/`도 함께 고칩니다.
 
 ## 지키는 원칙
 
@@ -35,11 +35,11 @@ pytest -q
 - **주석 JSON은 스키마 버전**을 가집니다. 형식을 바꾸면 스키마와 버전을 함께 올립니다.
 - **확장은 플러그인으로**: 번역 서비스 같은 외부 서비스는 본체에 넣지 않고 `plugins.py`의 entry point나 `--translator 파일.py`로 연결합니다.
 - **기획사 가이드라인 프로필은 체크리스트**이며 법적 판단이 아닙니다. 공식 원문(주소와 개정일)을 확인하지 않은 규칙은 추가하지 않습니다.
-- **다른 사람의 방송 화면 · 게임 화면을 저장소에 넣지 않습니다.** 문서 이미지와 테스트 자료는 `assets/brand`의 그림이나 합성 데이터로 만듭니다. 채팅 자료는 닉네임을 지워서 넣습니다.
+- **다른 사람의 방송 화면, 게임 화면을 저장소에 넣지 않습니다.** 문서 이미지와 테스트 자료는 `assets/brand`의 그림이나 합성 데이터로 만듭니다. 채팅 자료는 닉네임을 지워서 넣습니다.
 
 ## 화면 문구를 추가할 때
 
-앱 화면에 보이는 글은 한국어로 쓰고 `tr("…")`로 감쌉니다(`from ..i18n import tr`). 값이 들어가는 문장은 f-string 대신 `tr("클립 {0}개").format(n)`처럼 문장 전체를 하나로 둡니다. 같은 문구를 `src/stream2clip/locales/ja.json`과 `en.json`에 추가하세요 — 빠뜨리면 `tests/test_i18n.py`가 알려 줍니다. 번역을 고치는 PR도 환영합니다.
+앱 화면에 보이는 글은 한국어로 쓰고 `tr("...")`로 감쌉니다(`from ..i18n import tr`). 값이 들어가는 문장은 f-string 대신 `tr("클립 {0}개").format(n)`처럼 문장 전체를 하나로 둡니다. 같은 문구를 `src/stream2clip/locales/ja.json`과 `en.json`에 추가하세요: 빠뜨리면 `tests/test_i18n.py`가 알려 줍니다. 번역을 고치는 PR도 환영합니다.
 
 ## 브랜치와 커밋
 
@@ -61,9 +61,11 @@ pytest -q
 
 보내 주신 기여는 이 저장소의 [Apache-2.0](LICENSE) 라이선스로 배포됩니다.
 
-## 홈페이지 · 설명서(`site/`)를 고칠 때
+## 홈페이지, 설명서(`site/`)를 고칠 때
 
 - 문구는 개조식(명사형 종결)으로, 사실과 절차만 적습니다. 구어체 문장, 수식어, 예정 사항("다음 버전")은 쓰지 않습니다.
 - 가운뎃점, 화살표, 줄표, 말줄임표, 꺾쇠 같은 장식 기호를 쓰지 않습니다. 쉼표와 "및"으로 씁니다.
 - 내용은 표와 번호 목록으로 정리합니다. 대문자 라벨, 번호 장식, 카드 그리드, 블러, 애니메이션은 넣지 않습니다.
+- 앱 화면 문구와 이 저장소의 문서도 같은 기호 규칙을 따릅니다(`tests/test_i18n.py`가 앱 문구를 검사합니다).
+- 홈페이지는 한국어, 영어(`site/en/`), 일본어(`site/ja/`) 세 벌입니다. 한 곳을 고치면 나머지도 같은 구성으로 고칩니다.
 - `python packaging/build_site.py --pdf`로 조립해 확인합니다. 위 규칙은 `tests/test_site.py`가 검사합니다.

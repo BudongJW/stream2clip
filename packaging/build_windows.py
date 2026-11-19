@@ -3,7 +3,9 @@
     pip install -e ".[gui,ingest,detect,build]"
     python packaging/build_windows.py --ffmpeg auto
 
-Result: ``dist/stream2clip/`` and ``dist/stream2clip-<version>-windows-x64.zip``.
+Result: ``dist/stream2clip/`` and ``dist/stream2clip-<version>-windows-x64.zip``;
+with ``--installer`` (needs Inno Setup 6) also ``dist/stream2clip-<version>-windows-x64-setup.exe``,
+an installer that asks for the language (Korean, Japanese, English) on its first page.
 
 ``--ffmpeg auto`` copies the ffmpeg.exe / ffprobe.exe found on this machine into the
 folder, so the programs work on a PC without ffmpeg (they look next to themselves
@@ -24,6 +26,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SHIM_LIMIT = 2_000_000  # a real ffmpeg.exe is tens of MB
 SPEC = Path(__file__).with_name("stream2clip.spec")
+INSTALLER = Path(__file__).with_name("installer.iss")
+ISCC_PLACES = (r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe", r"C:\Program Files\Inno Setup 6\ISCC.exe")
 APP = "stream2clip"
 
 
@@ -107,6 +111,40 @@ def copy_examples(folder: Path) -> list[Path]:
     return copied
 
 
+def find_iscc(places: tuple[str, ...] = ISCC_PLACES) -> str | None:
+    """Inno Setup's command line compiler: ``STREAM2CLIP_ISCC``, PATH, or its usual folders."""
+    wanted = os.environ.get("STREAM2CLIP_ISCC")
+    if wanted:
+        return wanted if Path(wanted).is_file() else None
+    found = shutil.which("iscc") or shutil.which("ISCC")
+    if found:
+        return found
+    return next((place for place in places if Path(place).is_file()), None)
+
+
+def installer_name(version: str, machine: str | None = None) -> str:
+    return archive_name(version, machine) + "-setup"
+
+
+def installer_command(iscc: str, folder: Path, dist: Path, version: str, machine: str | None = None) -> list[str]:
+    """Compile packaging/installer.iss: the built folder goes in, ``<name>-setup.exe`` comes out in ``dist``."""
+    return [
+        iscc, "/Qp", f"/DAppVersion={version}", f"/DSourceDir={folder.resolve()}", f"/DOutputDir={dist.resolve()}",
+        f"/DOutputName={installer_name(version, machine)}", str(INSTALLER),
+    ]
+
+
+def make_installer(folder: Path, dist: Path, version: str, *, iscc: str | None = None, run=subprocess.run) -> Path:
+    iscc = iscc or find_iscc()
+    if not iscc:
+        raise FileNotFoundError("--installer needs Inno Setup 6 (ISCC.exe): install it or set STREAM2CLIP_ISCC to its path")
+    run(installer_command(iscc, folder, dist, version), check=True)
+    setup = dist / f"{installer_name(version)}.exe"
+    if not setup.is_file():
+        raise FileNotFoundError(f"Inno Setup finished without writing {setup}")
+    return setup
+
+
 def make_zip(folder: Path, name: str) -> Path:
     return Path(shutil.make_archive(str(folder.parent / name), "zip", root_dir=folder.parent, base_dir=folder.name))
 
@@ -123,6 +161,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--with-asr", action="store_true", help="bundle faster-whisper for --transcribe (adds a few hundred MB)")
     parser.add_argument("--icon", default="symbol", help="program icon: symbol (default), kiri (mascot) or an .ico path")
     parser.add_argument("--no-zip", action="store_true", help="only build the folder")
+    parser.add_argument("--installer", action="store_true", help="also build the installer with Inno Setup 6 (asks for the language: Korean, Japanese, English)")
+    parser.add_argument("--installer-only", action="store_true", help="do not build: make the installer from an already built folder")
     parser.add_argument("--copy-ffmpeg-only", action="store_true", help="do not build: just copy --ffmpeg into an already built folder")
     args = parser.parse_args(argv)
 
@@ -135,6 +175,14 @@ def main(argv: list[str] | None = None) -> int:
         for path in copy_ffmpeg(args.ffmpeg, dist / APP):
             print(f"added  {path.name}  ({path.stat().st_size / 1e6:.0f} MB)")
         return 0
+    if args.installer_only:
+        if not (dist / APP).is_dir():
+            parser.error("--installer-only needs an existing build in --dist")
+        setup = make_installer(dist / APP, dist, project_version())
+        print(f"setup  {setup}  ({setup.stat().st_size / 1e6:.0f} MB)")
+        return 0
+    if args.installer and not find_iscc():
+        parser.error("--installer needs Inno Setup 6 (ISCC.exe): install it or set STREAM2CLIP_ISCC to its path")  # before the long build
     subprocess.run(pyinstaller_command(dist, Path(args.work)), check=True, env=bundle_env(args.with_asr, icon=icon_path(args.icon)), cwd=ROOT)
     folder = dist / APP
     print(f"built  {folder}  ({folder_size(folder) / 1e6:.0f} MB)")
@@ -146,6 +194,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_zip:
         archive = make_zip(folder, archive_name(project_version()))
         print(f"zip    {archive}  ({archive.stat().st_size / 1e6:.0f} MB)")
+    if args.installer:
+        setup = make_installer(folder, dist, project_version())
+        print(f"setup  {setup}  ({setup.stat().st_size / 1e6:.0f} MB)")
     return 0
 
 

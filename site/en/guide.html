@@ -12,6 +12,7 @@
 <meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
 <link rel="alternate" hreflang="ko" href="https://budongjw.github.io/stream2clip/guide.html">
 <link rel="alternate" hreflang="en" href="https://budongjw.github.io/stream2clip/en/guide.html">
+<link rel="alternate" hreflang="ja" href="https://budongjw.github.io/stream2clip/ja/guide.html">
 <link rel="icon" href="../assets/favicon.ico" sizes="48x48">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
@@ -34,7 +35,14 @@
       <a href="./#features">Features</a>
       <a href="guide.html" aria-current="page">User manual</a>
       <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
-      <a href="../guide.html" lang="ko" hreflang="ko">한국어</a>
+      <details class="lang">
+        <summary aria-label="Language"><span class="flag">🇺🇸</span> English</summary>
+        <ul>
+          <li><a href="../guide.html" lang="ko" hreflang="ko"><span class="flag">🇰🇷</span> 한국어</a></li>
+          <li><a href="../en/guide.html" lang="en" aria-current="true"><span class="flag">🇺🇸</span> English</a></li>
+          <li><a href="../ja/guide.html" lang="ja" hreflang="ja"><span class="flag">🇯🇵</span> 日本語</a></li>
+        </ul>
+      </details>
     </nav>
   </div>
 </header>
@@ -43,7 +51,7 @@
   <h1>stream2clip user manual</h1>
   <dl>
     <dt>Version</dt><dd>v0.5</dd>
-    <dt>Audience</dt><dd>Users of the Windows executables and of the Python package</dd>
+    <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
 </div>
@@ -69,15 +77,21 @@
 
   <article id="main">
     <h2 id="install">Installation</h2>
-    <h3>Windows executables</h3>
+    <h3>Windows installer</h3>
     <ol>
-      <li>Download the Windows zip file from the <a href="https://github.com/BudongJW/stream2clip/releases/latest">releases page</a></li>
-      <li>Unzip it to any folder. No installer</li>
+      <li>Download the Windows installer (<code>setup.exe</code>) from the <a href="https://github.com/BudongJW/stream2clip/releases/latest">releases page</a> and run it</li>
+      <li>Choose the language on the first page: Korean, Japanese or English. It is used for the installer and for the app</li>
+      <li>Confirm the folder and install. No administrator rights needed</li>
       <li>Install ffmpeg. Restart the terminal afterwards
         <pre><code>winget install Gyan.FFmpeg</code></pre>
-        Alternative: place <code>ffmpeg.exe</code> and <code>ffprobe.exe</code> in the same folder as the executables</li>
-      <li>Run <code>stream2clip-gui.exe</code></li>
+        Alternative: place <code>ffmpeg.exe</code> and <code>ffprobe.exe</code> in the installation folder</li>
+      <li>Start stream2clip from the Start menu</li>
     </ol>
+    <ul>
+      <li>Without installing: download the zip file, unzip it to any folder and run <code>stream2clip-gui.exe</code></li>
+      <li>The language of the app can be changed later at the bottom of the launcher</li>
+      <li>Removal: uninstall stream2clip in the installed apps list of the Windows settings</li>
+    </ul>
     <div class="note">
       <h4>Note</h4>
       <ul>
@@ -108,7 +122,7 @@
 
     <h2 id="basics">Basic use</h2>
     <figure>
-      <img src="../assets/shots/en/launcher.png" alt="Launcher: capture, screen recording and clip areas" width="1180" height="1020" loading="lazy">
+      <img src="../assets/shots/en/launcher.png" alt="Launcher: capture, screen recording and clip areas" width="1109" height="1031" loading="lazy">
       <figcaption>Launcher. From the top: capture, screen recording, clips</figcaption>
     </figure>
     <div class="tablewrap">
@@ -135,7 +149,7 @@
       <li><strong>Open an image to edit</strong>: editing of PNG, JPG and WebP files</li>
     </ul>
     <figure>
-      <img src="../assets/shots/en/editor.png" alt="Editor: toolbar, color palette, width, undo, copy, save" width="1475" height="950" loading="lazy">
+      <img src="../assets/shots/en/editor.png" alt="Editor: toolbar, colour palette, width, undo, copy, save" width="1475" height="950" loading="lazy">
       <figcaption>Editor</figcaption>
     </figure>
     <div class="tablewrap">
@@ -145,7 +159,7 @@
           <tr><th scope="row"><kbd>V</kbd> <kbd>P</kbd> <kbd>H</kbd></th><td>Select, pen, highlighter</td></tr>
           <tr><th scope="row"><kbd>R</kbd> <kbd>A</kbd> <kbd>T</kbd></th><td>Box, arrow, text</td></tr>
           <tr><th scope="row"><kbd>M</kbd> <kbd>E</kbd> <kbd>C</kbd></th><td>Mosaic, erase, crop</td></tr>
-          <tr><th scope="row"><kbd>I</kbd></th><td>Eyedropper (pick a color from the screen)</td></tr>
+          <tr><th scope="row"><kbd>I</kbd></th><td>Eyedropper (pick a colour from the screen)</td></tr>
           <tr><th scope="row"><kbd>[</kbd> <kbd>]</kbd></th><td>Decrease, increase the width</td></tr>
           <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd></th><td>Undo, redo</td></tr>
           <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>S</kbd></th><td>Copy, save</td></tr>
@@ -154,7 +168,7 @@
       </table>
     </div>
     <ul>
-      <li>Erase tool: dragging removes the area, clicking makes the clicked color transparent in the whole image</li>
+      <li>Erase tool: dragging removes the area, clicking makes the clicked colour transparent in the whole image</li>
       <li>Crop tool: marks the area to keep while the original stays intact</li>
     </ul>
 
@@ -177,14 +191,14 @@
     </div>
     <h3>Transparent background</h3>
     <ul>
-      <li>Output of GIF, WebP or WebM with a chosen color (a green screen, for example) removed</li>
-      <li><strong>Eyedropper</strong> picks the color to remove, <strong>Tolerance</strong> sets how similar a color has to be</li>
+      <li>Output of GIF, WebP or WebM with a chosen colour (a green screen, for example) removed</li>
+      <li><strong>Eyedropper</strong> picks the colour to remove, <strong>Tolerance</strong> sets how similar a colour has to be</li>
     </ul>
 
     <h2 id="clips">Highlight clips</h2>
     <p>Detection, adjustment of spans and export are done in <strong>Find highlights</strong> in the launcher.</p>
     <figure>
-      <img src="../assets/shots/en/highlights_window.png" alt="Highlights window: input files at the top, timeline and list of spans in the middle, export settings on the right" width="1350" height="956" loading="lazy">
+      <img src="../assets/shots/en/highlights_window.png" alt="Highlights window: input files at the top, timeline and list of spans in the middle, export settings on the right" width="1350" height="964" loading="lazy">
       <figcaption>Highlights window. Pink bars are detected spans, the yellow frame is the selected span</figcaption>
     </figure>
     <h3>Input</h3>
@@ -247,7 +261,7 @@
         <thead><tr><th>Item</th><th>Content</th></tr></thead>
         <tbody>
           <tr><th scope="row">Subtitle file</th><td>SRT and WebVTT. YouTube automatic captions can be used</td></tr>
-          <tr><th scope="row">Karaoke</th><td>Color follows the spoken word. Applies to subtitles with word timing</td></tr>
+          <tr><th scope="row">Karaoke</th><td>Colour follows the spoken word. Applies to subtitles with word timing</td></tr>
           <tr><th scope="row">Transcription</th><td>Subtitles made from speech when there is no file (Whisper). Provided by the Python package</td></tr>
           <tr><th scope="row">Translation</th><td><strong>Choose a translator file</strong> in the translator list with <code>translators\openai_compatible.py</code> translates through an OpenAI compatible address such as a local Ollama</td></tr>
           <tr><th scope="row">Glossary</th><td>CSV with two columns, source and translation. Fixes names and other set terms</td></tr>
@@ -374,5 +388,6 @@
     <p>stream2clip user manual. github.com/BudongJW/stream2clip</p>
   </div>
 </footer>
+<script src="../js/site.js" defer></script>
 </body>
 </html>

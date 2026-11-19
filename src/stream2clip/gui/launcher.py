@@ -67,7 +67,7 @@ class ObsDialog(QDialog):
         form.addRow(tr("주소"), self.host_edit)
         form.addRow(tr("포트"), self.port_spin)
         form.addRow(tr("비밀번호"), self.password_edit)
-        note = QLabel(tr("OBS의 도구 → WebSocket 서버 설정에서 서버를 켜고, 리플레이 버퍼를 시작해 두세요.\n비밀번호는 저장하지 않습니다."), objectName="Muted")
+        note = QLabel(tr("OBS 도구 메뉴의 WebSocket 서버 설정에서 서버를 켜고, 리플레이 버퍼를 시작해 두세요.\n비밀번호는 저장하지 않습니다."), objectName="Muted")
         note.setWordWrap(True)
         form.addRow(note)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -106,15 +106,15 @@ class LauncherWindow(QMainWindow):
         logo.setPixmap(pixmap("lockup-on-dark.png").scaledToHeight(48, Qt.TransformationMode.SmoothTransformation))
         header.addWidget(logo)
         header.addStretch(1)
-        tagline = QLabel(tr("캡쳐부터 움짤 녹화까지, 한 프로그램으로"), objectName="Muted")
+        tagline = QLabel(tr("화면 캡쳐, 녹화, 방송 클립 제작"), objectName="Muted")
         header.addWidget(tagline)
         outer.addLayout(header)
 
-        outer.addWidget(_eyebrow("CAPTURE"))
+        outer.addWidget(_eyebrow(tr("캡쳐")))
         outer.addWidget(self._capture_card())
-        outer.addWidget(_eyebrow("RECORD"))
+        outer.addWidget(_eyebrow(tr("녹화")))
         outer.addWidget(self._record_card())
-        outer.addWidget(_eyebrow("CLIPS"))
+        outer.addWidget(_eyebrow(tr("클립")))
         outer.addWidget(self._clips_card())
 
         footer = QHBoxLayout()
@@ -127,7 +127,7 @@ class LauncherWindow(QMainWindow):
         footer.addWidget(open_folder)
         footer.addWidget(change)
         self.language_combo = QComboBox()
-        self.language_combo.setToolTip("언어 · 言語 · Language")
+        self.language_combo.setToolTip("언어 / 言語 / Language")
         for code, name in LANGUAGES.items():
             self.language_combo.addItem(name, code)
         self.language_combo.setCurrentIndex(max(0, self.language_combo.findData(language())))
@@ -151,8 +151,8 @@ class LauncherWindow(QMainWindow):
         if backend == "none":
             QShortcut(QKeySequence("F8"), self, activated=self.capture_region)
             QShortcut(QKeySequence("F9"), self, activated=self.controller.toggle)
-        self._hotkey_note = tr("F8 영역 캡쳐 · F9 녹화 시작/정지") + ("" if backend != "none" else tr(" (창이 활성일 때)"))
-        self._idle_status = tr("{0} · 저장: {1}").format(self._hotkey_note, self.settings.save_dir)
+        self._hotkey_note = tr("F8 영역 캡쳐, F9 녹화 시작/정지") + ("" if backend != "none" else tr(" (창이 활성일 때)"))
+        self._idle_status = tr("{0}, 저장: {1}").format(self._hotkey_note, self.settings.save_dir)
         self.status.setText(self._idle_status)
         self.resize(760, 780)
 
@@ -165,7 +165,7 @@ class LauncherWindow(QMainWindow):
         for label, slot, tip in (
             (tr("영역 캡쳐\nF8"), self.capture_region, tr("드래그로 영역을 골라 바로 편집")),
             (tr("전체 화면 캡쳐\n모든 모니터"), self.capture_fullscreen, tr("모든 모니터를 캡쳐해 편집")),
-            (tr("이미지 열어 편집\nPNG · JPG · WebP"), self.open_image, tr("PNG/JPG/WebP 파일 편집")),
+            (tr("이미지 열어 편집\nPNG, JPG, WebP"), self.open_image, tr("PNG/JPG/WebP 파일 편집")),
         ):
             btn = QPushButton(label, objectName="BigAction")
             btn.setToolTip(tip)
@@ -184,8 +184,8 @@ class LauncherWindow(QMainWindow):
         kiri.setPixmap(mascot("wink", 52))
         row.addWidget(kiri)
         text = QVBoxLayout()
-        text.addWidget(QLabel(tr("방송 → 클립"), objectName="Title"))
-        text.addWidget(QLabel(tr("채팅 반응으로 하이라이트를 찾아 구간을 다듬고 9:16 클립으로 내보냅니다."), objectName="Muted"))
+        text.addWidget(QLabel(tr("방송 클립 제작"), objectName="Title"))
+        text.addWidget(QLabel(tr("채팅 반응 기반 하이라이트 검출, 구간 조정, 9:16 클립 내보내기"), objectName="Muted"))
         row.addLayout(text, 1)
         self.highlights_button = QPushButton(tr("하이라이트 찾기"))
         self.highlights_button.setMinimumHeight(44)
@@ -195,7 +195,7 @@ class LauncherWindow(QMainWindow):
 
         replay = QHBoxLayout()
         replay.setSpacing(8)
-        label = QLabel(tr("OBS 리플레이 → 클립"))
+        label = QLabel(tr("OBS 리플레이"))
         label.setStyleSheet("font-weight:800;")
         replay.addWidget(label)
         replay.addWidget(QLabel(tr("방금 지나간 장면을 위 녹화 형식으로 저장"), objectName="Muted"), 1)
@@ -269,7 +269,7 @@ class LauncherWindow(QMainWindow):
             return
         self.replay_busy = True
         self.replay_button.setEnabled(False)
-        self.status.setText(tr("OBS 리플레이 저장 중…"))
+        self.status.setText(tr("OBS 리플레이 저장 중"))
         output = self.settings.save_dir / f"replay_{time.strftime('%Y%m%d_%H%M%S')}.{self.settings.format}"
         options = ExportOptions(format=self.settings.format, fps=self.settings.fps, width=self.settings.width)
         last = float(self.replay_last.value()) or None
@@ -293,7 +293,7 @@ class LauncherWindow(QMainWindow):
     def _on_replay_done(self, path: str) -> None:
         self.replay_busy = False
         self.replay_button.setEnabled(True)
-        self.status.setText(tr("저장됨: {0}  ·  {1}").format(path, time.strftime('%H:%M:%S')))
+        self.status.setText(tr("저장됨: {0}, {1}").format(path, time.strftime('%H:%M:%S')))
 
     def _on_replay_failed(self, message: str) -> None:
         self.replay_busy = False
@@ -427,8 +427,8 @@ class LauncherWindow(QMainWindow):
 
         top = QHBoxLayout()
         title = QVBoxLayout()
-        t = QLabel(tr("보이는 그대로 움짤 녹화"), objectName="Title")
-        sub = QLabel(tr("F9 한 번이면 녹화가 시작됩니다. 다시 F9를 누르면 저장."), objectName="Muted")
+        t = QLabel(tr("녹화 설정"), objectName="Title")
+        sub = QLabel(tr("F9로 녹화 시작, 다시 F9로 정지 및 저장"), objectName="Muted")
         title.addWidget(t)
         title.addWidget(sub)
         top.addLayout(title, 1)
@@ -481,12 +481,11 @@ class LauncherWindow(QMainWindow):
         tl = QHBoxLayout(transparent)
         tl.setContentsMargins(12, 10, 12, 10)
         tl.setSpacing(10)
-        tl.addWidget(QLabel("NEW", objectName="Badge"))
         self.transparent_check = QCheckBox(tr("투명 배경 녹화"))
         self.transparent_check.setStyleSheet("font-weight:800;")
         self.transparent_check.toggled.connect(self._set_transparent)
         tl.addWidget(self.transparent_check)
-        tl.addWidget(QLabel(tr("고른 색을 지워 GIF · WebP · WebM을 투명하게"), objectName="Muted"), 1)
+        tl.addWidget(QLabel(tr("고른 색을 지워 GIF, WebP, WebM을 투명하게"), objectName="Muted"), 1)
         self.key_button = QToolButton(objectName="Swatch")
         self.key_button.setToolTip(tr("지울 색"))
         tl.addWidget(self.key_button)
@@ -579,7 +578,7 @@ class LauncherWindow(QMainWindow):
         path = QFileDialog.getExistingDirectory(self, tr("저장 폴더"), str(self.settings.save_dir))
         if path:
             self.settings.save_dir = Path(path)
-            self._idle_status = tr("{0} · 저장: {1}").format(self._hotkey_note, path)
+            self._idle_status = tr("{0}, 저장: {1}").format(self._hotkey_note, path)
             self.status.setText(self._idle_status)
 
     @staticmethod
@@ -675,19 +674,19 @@ class LauncherWindow(QMainWindow):
             self.save_replay()
 
     def _on_record_state(self, state: str) -> None:
-        labels = {"idle": tr("●  영역 녹화 (F9)"), "selecting": tr("영역 선택 중…"), "recording": tr("■  정지 (F9)"), "encoding": tr("저장 중…")}
+        labels = {"idle": tr("●  영역 녹화 (F9)"), "selecting": tr("영역 선택 중"), "recording": tr("■  정지 (F9)"), "encoding": tr("저장 중")}
         self.record_button.setText(labels[state])
         self.record_button.setEnabled(state in ("idle", "recording"))
         if state == "selecting":
             self.hide()
         elif state == "encoding":
-            self.status.setText(tr("{0} 인코딩 중…").format(self.settings.format.upper()))
+            self.status.setText(tr("{0} 인코딩 중").format(self.settings.format.upper()))
             self.show()
         elif state == "idle" and not self.isVisible():
             self.show()
 
     def _on_record_finished(self, path: str) -> None:
-        self.status.setText(tr("저장됨: {0}  ·  {1}").format(path, time.strftime('%H:%M:%S')))
+        self.status.setText(tr("저장됨: {0}, {1}").format(path, time.strftime('%H:%M:%S')))
         self.show()
 
     def _on_record_failed(self, message: str) -> None:

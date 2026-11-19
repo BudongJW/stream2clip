@@ -52,7 +52,7 @@ def test_toolbar_matches_reference(editor):
     assert labels == ["선택", "펜", "형광펜", "네모", "화살표", "글자", "모자이크", "투명", "자르기"]
     assert len(editor.swatches) == 8
     assert editor.translate_btn.text() == "번역 (한국어)"
-    assert editor.status_label.text() == "400 × 300 px · 저장 안 됨"
+    assert editor.status_label.text() == "400 × 300 px, 저장 안 됨"
 
 
 def test_draw_undo_save(editor, tmp_path):

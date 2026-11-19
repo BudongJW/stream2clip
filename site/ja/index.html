@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stream2clip - 配信ハイライトのクリップ作成ツール</title>
+<meta name="description" content="配信アーカイブからハイライト区間を検出し、縦型クリップとして書き出す動画編集ツール。Windows用実行ファイルと取扱説明書を提供。">
+<meta name="theme-color" content="#15131F">
+<meta property="og:type" content="website">
+<meta property="og:title" content="stream2clip - Stream in. Clips out.">
+<meta property="og:description" content="配信アーカイブからハイライト区間を検出し、縦型クリップとして書き出す動画編集ツール">
+<meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="ko" href="https://budongjw.github.io/stream2clip/">
+<link rel="alternate" hreflang="en" href="https://budongjw.github.io/stream2clip/en/">
+<link rel="alternate" hreflang="ja" href="https://budongjw.github.io/stream2clip/ja/">
+<link rel="icon" href="../assets/favicon.ico" sizes="48x48">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@300;700&display=swap">
+<link rel="stylesheet" href="../css/site.css">
+</head>
+<body>
+<a class="skip" href="#main">本文へ移動</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="lockup" href="./" aria-label="stream2clip ホーム">
+      <img src="../assets/symbol-on-dark.svg" alt="" width="38" height="38">
+      <span><span class="s">stream</span><span class="two">2</span><span class="c">clip</span></span>
+    </a>
+    <nav class="nav" aria-label="メインメニュー">
+      <a href="#download">ダウンロード</a>
+      <a href="#features">主な機能</a>
+      <a href="guide.html">取扱説明書</a>
+      <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+      <details class="lang">
+        <summary aria-label="言語を選択"><span class="flag">🇯🇵</span> 日本語</summary>
+        <ul>
+          <li><a href="../" lang="ko" hreflang="ko"><span class="flag">🇰🇷</span> 한국어</a></li>
+          <li><a href="../en/" lang="en" hreflang="en"><span class="flag">🇺🇸</span> English</a></li>
+          <li><a href="../ja/" lang="ja" aria-current="true"><span class="flag">🇯🇵</span> 日本語</a></li>
+        </ul>
+      </details>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Stream in.<br><em>Clips</em> out.</h1>
+        <p class="summary">配信アーカイブからハイライト区間を検出し、縦型クリップとして書き出す動画編集ツール</p>
+        <div class="actions">
+          <a class="btn" data-download href="https://github.com/BudongJW/stream2clip/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            Windows版をダウンロード
+          </a>
+          <a class="text" href="guide.html">取扱説明書</a>
+        </div>
+        <dl class="facts">
+          <dt>バージョン</dt><dd data-release="version">最新リリース</dd>
+          <dt>ファイルサイズ</dt><dd data-release="size">リリースページ参照</dd>
+          <dt>対応環境</dt><dd>Windows 64ビット</dd>
+          <dt>ライセンス</dt><dd>Apache-2.0</dd>
+        </dl>
+      </div>
+
+      <div>
+        <div class="stage">
+          <div class="frame">
+            <img src="../assets/shots/ja/highlights_window.png" alt="stream2clip ハイライト画面: チャット反応のタイムラインで検出した区間と9:16のプレビュー" width="1350" height="964">
+          </div>
+          <div class="clipcard" aria-hidden="true">
+            <span class="time">CLIP 01 0:32</span>
+            <img src="../assets/kiri/kiri_laugh_512.png" alt="" width="512" height="512">
+          </div>
+        </div>
+        <div class="timeline">
+          <img src="../img/timeline.svg" alt="チャット反応のタイムライン: 灰色の棒は通常のチャット量、ピンクの棒3組はクリップとして検出された区間" width="1040" height="196">
+          <ul class="legend">
+            <li><span class="sw"></span>チャット反応</li>
+            <li><span class="sw clip"></span>検出区間</li>
+            <li><span class="sw vert"></span>9:16 縦型クリップ</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="download">
+    <div class="wrap">
+      <h2>ダウンロード</h2>
+      <div class="split">
+        <div class="tablewrap">
+          <table>
+            <tbody>
+              <tr><th scope="row">配布形態</th><td>Windows用インストーラー(setup.exe)または圧縮ファイル(zip)。アプリ <code>stream2clip-gui.exe</code>、コマンドラインツール <code>stream2clip.exe</code> を同梱</td></tr>
+              <tr><th scope="row">対応環境</th><td>Windows 64ビット。Windows 11で検証</td></tr>
+              <tr><th scope="row">必須コンポーネント</th><td>ffmpeg (動画変換)</td></tr>
+              <tr><th scope="row">インストール方法</th><td>インストーラーの実行時に言語を選択(韓国語、日本語、英語)。管理者権限は不要。zipは解凍して実行</td></tr>
+              <tr><th scope="row">コード署名</th><td>未適用。Windows SmartScreenの警告が表示される場合あり。Smart App Controlが有効な環境ではPythonパッケージを推奨</td></tr>
+              <tr><th scope="row">整合性の確認</th><td><a href="https://github.com/BudongJW/stream2clip/releases/latest">リリースページ</a>のSHA-256値と照合</td></tr>
+              <tr><th scope="row">別途インストールの機能</th><td>字幕の文字起こし(Whisper)、YouTubeアップロードはPythonパッケージで提供</td></tr>
+              <tr><th scope="row">その他のOS</th><td>macOS、LinuxはPythonパッケージでインストール。Python 3.10以上が必要</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3>インストール手順</h3>
+          <ol class="procedure">
+            <li><a data-download href="https://github.com/BudongJW/stream2clip/releases/latest">インストーラーをダウンロード</a>して実行</li>
+            <li>最初の画面で言語を選択。選択した言語がアプリの表示言語として適用</li>
+            <li>ffmpegをインストール
+              <pre><code>winget install Gyan.FFmpeg</code></pre>
+            </li>
+            <li>スタートメニューからstream2clipを起動</li>
+          </ol>
+          <p class="alt">インストールせずに使用: <a data-download="zip" href="https://github.com/BudongJW/stream2clip/releases/latest">zipファイルをダウンロード</a>して解凍し、<code>stream2clip-gui.exe</code> を実行</p>
+          <h3 class="spaced">Pythonパッケージ</h3>
+          <pre class="wrap"><code>pip install "stream2clip[gui,ingest,obs] @ git+https://github.com/BudongJW/stream2clip"</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features">
+    <div class="wrap">
+      <h2>主な機能</h2>
+      <dl class="features">
+        <div>
+          <dt>ハイライト検出</dt>
+          <dd><ul>
+            <li>チャット量、参加者数、反応語彙、有料メッセージを配信ごとの平均と比較して区間を検出</li>
+            <li>タイムライン上で区間の移動と長さの調整</li>
+            <li>音量分析、歌の区間の表示と除外</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>配信URLの入力</dt>
+          <dd><ul>
+            <li>配信URLだけでチャットの収集とハイライト検出</li>
+            <li>選択した区間の映像のみダウンロード</li>
+            <li>YouTube、CHZZK、SOOPのアーカイブに対応</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>縦型クリップと字幕</dt>
+          <dd><ul>
+            <li>9:16レイアウト4種: blur、center、fit、stack</li>
+            <li>カラオケ字幕、字幕翻訳、用語集</li>
+            <li>元配信のタイトルとURLを含む概要欄の自動作成</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>画面キャプチャと録画</dt>
+          <dd><ul>
+            <li><kbd>F8</kbd> 範囲キャプチャと注釈の編集</li>
+            <li><kbd>F9</kbd> 画面録画: GIF、MP4、WebP、WebM</li>
+            <li>指定した色を除去する透過背景録画</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>OBS連携とライブモード</dt>
+          <dd><ul>
+            <li><kbd>F10</kbd> リプレイバッファの保存とクリップ変換</li>
+            <li>ライブモード: 配信中のチャット急増時にリプレイを自動保存してクリップを作成</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>ガイドラインの確認</dt>
+          <dd><ul>
+            <li>事務所ごとの確認項目: ホロライブ、にじさんじ、ぶいすぽっ!、あおぎり高校</li>
+            <li>確認結果は参考資料であり、法的判断ではない</li>
+          </ul></dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block" id="screens">
+    <div class="wrap">
+      <h2>画面構成</h2>
+      <div class="shots">
+        <figure>
+          <img src="../assets/shots/ja/highlights_window.png" alt="ハイライト画面: 入力、タイムライン、区間一覧、レイアウトのプレビュー、書き出し設定" width="1350" height="964" loading="lazy">
+          <figcaption>ハイライト画面: タイムライン、区間一覧、プレビュー、書き出し設定。例示画面はブランド画像と合成チャットデータで作成</figcaption>
+        </figure>
+        <figure>
+          <img src="../assets/shots/ja/launcher.png" alt="ランチャー: キャプチャ、画面録画、ハイライト、OBSリプレイ、ライブモード" width="1018" height="1031" loading="lazy">
+          <figcaption>ランチャー: キャプチャ、画面録画、クリップ作成、OBS連携</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="manual">
+    <div class="wrap">
+      <h2>取扱説明書</h2>
+      <div class="manual">
+        <img src="../assets/kiri/kiri_wink_512.png" alt="マスコットのキリ" width="512" height="512" loading="lazy">
+        <div>
+          <p>インストール、基本的な使い方、画面キャプチャと録画、ハイライトクリップの作成、字幕と翻訳、OBS連携、ライブモード、コマンドライン、トラブルシューティングを収録</p>
+          <ul class="links">
+            <li><a href="guide.html">ウェブ版を読む</a></li>
+            <li><a href="../stream2clip-guide-ja.pdf" download>PDFをダウンロード</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="tagline">Stream in. Clips out.</span>
+    <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+    <a href="https://github.com/BudongJW/stream2clip/releases">リリース</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/CHANGELOG.md">変更履歴</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/LICENSE">ライセンス</a>
+    <p>オープンソースソフトウェア(Apache-2.0)。本ページはGoogle Fontsの書体、jsDelivrの国旗フォント、GitHubのリリース情報を読み込む。</p>
+  </div>
+</footer>
+
+<script src="../js/site.js" defer></script>
+</body>
+</html>

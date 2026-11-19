@@ -3,7 +3,7 @@
     python packaging/build_site.py            # -> dist/site (open index.html, or serve the folder)
     python packaging/build_site.py --pdf      # also print the manuals to stream2clip-guide.pdf / -en.pdf
 
-The pages are plain HTML and CSS, Korean at the top and English under ``en/``. Images are
+The pages are plain HTML and CSS, Korean at the top, English under ``en/``, Japanese under ``ja/``. Images are
 not kept twice in the repository: the logo,
 favicon and mascot come from ``assets/brand`` and the screenshots from ``docs/images``;
 :data:`ASSETS` says which file goes where. ``--pdf`` needs Chrome, Chromium or Edge
@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 PDF_NAME = "stream2clip-guide.pdf"
 #: manual page -> the PDF printed from it (both in the root of the site)
-MANUALS: dict[str, str] = {"guide.html": PDF_NAME, "en/guide.html": "stream2clip-guide-en.pdf"}
+MANUALS: dict[str, str] = {"guide.html": PDF_NAME, "en/guide.html": "stream2clip-guide-en.pdf", "ja/guide.html": "stream2clip-guide-ja.pdf"}
 
 #: path in the built site -> file in the repository
 ASSETS: dict[str, str] = {
@@ -44,6 +44,9 @@ ASSETS: dict[str, str] = {
     "assets/shots/en/launcher.png": "docs/images/en/launcher.png",
     "assets/shots/en/highlights_window.png": "docs/images/en/highlights_window.png",
     "assets/shots/en/editor.png": "docs/images/en/editor.png",
+    "assets/shots/ja/launcher.png": "docs/images/ja/launcher.png",
+    "assets/shots/ja/highlights_window.png": "docs/images/ja/highlights_window.png",
+    "assets/shots/ja/editor.png": "docs/images/ja/editor.png",
 }
 
 BROWSERS = (

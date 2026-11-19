@@ -581,7 +581,7 @@ def cmd_live(args: argparse.Namespace) -> int:
             print(f"[{stamp(now)}] {detector.messages:,} messages, {detector.seen():.0f} s of history, {len(detector.triggers)} surges", flush=True)
         return False
 
-    print(f"watch  threshold {config.threshold:g} · cooldown {config.cooldown:g} s · Ctrl+C to stop", flush=True)
+    print(f"watch  threshold {config.threshold:g}, cooldown {config.cooldown:g} s, Ctrl+C to stop", flush=True)
     try:
         count = watch(source, detector, fired, until=started + args.duration if args.duration else None, max_triggers=args.max_clips, should_stop=heartbeat)
     except KeyboardInterrupt:
@@ -589,6 +589,17 @@ def cmd_live(args: argparse.Namespace) -> int:
     finally:
         source.close()
     print(f"done   {count} surges in {detector.messages:,} messages" + (f", {len(clipper.saved)} clips in {out}" if clipper is not None else ""))
+    return 0
+
+
+def cmd_language(args: argparse.Namespace) -> int:
+    from . import i18n
+
+    print(i18n.language())
+    if args.verbose:
+        print(f"environment STREAM2CLIP_LANG: {os.environ.get('STREAM2CLIP_LANG') or '-'}")
+        print(f"installer ({i18n.INSTALL_FILE}): {i18n.installed_language() or '-'}")
+        print(f"system: {i18n.system_language()}")
     return 0
 
 
@@ -839,7 +850,7 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--cooldown", type=float, default=90.0, help="seconds between two clips (default 90)")
     d.add_argument("--warmup", type=float, default=120.0, help="seconds of chat to see before anything fires (default 120)")
     d.add_argument("--history", type=float, default=900.0, help="seconds of chat that count as 'normal' (default 900)")
-    d.add_argument("--min-messages", type=int, default=5, help="messages a 5 s window needs to count at all (default 5)")
+    d.add_argument("--min-messages", type=int, default=8, help="messages a 5 s window needs to count at all (default 8)")
     d.add_argument("--lag", type=float, default=12.0, help="how late chat may arrive, in seconds (default 12)")
     c = p.add_argument_group("what is cut out of the replay")
     c.add_argument("--delay", type=float, default=8.0, help="seconds viewers need to react (default 8; add your stream latency if you are the streamer)")
@@ -854,6 +865,10 @@ def build_parser() -> argparse.ArgumentParser:
     o.add_argument("--cookies-from-browser", help="browser to take cookies from (yt-dlp)")
     _add_export_args(p)
     p.set_defaults(func=cmd_live)
+
+    p = sub.add_parser("language", help="show the interface language the app starts in (before a choice made in the app itself)")
+    p.add_argument("-v", "--verbose", action="store_true", help="also show where it could come from")
+    p.set_defaults(func=cmd_language)
 
     p = sub.add_parser("upload", help="upload a clip to YouTube (private unless you say otherwise)")
     p.add_argument("video")

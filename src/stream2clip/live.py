@@ -45,8 +45,9 @@ class LiveConfig:
     history: float = 900.0
     #: Nothing fires until this many seconds of chat have been seen.
     warmup: float = 120.0
-    #: A window with fewer messages is never a surge, however quiet the chat was before.
-    min_messages: int = 5
+    #: A window with fewer messages is never a surge, however quiet the chat was before. With 5, a slow real
+    #: chat (about 10 messages a minute) fired 12 times an hour on bursts of five to seven messages; 8 left 4.
+    min_messages: int = 8
     #: Seconds between two triggers (one moment makes the chat surge for a while).
     cooldown: float = 90.0
     #: Messages may arrive this late (yt-dlp asks YouTube about every 10 seconds).
@@ -206,10 +207,10 @@ class SurgeDetector:
         for name, count in bucket.categories.items():
             stats[f"react_{name}"] = float(count)
         if bucket.reactions:
-            detail = " · ".join(f"{_LABELS[c]} {n}" for c, n in sorted(bucket.categories.items(), key=lambda kv: -kv[1]) if n)
+            detail = ", ".join(f"{_LABELS[c]} {n}" for c, n in sorted(bucket.categories.items(), key=lambda kv: -kv[1]) if n)
             reasons.append(f"반응 {bucket.reactions}개 ({detail})")
         if bucket.paid:
-            reasons.append(f"슈퍼챗·후원·멤버십 {bucket.paid}건")
+            reasons.append(f"슈퍼챗, 후원, 멤버십 {bucket.paid}건")
         return reasons, stats
 
 

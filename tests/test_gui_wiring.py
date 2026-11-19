@@ -291,7 +291,7 @@ def test_singing_and_laughter_options(app, window, stream_files, monkeypatch):  
     window.singing_combo.setCurrentIndex(window.singing_combo.findData("skip"))
     window.analyse()
     wait(app, lambda: not window.busy)
-    assert window.list.count() == 0 and "하이라이트 0개 · 노래 구간 1곳" in window.status.text()
+    assert window.list.count() == 0 and "하이라이트 0개, 노래 구간 1곳" in window.status.text()
 
     window.singing_combo.setCurrentIndex(window.singing_combo.findData("off"))
     window.laughter_check.setChecked(False)

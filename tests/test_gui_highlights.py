@@ -1,4 +1,4 @@
-"""Highlights window (방송 → 클립): timeline dragging, analysis, preview, export."""
+"""Highlights window (stream clips): timeline dragging, analysis, preview, export."""
 
 from __future__ import annotations
 
@@ -200,7 +200,7 @@ def test_find_adjust_preview_export(app, window, stream_files, tmp_path):
     window.timeline.update()
     drag(window.timeline, window.timeline.time_to_x(60.0), window.timeline.time_to_x(25.0), y=90)
     assert h.end == pytest.approx(25.0, abs=1.0)
-    assert "0:00:20 – 0:00:25" in window.list.item(0).text()
+    assert "0:00:20 - 0:00:25" in window.list.item(0).text()
 
     window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
     window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
@@ -262,7 +262,7 @@ def test_mascot_follows_the_state(app, window):
     from stream2clip.highlights import Highlight
 
     assert window.mood == "wink" and not window.mascot_label.pixmap().isNull()
-    window._set_busy(True, "…")
+    window._set_busy(True, "busy")
     assert window.mood == "focus"
     window._on_analysed(synthetic_result())  # two planted "草" moments
     assert window.mood == "laugh" and not window.list.item(0).icon().isNull()

@@ -63,13 +63,13 @@ def test_a_burst_fires_once_and_says_why():
 
 def test_what_does_not_fire():
     assert simulate([*calm(0, 600), *burst(30.5)], QUICK) == []  # too early: nothing to compare with yet
-    assert simulate([*calm(0, 600, every=30), *burst(310.5, 4)], QUICK) == []  # four messages are not a surge, however quiet it was
-    assert len(simulate([*calm(0, 600, every=30), *burst(310.5, 5)], QUICK)) == 1
+    assert simulate([*calm(0, 600, every=30), *burst(310.5, 7)], QUICK) == []  # seven messages are not a surge, however quiet it was
+    assert len(simulate([*calm(0, 600, every=30), *burst(310.5, 8)], QUICK)) == 1
     hello = burst(300.5, text="こんばんは")  # everybody greets at once: routine, not a moment
     assert simulate([*calm(0, 600), *hello], QUICK) == []
     paid = [ChatMessage(300.5 + i * 0.1, "ナイス", author=f"p{i}", kind="paid", amount=500) for i in range(12)]
     fired = simulate([*calm(0, 600), *paid], QUICK)
-    assert len(fired) == 1 and fired[0].reasons[-1] == "슈퍼챗·후원·멤버십 12건"
+    assert len(fired) == 1 and fired[0].reasons[-1] == "슈퍼챗, 후원, 멤버십 12건"
 
 
 def test_cooldown_and_lasting_surges():
