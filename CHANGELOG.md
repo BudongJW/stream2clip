@@ -1,6 +1,24 @@
 # 변경 내역
 
-## v0.7.0: 2026-11-19
+## v0.8.0: 2026-11-19
+
+### 라이브 모드
+- CHZZK, SOOP 라이브 채팅 직접 수신: 채널 주소(`chzzk.naver.com/live/채널 ID`, `play.sooplive.co.kr/스트리머 ID`)만으로 채팅 서버에 로그인 없이(읽기 전용) 접속. 명령줄과 런처 공통
+- CHZZK는 채팅과 후원, SOOP은 채팅과 별풍선, 애드벌룬, 영상풍선을 수신. 스트리머 본인의 메시지는 역할을 구분하여 표시 명령(`!clip` 등)에 사용
+- 성인 인증, 비밀번호 방송은 미지원(로그인 필요)
+- 코어: `live.ChzzkLiveChat`, `SoopLiveChat`, `chzzk_channel`, `soop_channel`, `reads_chat_itself`, `chat.chzzk_live_message`, `soop_live_message`
+
+### 화면 언어
+- 하이라이트 근거(채팅 급증, 반응, 후원, 음량, 스트리머 표시 등), 가이드라인 점검, VRM 검사, Shorts 경고, 기획사 프로필의 주의 사항을 일본어와 영어로 제공. 이전에는 일본어, 영어 화면에서도 한국어로 표시됨
+- 클립 설명란의 표제와 AI 사용 문구도 화면 언어에 맞춰 작성
+- 번역 목록 검사 범위를 창의 문구에서 패키지 전체로 확대
+- 코어: `i18n.mark`, `shown`, `highlights.chat_reason`, `reactions_reason`, `marker_reason`
+
+### 확인 내용
+- CHZZK, SOOP: 실제 방송 중인 채널에서 수신 확인(기본 설정, OBS 미사용, 각 5분. CHZZK 메시지 1,021개에서 1회 발동, SOOP 메시지 1,543개에서 발동 없음)
+- 채팅 서버의 응답 구조는 실제 응답으로 확인. SOOP의 별풍선, 애드벌룬, 영상풍선 패킷은 실제 방송에서 관찰한 구조에 맞춤
+- 미검증: CHZZK, SOOP 채팅과 OBS를 함께 사용한 저장(저장 경로는 Twitch 채팅으로 확인한 것과 동일), SOOP의 구독 및 팔로우 알림(수신하지 않음), 일본어 및 영어 문구의 원어민 검수
+
 
 ### 자막
 - 폰트의 언어별 자동 선택: 자막의 문자 구성에 맞는 후보 중 설치된 첫 폰트 사용(일본어는 Noto Sans JP, Yu Gothic, Meiryo 순, 한국어는 Noto Sans KR, Malgun Gothic 순). 이전에는 Noto Sans KR 고정이어서 일본어 한자가 한국어 자형으로 표시됨. `--font`로 직접 지정 가능

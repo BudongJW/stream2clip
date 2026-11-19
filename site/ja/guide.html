@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 取扱説明書</h1>
   <dl>
-    <dt>対象バージョン</dt><dd>v0.7</dd>
+    <dt>対象バージョン</dt><dd>v0.8</dd>
     <dt>対象</dt><dd>Windows用インストーラー、実行ファイルおよびPythonパッケージの利用者</dd>
     <dt>配布元</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -301,7 +301,7 @@
     </ul>
     <h3>使用手順</h3>
     <ol>
-      <li>ランチャーのライブモード欄にYouTubeライブ配信またはTwitchチャンネルのURLを入力</li>
+      <li>ランチャーのライブモード欄にYouTube、Twitch、CHZZK、SOOPのライブURLを入力</li>
       <li>感度を選択。高は小さな急増でも保存、低は大きな急増のみ保存</li>
       <li><strong>ライブモード開始</strong>を実行。チャット急増時に保存フォルダへ <code>live_日付_時刻</code> 形式のクリップを作成</li>
       <li><strong>ライブモード停止</strong>で終了</li>
@@ -312,7 +312,7 @@
       <li>開始後2分間は基準の収集のみ。クリップ間の最小間隔は90秒</li>
       <li>急増の8秒前を場面の時点と判断し、前20秒と後10秒を含める</li>
       <li>配信者またはモデレーターがチャットに <code>!clip</code> を入力すると、急増の有無に関係なく即時保存</li>
-      <li>対応: YouTubeライブ配信、Twitch</li>
+      <li>対応: YouTubeライブ配信、Twitch、CHZZK、SOOP。CHZZK、SOOPの成人認証配信とパスワード配信は対象外</li>
     </ul>
     <h3>コマンドラインでの実行</h3>
     <pre><code>stream2clip.exe live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips</code></pre>
