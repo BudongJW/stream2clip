@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 사용 설명서</h1>
   <dl>
-    <dt>적용 버전</dt><dd>v0.12</dd>
+    <dt>적용 버전</dt><dd>v0.13</dd>
     <dt>대상</dt><dd>Windows 설치 프로그램, 실행 파일 및 파이썬 패키지 사용자</dd>
     <dt>배포처</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -88,8 +88,12 @@
     <ul>
       <li>ffmpeg 내려받기를 해제하였거나 실패한 경우: 앱 시작 화면 상단의 <strong>ffmpeg 내려받기</strong> 버튼으로 다시 진행</li>
       <li>설치 없이 사용: zip 파일 다운로드 후 원하는 폴더에 압축 해제, <code>stream2clip-gui.exe</code> 실행. ffmpeg는 시작 화면의 <strong>ffmpeg 내려받기</strong> 버튼으로 준비</li>
-      <li>구성요소 확인: 명령줄에서 <code>stream2clip setup</code> 실행 시 기능별 필요 구성요소의 유무와 해결 방법 표시</li>
+      <li>구성요소 확인: 시작 화면 우측 상단의 <strong>구성요소 점검</strong>에서 기능별 필요 구성요소의 유무와 해결 방법 표시. 명령줄에서는 <code>stream2clip setup</code></li>
     </ul>
+    <figure>
+      <img src="assets/shots/components.png" alt="구성요소 점검 창: 구성요소별 상태, 용도, 위치, 해결 방법" width="850" height="705" loading="lazy">
+      <figcaption>구성요소 점검 창. ffmpeg와 얼굴 검출 모델은 이 창에서 내려받기 가능</figcaption>
+    </figure>
     <figure>
       <img src="assets/shots/launcher_ffmpeg.png" alt="ffmpeg가 없는 PC의 시작 화면: 상단의 안내와 ffmpeg 내려받기 버튼" width="979" height="388" loading="lazy">
       <figcaption>ffmpeg가 없는 PC의 시작 화면. 안내는 ffmpeg가 준비되면 사라짐</figcaption>

@@ -27,6 +27,9 @@ QLabel#Muted {{ color: {MUTED}; }}
 QLabel#Eyebrow {{ color: {PAPER}; font-weight: 700; font-size: 13px; }}
 QLabel#Title {{ font-size: 22px; font-weight: 800; }}
 QLabel#Status {{ color: {HIGHLIGHT}; font-weight: 600; }}
+QLabel#StateOk {{ background: #1F3A2C; color: #4ADE80; border-radius: 6px; padding: 2px 8px; font-weight: 700; }}
+QLabel#StateMissing {{ background: {LIVE_PINK}; color: {INK}; border-radius: 6px; padding: 2px 8px; font-weight: 800; }}
+QLabel#StateOther {{ background: {SURFACE_2}; color: {MUTED}; border: 1px solid {BORDER}; border-radius: 6px; padding: 1px 7px; font-weight: 600; }}
 QLabel#Badge {{ background: {LIVE_PINK}; color: {INK}; border-radius: 6px; padding: 1px 6px; font-size: 10px; font-weight: 800; }}
 
 QPushButton, QToolButton {{

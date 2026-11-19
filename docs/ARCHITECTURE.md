@@ -132,6 +132,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 | 스레드 | 분석, 미리보기, 아바타 찾기, 내보내기는 `threading.Thread`에서 실행하고 결과는 Qt 시그널로 GUI 스레드에 전달. 미리보기는 요청 번호를 부여하여 늦게 끝난 이전 요청이 화면을 덮지 않도록 처리 |
 | 미리보기 | 레이아웃만 적용한 정지 화면. 자막은 내보낸 클립에서 확인 |
 | 번역, 노래, 웃음 | 창은 선택한 값을 코어에 전달: `find_highlights(laughter=...)`, `audio.singing_sections`, `highlights.mark_singing`, `translation.get_translator(이름 또는 file.py)`, `make_clips(subtitle_translator=...)` |
+| 구성요소 점검 창 | `gui/components.py`가 `tools.components`의 결과를 작업 스레드에서 받아 행으로 표시. ffmpeg와 모델 내려받기는 `tools.install_ffmpeg`, `detect.ensure_model`을 그대로 호출하며 완료 시 `changed` 신호로 런처의 ffmpeg 안내를 갱신 |
 | 업로드 창 | `gui/upload.py`가 `upload.video_resource`로 본문을 만들고 작업 스레드에서 `upload.upload_video` 호출. 공개 범위는 저장하지 않아 매번 비공개에서 시작. 런처의 리플레이 버튼은 `obs.replay_to_clip` 호출 |
 | 화면 언어 | `i18n.py`, `locales/*.json`. 코드의 문구는 한국어이며 `tr()`이 현재 언어의 번역을 조회(없으면 한국어 유지). 창의 문구뿐 아니라 하이라이트 근거, 가이드라인 점검, VRM 검사 문구도 같은 목록 사용. 표에 담아 두는 문구(기획사 프로필의 주의 사항 등)는 `mark()`로 표시하고 표시 시점에 `shown()`으로 번역. 표 형태의 상수는 모듈을 가져올 때 번역되므로 앱은 창 모듈을 가져오기 전에 언어를 결정(`gui/app.py`의 `apply_saved_language`). 따라서 언어 변경은 다음 실행부터 적용 |
 | 설정 저장 | `gui/settings.py`. 창마다 1개 구역을 가진 JSON 파일 1개. 읽을 때 값의 형식과 범위를 확인하여 사용할 수 없는 값은 건너뛰며, 파일이 손상되었거나 폴더에 쓸 수 없어도 앱은 기본값으로 동작. 비밀번호 미저장. 테스트는 `STREAM2CLIP_CONFIG_DIR`로 빈 폴더 사용 |
