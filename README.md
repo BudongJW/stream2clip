@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-294-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-310-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -221,6 +221,40 @@ stream2clip auto vod/video.mp4 --chat vod/VIDEO_ID.live_chat.json --audio --skip
 ```bash
 stream2clip replay -o moment.gif --last 15 --width 480
 ```
+
+**라이브 모드** — 방송 중에 채팅을 지켜보다가 급증하면 OBS 리플레이 버퍼를 저장하고 그 장면을 클립으로 잘라 둡니다. 키를 누를 필요가 없습니다.
+
+```bash
+stream2clip live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips
+```
+
+- **준비**: OBS에서 리플레이 버퍼를 켜고(설정 → 출력 → 리플레이 버퍼) **최대 리플레이 시간을 60초 이상**으로 둡니다. 기본값 20초로는 장면의 앞부분이 버퍼에 남아 있지 않습니다(그럴 때는 클립을 저장하면서 알려 줍니다). 버퍼가 돌고 있지 않으면 기다리기 전에 바로 알려 주고, `--start-buffer`로 시작시킬 수 있습니다.
+- **채팅**: YouTube 라이브는 주소만 주면 yt-dlp가 받습니다(약 10초마다 한 묶음이라 그만큼 늦게 압니다). 다른 곳은 수집기가 한 줄에 JSON 하나씩(`{"text": …, "author": …, "time": …}`) 덧붙이는 파일을 주면 따라 읽습니다. CHZZK · SOOP 라이브 채팅을 직접 받는 기능은 아직 없습니다.
+- **언제 발동하나**: 5초 단위로 채팅 수 · 참여자 수 · 반응 어휘 · 후원을 직전 15분과 비교합니다(다시보기 검출과 같은 점수). 처음 2분은 지켜보기만 하고, 클립 사이는 최소 90초입니다. `--threshold`(기본 3.5)를 올리면 덜 저장합니다.
+- **어디를 자르나**: 급증 8초 전을 장면으로 보고(시청자가 반응하는 시간) 앞 20초 · 뒤 10초를 남겨 약 35초 클립을 만듭니다. 방송하는 본인이라면 송출 지연만큼 `--delay`를 늘리세요. 채팅의 시각과 이 PC의 시계가 맞는다고 가정합니다.
+- **미리 재 보기**: `--simulate`에 끝난 방송의 채팅 파일을 주면 "언제 발동했을지"를 보여 줍니다. `--no-obs`는 저장 없이 급증만 알립니다.
+- **결과**: `live_날짜_시각.mp4`(형식 · 크기는 `-f` · `--height` 등)와 시각 · 점수 · 근거를 적은 `live.jsonl`.
+
+<details>
+<summary>기본값을 정한 근거 — 끝난 방송 7개에 라이브 모드를 돌려 본 결과</summary>
+
+<br>
+
+“여러 방송으로 평가하기”에 쓴 공개 아카이브 7개(9시간, 시청자 댓글 타임스탬프 196곳)의 채팅을 처음부터 순서대로 흘려 넣어, 그 시점까지의 채팅만 보고 발동한 곳을 댓글과 비교했습니다.
+
+| 설정 | 시간당 발동 | precision | 무작위 기대값 | 배수 |
+|---|---:|---:|---:|---:|
+| `--threshold 3.0` | 8.3 | 34.7% | 25.8% | 1.34 |
+| **`--threshold 3.5` (기본)** | 6.4 | 34.5% | 26.0% | 1.33 |
+| `--threshold 4.0` | 4.4 | 40.0% | 26.2% | 1.53 |
+| `--threshold 5.0` | 3.1 | 42.9% | 26.7% | 1.60 |
+| (참고) 다시보기 검출, 방송당 상위 10개 | 6.7 | 51.7% | 40.2% | 1.28 |
+
+- 라이브 모드의 클립은 35초로 짧아서 precision과 무작위 기대값이 함께 낮습니다. 비교할 값은 배수입니다.
+- 미래를 볼 수 없는데도 배수는 다시보기 검출과 비슷했습니다(1.3 안팎). 다만 방송 7개로는 0.1~0.2 차이를 가릴 수 없으므로, 기본값은 정확도가 아니라 **발동 횟수가 다시보기 검출(시간당 6~7개)과 비슷해지는 값**으로 골랐습니다.
+- 한 구간만 튀는 잡음을 줄이려고 점수를 두 구간(10초) 평균으로 봅니다(`--smooth 2`). 아주 큰 급증은 한 구간만으로도 발동합니다.
+
+</details>
 
 **YouTube 업로드** — 본인 Google Cloud 프로젝트의 OAuth 클라이언트 파일(데스크톱 앱)이 필요하고, 처음 한 번 브라우저에서 동의합니다. **기본은 비공개**입니다(API는 지정하지 않으면 공개로 올립니다). `--dry-run`은 보낼 내용만 보여 주고 올리지 않습니다. 앱에서는 하이라이트 창의 **업로드…** 가 같은 일을 합니다: 내보낸 클립과 설명란 파일이 채워진 채로 열리고, **보낼 내용 보기**로 먼저 확인할 수 있으며, 공개 범위는 열 때마다 비공개에서 시작합니다.
 
@@ -425,7 +459,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 294개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 310개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -451,7 +485,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 | `[asr]` | faster-whisper | `--transcribe` 자동 받아쓰기 |
 | `[detect]` | onnxruntime | `--avatar auto` · `stream2clip avatar` (아바타 박스 자동 제안) |
 | `[build]` | pyinstaller | `packaging/build_windows.py` (Windows 실행 파일) |
-| `[obs]` | websocket-client | `stream2clip replay` (OBS 리플레이 버퍼 → 클립) |
+| `[obs]` | websocket-client | `stream2clip replay` · `live` (OBS 리플레이 버퍼 → 클립) |
 | `[upload]` | google-api-python-client, google-auth-oauthlib | `stream2clip upload` (YouTube 업로드) |
 | `[dev]` | pytest, jsonschema, mss, PySide6 | 테스트 |
 
@@ -498,7 +532,7 @@ pip install -e ".[gui]"
 | 자막 자동 받아쓰기 (Whisper) | `pip install -e ".[asr]"` |
 | 아바타 위치 자동 찾기 | `pip install -e ".[detect]"` |
 | Windows 실행 파일 만들기 | `pip install -e ".[gui,ingest,detect,obs,build]"` |
-| OBS 리플레이 버퍼 → 클립 | `pip install -e ".[obs]"` |
+| OBS 리플레이 버퍼 → 클립, 라이브 모드 | `pip install -e ".[obs,ingest]"` |
 | YouTube 업로드 | `pip install -e ".[upload]"` |
 | 전부 | `pip install -e ".[gui,hotkey,ingest,asr,detect,obs,upload]"` |
 
@@ -742,6 +776,7 @@ src/stream2clip/
 ├── chat.py        채팅 다시보기 → ChatMessage (YouTube · Twitch · chat-downloader · CSV/JSONL)
 ├── sources.py     yt-dlp: info · 채팅 · VOD 구간 · heatmap        audio.py  음량 곡선
 ├── highlights.py  하이라이트 검출 · 타임라인 그래프
+├── live.py        라이브 모드: 실시간 급증 검출 · 채팅 따라 읽기 · 리플레이 → 클립
 ├── layouts.py     9:16 레이아웃 (center · fit · blur · stack)
 ├── detect.py      애니메 얼굴 검출 → stack 레이아웃 아바타 박스 제안
 ├── subtitles.py   SRT/VTT/JSON → 카라오케 ASS, faster-whisper 연결
@@ -858,7 +893,8 @@ src/stream2clip/
 - [x] 🖥️ 앱의 하이라이트 창에서 주소로 시작하기 — 영상 칸에 주소를 넣으면 채팅을 받아 찾고, 내보낼 구간만 내려받음
 - [x] 📊 여러 방송 평가 — `evaluate`: 시청자 댓글 타임스탬프와 비교해 precision · recall · 무작위 대비 배수 <sup>v0.4</sup>
 - [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항) <sup>v0.4</sup>
-- [ ] 📡 라이브 모드 — 방송 중 채팅 급증을 보고 리플레이를 자동 저장
+- [x] 📡 라이브 모드 — `stream2clip live`: 방송 중 채팅 급증을 보고 OBS 리플레이를 자동 저장 (YouTube 주소 · 채팅 파일)
+- [ ] 📡 라이브 모드를 앱(런처)에서 켜기, CHZZK · SOOP 라이브 채팅 직접 받기
 - [x] 🌏 앱 화면 일본어 · 영어 — 런처 · 하이라이트 창 · 업로드 창 · 편집기 · 녹화 화면의 문구 230개 <sup>v0.4</sup>
 - [ ] 🌏 하이라이트 근거 · 가이드라인 점검 · 명령줄 출력의 일본어 · 영어 (지금은 한국어), 원어민 검수
 - [ ] 🇰🇷 한국 기획사 가이드라인 프로필 — 공식 원문을 확인한 곳부터 (스텔라이브 · 이세계아이돌은 원문 미확보)
@@ -909,6 +945,7 @@ xvfb-run -a pytest
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지 · 이름 고정 · 두 줄 자막 · 묶음 전송, Holodex 초안, `--translate` |
 | `test_i18n.py` | 화면 문구와 일본어 · 영어 번역 목록이 빠짐없이 맞는지(자리 표시 · 줄바꿈 포함), 감싸지 않은 한국어 문구가 없는지, 언어 결정 순서(앱 설정 · 환경 변수 · 시스템), 영어 · 일본어로 실제 창 띄우기 |
+| `test_live.py` | 라이브 모드: 급증 발동(준비 시간 · 쿨다운 · 인사말 · 후원 · 늦게 온 채팅), 구간이 닫힌 뒤에만 판정, yt-dlp 라이브 채팅 줄 읽기, 파일 따라 읽기(반쪽 줄 · 교체된 파일), 리플레이에서 장면 위치 계산, 가짜 OBS로 클립 저장, `live` 명령 |
 | `test_evaluation.py` | 댓글에서 타임스탬프 읽기(시각이 아닌 숫자 제외), 가까운 표시 묶기 · 댓글 수 세기, precision · recall · 무작위 기대값 계산, 설정값 바꿔 가며 비교, `evaluate` · `fetch --comments` |
 | `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 내려받기(여유 시간 · 이미 받은 파일 재사용), 구간 파일에서 잘라도 자막 · 설명란은 방송 시각 기준, CHZZK 구간에서만 ffmpeg 확장자 검사 끄기, `clips <주소>` · `auto <주소>`, 방송별 폴더 이름, 정보 · 채팅만 받기(재사용 · CHZZK/SOOP 정보 거부) |
 | `test_translator_loading.py` | 번역기를 파일 · 모듈에서 불러오기(함수 · 클래스 · 객체, Windows 드라이브 경로), 잘못된 지정의 안내, 예제 번역기(가짜 응답: 목록 추출 · 줄 수가 틀리면 한 줄씩 다시), `--translator file.py` |
@@ -938,7 +975,7 @@ xvfb-run -a pytest
 | 🌐 자막 번역 | ✅ 예제 번역기를 로컬 Ollama(qwen2.5:7b)에 연결해 실제 방송의 일본어 자동 자막 20초 구간을 한국어로 번역, 원문 + 번역 두 줄 자막 클립까지 확인(약 40초). 이 모델로는 한 줄에 영어 · 중국어가 섞여 나온 곳이 있었습니다 — 연결은 확인됐고 품질은 모델에 달려 있습니다. 유료 번역 서비스로는 확인하지 않았습니다. Holodex 이름 초안은 API 키가 없어 가짜 응답으로만 테스트 |
 | 🎤 노래 구간 검출 | ✅ 실제 노래 방송 1개(94분)에서 노래 구간 11개, 실제 게임 방송 1개(85분)에서 0개. YouTube 자동 자막의 [音楽] 표시 중 86%가 검출 구간 안. 방송 둘로만 본 결과입니다 |
 | 😂 웃음소리 신호 | 🟡 실험 기능(기본 꺼짐). 방송 하나에서 상위 순간 뒤 채팅의 웃음 반응이 평소의 2.1배(음량만 쓰면 1.9배). 실제로 웃음소리를 잡는지는 확인하지 못했습니다 |
-| 🔁 OBS 연동 | ✅ 실제 OBS Studio 33.0.1(obs-websocket 5.7.6, Windows 11)로 확인: 비밀번호 인증(틀린 · 빠진 비밀번호 거절), 리플레이 버퍼 시작 → 저장 → 마지막 5초 GIF(명령줄), 마지막 3초 MP4(앱의 리플레이 저장 버튼). 이때 알게 된 두 가지를 안내 문구에 반영했습니다 — 새로 설치한 OBS는 리플레이 버퍼가 꺼져 있고(설정 → 출력에서 켜야 함), 장면에 소스가 없으면 OBS가 "소스 없음" 확인 창을 띄우고 버퍼를 시작하지 않습니다. OBS 28~32, 다른 PC의 OBS(원격)는 확인하지 못했습니다 |
+| 🔁 OBS 연동 | ✅ 실제 OBS Studio 33.0.1(obs-websocket 5.7.6, Windows 11)로 확인: 비밀번호 인증(틀린 · 빠진 비밀번호 거절), 리플레이 버퍼 시작 → 저장 → 마지막 5초 GIF(명령줄), 마지막 3초 MP4(앱의 리플레이 저장 버튼). 이때 알게 된 두 가지를 안내 문구에 반영했습니다 — 새로 설치한 OBS는 리플레이 버퍼가 꺼져 있고(설정 → 출력에서 켜야 함), 장면에 소스가 없으면 OBS가 "소스 없음" 확인 창을 띄우고 버퍼를 시작하지 않습니다. 라이브 모드(`live`)도 같은 OBS와 실제 YouTube 라이브 채팅으로 확인: 급증 2회에 35초 클립 2개를 55초 리플레이에서 잘라 저장(이 확인에서는 임계값을 1로 낮춤). 기본 임계값에서 실제 방송 중에 어떤 장면이 잡히는지는 끝난 방송의 채팅으로만 재 봤습니다. OBS 28~32, 다른 PC의 OBS(원격)는 확인하지 못했습니다 |
 | ⬆️ YouTube 업로드 | 🟡 실제 업로드는 하지 않았습니다(계정 · OAuth 필요, 게시되는 작업). 요청 본문과 진행 처리만 가짜 API로 테스트(앱의 업로드 창 포함). 쿼터는 공식 문서 기준(2026-11 확인) |
 | 🇰🇷 CHZZK · SOOP 수집 | ✅ 실제 공개 다시보기 각 1개로 확인: CHZZK 채팅 983개(6초), SOOP 채팅 1,567개(8초, 별풍선 포함) → 하이라이트 검출까지. **주소만으로 클립까지**: CHZZK 4시간 39분 다시보기에서 `auto <주소> --top 2`가 약 3분 만에 90초 클립 2개를 만들었고, 내려받은 영상은 구간 두 개 11MB였습니다(480p). SOOP은 20초 구간 다운로드를 확인했습니다. CHZZK 구간 다운로드가 실패하던 원인은 ffmpeg 7.1 이후의 HLS 확장자 검사였고(`.m4s` 조각을 거부), CHZZK 구간을 받을 때만 그 검사를 끕니다. 비공개 · 성인 인증 · 구독자 전용 다시보기는 확인하지 못했습니다 |
 | 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) 주소만으로 클립까지(`auto <주소>`)도 같은 아카이브로 확인: 구간 2개(158초)를 받아 클립 2개를 만드는 데 1분 45초. 구간 다운로드는 HLS 형식을 먼저 고릅니다(DASH 형식은 64초 구간이 6분 넘게 끝나지 않음, HLS는 13초). 앱의 하이라이트 창에서도 같은 주소로 확인: 찾기 3분 12초, 클립 2개 내보내기 4분 36초(1080p 구간 2개 88MB) |

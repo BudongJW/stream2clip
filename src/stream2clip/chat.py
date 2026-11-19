@@ -2,7 +2,8 @@
 
 Supported inputs (auto-detected by :func:`load_chat`):
 
-* yt-dlp YouTube live chat replay (``*.live_chat.json``, one JSON action per line)
+* yt-dlp YouTube live chat replay (``*.live_chat.json``, one JSON action per line) -
+  also when it was recorded while the stream was live
 * chat-downloader (xenova) JSON output (a list of message dicts)
 * TwitchDownloader chat JSON (``{"comments": [...]}``)
 * CHZZK replay chat (the ``videoChats`` pages of its API) and SOOP replay chat XML -
@@ -20,13 +21,14 @@ import csv
 import hashlib
 import io
 import json
+import math
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-__all__ = ["ChatMessage", "load_chat", "parse_amount", "parse_chzzk", "parse_soop", "save_chat_jsonl", "author_key"]
+__all__ = ["ChatMessage", "load_chat", "live_messages", "parse_amount", "parse_chzzk", "parse_soop", "save_chat_jsonl", "author_key"]
 
 
 @dataclass(frozen=True)
@@ -176,6 +178,7 @@ def _drop_outside_stream(messages: list[ChatMessage], stamps: list[float | None]
 def _load_ytdlp_live_chat(lines: Iterable[str]) -> list[ChatMessage]:
     out: list[ChatMessage] = []
     stamps: list[float | None] = []
+    live: list[int] = []  # recorded while the stream was live: no video offset, only the time it was sent
     for raw in lines:
         raw = raw.strip()
         if not raw:
@@ -189,11 +192,58 @@ def _load_ytdlp_live_chat(lines: Iterable[str]) -> list[ChatMessage]:
             if add is None:
                 continue
             item = add.get("item", {})
-            msg = _parse_youtube_item(item, offset)
+            stamp = _item_timestamp(item)
+            on_air = offset is None and line.get("isLive") and stamp is not None
+            msg = _parse_youtube_item(item, stamp if on_air else offset)
             if msg is not None:
+                if on_air:
+                    live.append(len(out))
                 out.append(msg)
-                stamps.append(_item_timestamp(item))
+                stamps.append(stamp)
+    if live:  # there is no "start of the video" in such a file: count from its first message
+        start = min(out[i].time for i in live)
+        for i in live:
+            out[i] = replace(out[i], time=out[i].time - start)
     return _drop_outside_stream(out, stamps)
+
+
+def live_messages(raw: str) -> list[ChatMessage]:
+    """The messages in one line of a chat that is being recorded while the stream is on air.
+
+    Understands the lines yt-dlp writes for a live YouTube chat and plain JSON objects
+    (``{"text": ..., "author": ..., "time": ...}``, the fields of the generic format).
+    ``time`` is wall-clock seconds here - from YouTube's ``timestampUsec`` or the line's
+    ``time`` / ``timestamp`` - and NaN when the line has none (the reader then uses "now").
+    """
+    try:
+        line = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(line, dict):
+        return []
+    found: list[ChatMessage] = []
+    if "replayChatItemAction" in line or "addChatItemAction" in line or "actions" in line:
+        for _offset, action in _youtube_actions(line):
+            item = (action.get("addChatItemAction") or {}).get("item", {})
+            msg = _parse_youtube_item(item, 0.0)
+            if msg is not None:
+                stamp = _item_timestamp(item)
+                found.append(replace(msg, time=stamp if stamp is not None else math.nan))
+        return found
+    keys = {str(k).lower().strip() for k in line}
+    stamp = next((line[k] for k in line if str(k).lower().strip() in ("time", "timestamp", "t") and line[k] not in (None, "")), None)
+    if not keys & {"time", "time_in_seconds", "offset", "seconds", "t"}:
+        line = {**line, "time": 0}
+    msg = _generic_row(line)
+    if msg is None:
+        return []
+    try:
+        when = float(stamp) if stamp is not None else math.nan
+    except (TypeError, ValueError):
+        when = math.nan
+    if when > 1e11:  # milliseconds
+        when /= 1000
+    return [replace(msg, time=when)]
 
 
 # --------------------------------------------------------------------------- other formats

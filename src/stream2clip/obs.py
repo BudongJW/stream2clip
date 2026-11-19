@@ -208,6 +208,7 @@ def replay_to_clip(
     options: ExportOptions | None = None,
     *,
     last: float | None = None,
+    trim_end: float = 0.0,
     client: ObsClient | None = None,
     host: str = "127.0.0.1",
     port: int = 4455,
@@ -218,7 +219,8 @@ def replay_to_clip(
 ) -> tuple[Path, Path]:
     """Save OBS's replay buffer and convert it; returns ``(clip, replay file)``.
 
-    ``last`` keeps only the final seconds of the replay. With ``start_buffer`` a buffer that
+    ``last`` keeps only the final seconds of the replay and ``trim_end`` drops the very last
+    ones (live mode saves a little after the moment). With ``start_buffer`` a buffer that
     is not running is started first - it then has nothing to save yet, which is reported.
     """
     from dataclasses import replace
@@ -246,7 +248,9 @@ def replay_to_clip(
         raise ObsError(f"OBS reported {replay}, but the file is not there (OBS on another machine?)")
     time.sleep(settle)
     options = options or ExportOptions()
-    if last is not None:
+    if last is not None or trim_end > 0:
         duration = probe(replay).duration or 0.0
-        options = replace(options, start=max(0.0, duration - last), end=None)
+        start = max(0.0, duration - last) if last is not None else 0.0
+        end = duration - trim_end if trim_end > 0 and duration - trim_end > start + 1.0 else None  # never trim the clip away
+        options = replace(options, start=start, end=end)
     return export(replay, output, options), replay

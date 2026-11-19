@@ -503,6 +503,95 @@ def cmd_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def _live_config(args: argparse.Namespace):
+    from .live import LiveConfig
+
+    return LiveConfig(
+        threshold=args.threshold, smooth=args.smooth, cooldown=args.cooldown, warmup=args.warmup, history=args.history,
+        min_messages=args.min_messages, lag=args.lag, chat_delay=args.delay, lead=args.lead, tail=args.tail,
+    )
+
+
+def cmd_live(args: argparse.Namespace) -> int:
+    from .live import FileFollower, ReplayClipper, SurgeDetector, YtDlpLiveChat, simulate, watch
+    from .sources import is_url, ytdlp_command
+
+    config = _live_config(args)
+    out = Path(args.output)
+    if args.simulate:  # a finished chat: what would have fired, and when
+        from .chat import load_chat
+
+        if is_url(args.source):
+            raise ValueError("--simulate reads a chat file (fetch the replay first: stream2clip fetch URL -o DIR)")
+        messages = load_chat(args.source)
+        triggers = simulate(messages, config)
+        hours = (max((m.time for m in messages), default=0.0) / 3600) or 1.0
+        for t in triggers:
+            print(f"{_clock(t.time)}  score {t.score:4.1f}  {' / '.join(t.reasons)}")
+        print(f"{len(triggers)} triggers in {len(messages):,} messages ({len(triggers) / hours:.1f} per hour)")
+        return 0
+
+    clipper = None
+    if not args.no_obs:
+        from .obs import ObsClient
+
+        password = args.password or os.environ.get("OBS_WEBSOCKET_PASSWORD")
+        options = _export_options(args, Path(f"clip.{args.format or 'mp4'}"))
+        clipper = ReplayClipper(out, lambda: ObsClient(args.host, args.port, password), options=options, config=config)
+        version = clipper.check(start_buffer=args.start_buffer)  # before the long wait, not at the first surge
+        print(f"obs    OBS {version}, replay buffer running", flush=True)
+    out.mkdir(parents=True, exist_ok=True)
+    started = time.time()
+    if is_url(args.source):
+        source = YtDlpLiveChat(args.source, out / "chat", ytdlp=ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser))
+        print(f"chat   {args.source}  (yt-dlp, about every 10 s)", flush=True)
+    else:
+        source = FileFollower(args.source)
+        print(f"chat   following {args.source}", flush=True)
+    detector = SurgeDetector(config, live_from=started)
+    log = out / "live.jsonl"
+
+    def stamp(seconds: float) -> str:
+        return time.strftime("%H:%M:%S", time.localtime(seconds))
+
+    def fired(trigger) -> None:
+        print(f"[{stamp(trigger.time)}] surge {trigger.score:.1f}  {' / '.join(trigger.reasons)}", flush=True)
+        entry = {**trigger.to_dict(), "at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(trigger.time))}
+        if clipper is not None:
+            try:
+                saved = clipper(trigger)
+            except (RuntimeError, OSError, ValueError) as exc:  # OBS closed, buffer stopped, disk full: keep watching
+                print(f"           not saved: {exc}", file=sys.stderr, flush=True)
+                entry["error"] = str(exc)
+            else:
+                print(f"           saved {saved.clip}", flush=True)
+                entry.update(clip=str(saved.clip), replay=str(saved.replay))
+                if saved.note:
+                    print(f"           note: {saved.note}", file=sys.stderr, flush=True)
+                    entry["note"] = saved.note
+        with log.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    reported = [started]
+
+    def heartbeat() -> bool:
+        now = time.time()
+        if args.verbose and now - reported[0] >= 60:
+            reported[0] = now
+            print(f"[{stamp(now)}] {detector.messages:,} messages, {detector.seen():.0f} s of history, {len(detector.triggers)} surges", flush=True)
+        return False
+
+    print(f"watch  threshold {config.threshold:g} · cooldown {config.cooldown:g} s · Ctrl+C to stop", flush=True)
+    try:
+        count = watch(source, detector, fired, until=started + args.duration if args.duration else None, max_triggers=args.max_clips, should_stop=heartbeat)
+    except KeyboardInterrupt:
+        count = len(detector.triggers)
+    finally:
+        source.close()
+    print(f"done   {count} surges in {detector.messages:,} messages" + (f", {len(clipper.saved)} clips in {out}" if clipper is not None else ""))
+    return 0
+
+
 def cmd_upload(args: argparse.Namespace) -> int:
     from .export import probe
     from .upload import load_credentials, shorts_problems, upload_video, video_resource, video_url
@@ -735,6 +824,36 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--start-buffer", action="store_true", help="start the replay buffer if it is not running (then run the command again later)")
     _add_export_args(p)
     p.set_defaults(func=cmd_replay)
+
+    p = sub.add_parser("live", help="watch a live chat and save OBS's replay buffer as a clip when it surges")
+    p.add_argument("source", help="address of a live YouTube stream, or a chat file a collector keeps appending to (JSON lines)")
+    p.add_argument("-o", "--output", default="live", help="folder for the clips, the chat and live.jsonl (default: live)")
+    p.add_argument("--no-obs", action="store_true", help="only report the surges (no OBS, nothing saved)")
+    p.add_argument("--simulate", action="store_true", help="SOURCE is a finished chat replay: print what would have fired")
+    p.add_argument("--duration", type=float, help="stop after this many seconds")
+    p.add_argument("--max-clips", type=int, help="stop after this many surges")
+    p.add_argument("-v", "--verbose", action="store_true", help="print a status line every minute")
+    d = p.add_argument_group("when it fires")
+    d.add_argument("--threshold", type=float, default=3.5, help="how far above normal the chat must be (default 3.5; higher = fewer clips)")
+    d.add_argument("--smooth", type=int, default=2, help="windows of 5 s the surge must last (default 2)")
+    d.add_argument("--cooldown", type=float, default=90.0, help="seconds between two clips (default 90)")
+    d.add_argument("--warmup", type=float, default=120.0, help="seconds of chat to see before anything fires (default 120)")
+    d.add_argument("--history", type=float, default=900.0, help="seconds of chat that count as 'normal' (default 900)")
+    d.add_argument("--min-messages", type=int, default=5, help="messages a 5 s window needs to count at all (default 5)")
+    d.add_argument("--lag", type=float, default=12.0, help="how late chat may arrive, in seconds (default 12)")
+    c = p.add_argument_group("what is cut out of the replay")
+    c.add_argument("--delay", type=float, default=8.0, help="seconds viewers need to react (default 8; add your stream latency if you are the streamer)")
+    c.add_argument("--lead", type=float, default=20.0, help="seconds kept before the moment (default 20)")
+    c.add_argument("--tail", type=float, default=10.0, help="seconds kept after the surge (default 10)")
+    o = p.add_argument_group("OBS and yt-dlp")
+    o.add_argument("--host", default="127.0.0.1")
+    o.add_argument("--port", type=int, default=4455)
+    o.add_argument("--password", help="WebSocket server password (default: OBS_WEBSOCKET_PASSWORD)")
+    o.add_argument("--start-buffer", action="store_true", help="start the replay buffer if it is not running")
+    o.add_argument("--cookies", help="cookies file for yt-dlp")
+    o.add_argument("--cookies-from-browser", help="browser to take cookies from (yt-dlp)")
+    _add_export_args(p)
+    p.set_defaults(func=cmd_live)
 
     p = sub.add_parser("upload", help="upload a clip to YouTube (private unless you say otherwise)")
     p.add_argument("video")
