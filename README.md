@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-291-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-294-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -179,7 +179,9 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout stack --av
 stream2clip check --agency nijisanji --info vod/info.json --description clips/clip_01.txt
 ```
 
-**앱에서** — 런처의 **하이라이트 찾기**를 누르면 같은 흐름을 창 하나에서 합니다. 영상 · 채팅을 고르고 하이라이트를 찾은 뒤, 타임라인에서 구간을 끌어 다듬고(가운데 = 이동, 가장자리 = 시작 · 끝), 레이아웃을 입힌 미리보기를 보면서 체크한 구간만 내보냅니다. 긴 방송에서는 휠이나 구간 더블클릭으로 타임라인을 확대합니다. 웃음소리 신호, 노래 구간 표시 · 제외, 자막 번역(번역기 · 용어집 · 원문 병기)도 이 창에서 고르고, 내보낸 클립은 **업로드…** 버튼으로 YouTube 업로드 창에 넘깁니다. 고른 설정은 다음 실행 때 그대로 돌아옵니다.
+**앱에서** — 런처의 **하이라이트 찾기**를 누르면 같은 흐름을 창 하나에서 합니다. 영상 · 채팅을 고르거나 **영상 칸에 방송 주소를 붙여 넣고** 하이라이트를 찾은 뒤, 타임라인에서 구간을 끌어 다듬고(가운데 = 이동, 가장자리 = 시작 · 끝), 레이아웃을 입힌 미리보기를 보면서 체크한 구간만 내보냅니다. 긴 방송에서는 휠이나 구간 더블클릭으로 타임라인을 확대합니다. 웃음소리 신호, 노래 구간 표시 · 제외, 자막 번역(번역기 · 용어집 · 원문 병기)도 이 창에서 고르고, 내보낸 클립은 **업로드…** 버튼으로 YouTube 업로드 창에 넘깁니다. 고른 설정은 다음 실행 때 그대로 돌아옵니다.
+
+주소로 시작하면 채팅 다시보기와 방송 정보만 먼저 받고, 영상은 **내보낼 때 체크한 구간만** 내려받습니다. 받은 것은 저장 폴더의 `sources/<플랫폼>_<영상 ID>/`에 방송별로 남아 다시 찾거나 다시 내보낼 때 재사용됩니다. 미리보기는 그 구간을 받은 뒤(내보낸 뒤)부터 보이고, ‘아바타 자동 찾기’는 고른 구간 하나를 먼저 받아서 찾습니다. 음량 · 웃음소리 · 노래 구간은 영상 파일이 있어야 해서 주소일 때는 꺼집니다. 로그인 쿠키가 필요한 방송은 명령줄(`--cookies` · `--cookies-from-browser`)을 쓰세요.
 
 <p align="center"><img src="docs/images/highlights_window.png" alt="하이라이트 창: 입력 파일, 타임라인, 구간 목록, 레이아웃 미리보기, 내보내기 설정과 진행률" width="92%"></p>
 <p align="center"><sub>하이라이트 창 — 키 비주얼로 만든 30분 영상과 합성 채팅 데이터로 실행한 화면 (노란 테두리 = 선택한 구간)</sub></p>
@@ -423,7 +425,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 291개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 294개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -853,7 +855,7 @@ src/stream2clip/
 - [x] 📦 Windows 실행 파일 — PyInstaller로 GUI + 명령줄을 한 폴더 · zip으로 (`packaging/build_windows.py`)
 - [x] 🇰🇷 CHZZK · SOOP 다시보기 채팅 수집 — `fetch`에 주소만 주면 정규화해서 저장
 - [x] ✂️ 주소만으로 클립까지 — `auto <주소>` · `clips <주소>`가 하이라이트 구간의 영상만 내려받음 (CHZZK 구간 다운로드 수정 포함) <sup>v0.4</sup>
-- [ ] 🖥️ 앱의 하이라이트 창에서 주소로 시작하기 (지금은 명령줄만)
+- [x] 🖥️ 앱의 하이라이트 창에서 주소로 시작하기 — 영상 칸에 주소를 넣으면 채팅을 받아 찾고, 내보낼 구간만 내려받음
 - [x] 📊 여러 방송 평가 — `evaluate`: 시청자 댓글 타임스탬프와 비교해 precision · recall · 무작위 대비 배수 <sup>v0.4</sup>
 - [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항) <sup>v0.4</sup>
 - [ ] 📡 라이브 모드 — 방송 중 채팅 급증을 보고 리플레이를 자동 저장
@@ -908,14 +910,14 @@ xvfb-run -a pytest
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지 · 이름 고정 · 두 줄 자막 · 묶음 전송, Holodex 초안, `--translate` |
 | `test_i18n.py` | 화면 문구와 일본어 · 영어 번역 목록이 빠짐없이 맞는지(자리 표시 · 줄바꿈 포함), 감싸지 않은 한국어 문구가 없는지, 언어 결정 순서(앱 설정 · 환경 변수 · 시스템), 영어 · 일본어로 실제 창 띄우기 |
 | `test_evaluation.py` | 댓글에서 타임스탬프 읽기(시각이 아닌 숫자 제외), 가까운 표시 묶기 · 댓글 수 세기, precision · recall · 무작위 기대값 계산, 설정값 바꿔 가며 비교, `evaluate` · `fetch --comments` |
-| `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 내려받기(여유 시간 · 이미 받은 파일 재사용), 구간 파일에서 잘라도 자막 · 설명란은 방송 시각 기준, CHZZK 구간에서만 ffmpeg 확장자 검사 끄기, `clips <주소>` · `auto <주소>` |
+| `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 내려받기(여유 시간 · 이미 받은 파일 재사용), 구간 파일에서 잘라도 자막 · 설명란은 방송 시각 기준, CHZZK 구간에서만 ffmpeg 확장자 검사 끄기, `clips <주소>` · `auto <주소>`, 방송별 폴더 이름, 정보 · 채팅만 받기(재사용 · CHZZK/SOOP 정보 거부) |
 | `test_translator_loading.py` | 번역기를 파일 · 모듈에서 불러오기(함수 · 클래스 · 객체, Windows 드라이브 경로), 잘못된 지정의 안내, 예제 번역기(가짜 응답: 목록 추출 · 줄 수가 틀리면 한 줄씩 다시), `--translator file.py` |
 | `test_audio_signals.py` | 웃음소리 신호(크고 끊어지는 소리), 가산 신호가 다른 하이라이트를 줄이지 않는지, 노래 구간 검출(합성 음성 · 노래), 노래 표시 · 제외 |
 | `test_obs_upload.py` | obs-websocket 인증 · 요청 · 이벤트(가짜 서버, 실제 소켓으로도), 리플레이 마지막 N초 변환, 업로드 본문 검증 · 기본 비공개 · 진행률 · `--dry-run` |
 | `test_packaging.py` | 빌드 스크립트(이름 · 명령 · 아이콘 · ffmpeg 복사 · zip), 빌드된 실행 파일이 옆의 ffmpeg를 먼저 쓰는지, yt-dlp 실행 경로 |
 | `test_gui.py` | 실제 마우스 이벤트로 편집기 조작, HiDPI 좌표(125% · 150% · 175%에서 선택 크기 일정), 클립보드 복사, 녹화 테두리가 영역을 덮지 않음, 앱 아이콘 크기 구성 · 마스코트 이미지 |
 | `test_gui_highlights.py` | 하이라이트 창: 타임라인 막대가 시간축과 맞는지, 구간 이동 · 가장자리 조정 · 한계, 좁은 구간 확대, 분석 → 미리보기 → 내보내기(끌어서 바꾼 길이로 저장되는지), 아바타 자동 찾기, 실패 표시 |
-| `test_gui_wiring.py` | 설정 파일(깨진 파일 · 쓸 수 없는 폴더 · 쓸 수 없는 값), 런처 · 하이라이트 창이 설정을 기억하는지(비밀번호는 저장 안 됨), 리플레이 저장 버튼(가짜 OBS), 창에서 번역 · 용어집 · 노래 구간 · 웃음소리, 업로드 창(보낼 내용 보기 · 가짜 업로드 · 기본 비공개) |
+| `test_gui_wiring.py` | 설정 파일(깨진 파일 · 쓸 수 없는 폴더 · 쓸 수 없는 값), 런처 · 하이라이트 창이 설정을 기억하는지(비밀번호는 저장 안 됨), 리플레이 저장 버튼(가짜 OBS), 창에서 번역 · 용어집 · 노래 구간 · 웃음소리, 업로드 창(보낼 내용 보기 · 가짜 업로드 · 기본 비공개), 하이라이트 창에서 주소로 시작하기(구간만 내려받기 · 재사용 · 미리보기) |
 | `test_gui_flow.py` | (디스플레이 필요) F8 → 편집기, F9 → 녹화 → 투명 GIF. Windows에서는 추가로 실제 F8/F9 입력 → 전역 단축키, 선택 영역 = 창의 물리 픽셀, 테두리 · REC 바가 녹화 영역 밖, 커서 합성 위치 |
 
 > [!NOTE]
@@ -939,7 +941,7 @@ xvfb-run -a pytest
 | 🔁 OBS 연동 | ✅ 실제 OBS Studio 33.0.1(obs-websocket 5.7.6, Windows 11)로 확인: 비밀번호 인증(틀린 · 빠진 비밀번호 거절), 리플레이 버퍼 시작 → 저장 → 마지막 5초 GIF(명령줄), 마지막 3초 MP4(앱의 리플레이 저장 버튼). 이때 알게 된 두 가지를 안내 문구에 반영했습니다 — 새로 설치한 OBS는 리플레이 버퍼가 꺼져 있고(설정 → 출력에서 켜야 함), 장면에 소스가 없으면 OBS가 "소스 없음" 확인 창을 띄우고 버퍼를 시작하지 않습니다. OBS 28~32, 다른 PC의 OBS(원격)는 확인하지 못했습니다 |
 | ⬆️ YouTube 업로드 | 🟡 실제 업로드는 하지 않았습니다(계정 · OAuth 필요, 게시되는 작업). 요청 본문과 진행 처리만 가짜 API로 테스트(앱의 업로드 창 포함). 쿼터는 공식 문서 기준(2026-11 확인) |
 | 🇰🇷 CHZZK · SOOP 수집 | ✅ 실제 공개 다시보기 각 1개로 확인: CHZZK 채팅 983개(6초), SOOP 채팅 1,567개(8초, 별풍선 포함) → 하이라이트 검출까지. **주소만으로 클립까지**: CHZZK 4시간 39분 다시보기에서 `auto <주소> --top 2`가 약 3분 만에 90초 클립 2개를 만들었고, 내려받은 영상은 구간 두 개 11MB였습니다(480p). SOOP은 20초 구간 다운로드를 확인했습니다. CHZZK 구간 다운로드가 실패하던 원인은 ffmpeg 7.1 이후의 HLS 확장자 검사였고(`.m4s` 조각을 거부), CHZZK 구간을 받을 때만 그 검사를 끕니다. 비공개 · 성인 인증 · 구독자 전용 다시보기는 확인하지 못했습니다 |
-| 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) 주소만으로 클립까지(`auto <주소>`)도 같은 아카이브로 확인: 구간 2개(158초)를 받아 클립 2개를 만드는 데 1분 45초. 구간 다운로드는 HLS 형식을 먼저 고릅니다(DASH 형식은 64초 구간이 6분 넘게 끝나지 않음, HLS는 13초) |
+| 📺 YouTube 수집 | ✅ 가정용 회선(Windows 11, yt-dlp 2026.10.26)에서 쿠키 없이 공개 아카이브 1개를 받아 확인: info · 채팅 다시보기(44,000개, 약 10분 소요) · 자동 자막 VTT · 480p 영상 → `auto`로 클립까지. 채팅 파서는 그 파일의 익명화 발췌본으로도 테스트합니다. 서버 IP에서는 봇 확인으로 막힐 수 있습니다(쿠키 옵션 사용) 주소만으로 클립까지(`auto <주소>`)도 같은 아카이브로 확인: 구간 2개(158초)를 받아 클립 2개를 만드는 데 1분 45초. 구간 다운로드는 HLS 형식을 먼저 고릅니다(DASH 형식은 64초 구간이 6분 넘게 끝나지 않음, HLS는 13초). 앱의 하이라이트 창에서도 같은 주소로 확인: 찾기 3분 12초, 클립 2개 내보내기 4분 36초(1080p 구간 2개 88MB) |
 
 - 배율이 다른 다중 모니터에서는 논리↔물리 좌표를 가상 화면 전체 비율로 환산하므로 선택 영역이 조금 어긋날 수 있습니다.
 - 125% · 150% 같은 소수 배율에서는 선택 영역의 위치와 크기를 따로 반올림합니다(Qt가 창을 놓는 방식과 같음). 같은 크기로 드래그하면 어디서든 같은 픽셀 크기가 나오고, 화면 픽셀과의 차이는 최대 1px입니다.

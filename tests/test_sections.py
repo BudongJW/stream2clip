@@ -166,3 +166,58 @@ def test_cli_clips_and_auto_from_an_address(tmp_path, monkeypatch, capsys):
 
     assert main(["auto", url, "--audio", "-o", str(tmp_path / "x")]) == 1
     assert "needs the whole video" in capsys.readouterr().err
+
+
+def test_one_folder_per_stream():
+    name = sources.source_folder_name
+    assert name("https://www.youtube.com/watch?v=kyMhlh8MGDE") == "youtube_kyMhlh8MGDE"
+    assert name("https://www.youtube.com/watch?list=PL1&v=kyMhlh8MGDE&t=10s") == "youtube_kyMhlh8MGDE"
+    assert name("https://youtu.be/kyMhlh8MGDE?t=3") == name("https://www.youtube.com/live/kyMhlh8MGDE") == "youtube_kyMhlh8MGDE"
+    assert name("https://chzzk.naver.com/video/16230061") == "chzzk_16230061"
+    assert name("https://vod.sooplive.co.kr/player/212422389") == "soop_212422389"
+    assert name("https://www.twitch.tv/videos/2345678901") == "twitch_2345678901"
+    other = name("https://example.com/streams/today?x=1")
+    assert other.startswith("url_") and len(other) == 14 and other == name(" https://example.com/streams/today?x=1 ")
+    assert other != name("https://example.com/streams/yesterday")
+    assert name("https://chzzk.naver.com/live/abc").startswith("url_")  # no replay number in it
+
+
+def test_fetch_replay_gets_info_and_chat_but_no_video(tmp_path, monkeypatch):
+    asked = []
+
+    def fake_chat(url, out, ytdlp=None):
+        asked.append("chat")
+        path = Path(out) / "abc.live_chat.json"
+        path.write_text("", encoding="utf-8")
+        return path
+
+    monkeypatch.setattr(sources, "fetch_info", lambda u, ytdlp=None: asked.append("info") or {"id": "abc", "title": "配信"})
+    monkeypatch.setattr(sources, "download_chat", fake_chat)
+    url = "https://www.youtube.com/watch?v=abcdef12345"
+    stages = []
+    folder = tmp_path / "work"
+    info, chat = sources.fetch_replay(url, folder, ytdlp=["yt-dlp"], on_stage=stages.append)
+    assert info == folder / "info.json" and json.loads(info.read_text(encoding="utf-8"))["title"] == "配信"
+    assert chat == folder / "abc.live_chat.json" and asked == ["info", "chat"] and stages == ["fetch-info", "fetch-chat"]
+
+    assert sources.fetch_replay(url, folder, ytdlp=["yt-dlp"]) == (info, chat) and len(asked) == 4  # asked again unless told to reuse
+    assert sources.fetch_replay(url, folder, reuse=True, ytdlp=["yt-dlp"], on_stage=stages.append) == (info, chat)
+    assert len(asked) == 4 and len(stages) == 2  # what is on disk is kept
+    assert sources.fetch_replay(url, folder, info=False, ytdlp=["yt-dlp"]) == (None, chat) and asked[4:] == ["chat"]
+
+    # CHZZK and SOOP may refuse the info request; the chat is still collected.
+    def refused(u, ytdlp=None):
+        raise RuntimeError("yt-dlp failed (1):\nERROR: login required")
+
+    def fake_replay_chat(u, out):
+        path = Path(out) / "chzzk_16230061.chat.jsonl"
+        path.write_text("", encoding="utf-8")
+        return path
+
+    monkeypatch.setattr(sources, "fetch_info", refused)
+    monkeypatch.setattr(sources, "download_replay_chat", fake_replay_chat)
+    warnings = []
+    info, chat = sources.fetch_replay("https://chzzk.naver.com/video/16230061", tmp_path / "kr", ytdlp=["yt-dlp"], warn=warnings.append)
+    assert info is None and chat.name == "chzzk_16230061.chat.jsonl" and "login required" in warnings[0]
+    with pytest.raises(RuntimeError, match="login required"):  # elsewhere the info is the way to the chat, so it is an error
+        sources.fetch_replay(url, tmp_path / "other", ytdlp=["yt-dlp"])

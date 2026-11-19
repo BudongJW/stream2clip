@@ -454,25 +454,22 @@ def cmd_clips(args: argparse.Namespace) -> int:
 
 def _prepare_from_url(args: argparse.Namespace, out: Path) -> None:
     """``auto <URL>``: fetch what highlight detection needs (chat replay, info) - the video comes later, in parts."""
-    from .sources import download_chat, download_replay_chat, fetch_info, platform_of, ytdlp_command
+    from .sources import fetch_replay, load_info, ytdlp_command
 
     for option in ("audio", "laughter", "mark_singing", "skip_singing"):
         if getattr(args, option, False):
             raise ValueError(f"--{option.replace('_', '-')} needs the whole video. Download it first (stream2clip fetch URL -o DIR --video) and give the file instead of the address.")
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
-    korean = platform_of(args.video)
-    if not args.info:
-        try:
-            info = fetch_info(args.video, ytdlp=ytdlp)
-            (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-            args.info = str(out / "info.json")
-            print(f"info   {args.info}  ({info.get('title', '')})")
-        except RuntimeError as exc:
-            if not korean:
-                raise
-            print(f"info   (skipped) {exc}", file=sys.stderr)
-    if not args.chat:
-        args.chat = str(download_replay_chat(args.video, out) if korean else download_chat(args.video, out, ytdlp=ytdlp))
+    info, chat = fetch_replay(
+        args.video, out, info=not args.info, chat=not args.chat, ytdlp=ytdlp,
+        on_stage=lambda name: print(f"fetch  {name.removeprefix('fetch-')} ...", flush=True),
+        warn=lambda message: print(f"info   (skipped) {message}", file=sys.stderr),
+    )
+    if info is not None:
+        args.info = str(info)
+        print(f"info   {args.info}  ({load_info(info).get('title', '')})")
+    if chat is not None:
+        args.chat = str(chat)
         print(f"chat   {args.chat}")
 
 

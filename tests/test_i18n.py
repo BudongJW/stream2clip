@@ -149,8 +149,8 @@ sys.stdout.flush()
 
 
 @pytest.mark.parametrize("code, expected", [
-    ("en", ["●  Record an area (F9)", "Find highlights", "stream2clip · Stream → Clips", "Export clips", "Mark songs", "English", "Choose the video and its chat replay"]),
-    ("ja", ["●  範囲を録画 (F9)", "ハイライトを探す", "stream2clip · 配信 → クリップ", "クリップを書き出す", "歌の区間を表示", "日本語", "動画とチャットリプレイを選んでください"]),
+    ("en", ["●  Record an area (F9)", "Find highlights", "stream2clip · Stream → Clips", "Export clips", "Mark songs", "English", "Choose the video and its chat replay, or paste the stream address"]),
+    ("ja", ["●  範囲を録画 (F9)", "ハイライトを探す", "stream2clip · 配信 → クリップ", "クリップを書き出す", "歌の区間を表示", "日本語", "動画とチャットリプレイを選ぶか、配信のURLを入れてください"]),
 ])
 def test_windows_come_up_in_the_chosen_language(code, expected, tmp_path):
     """In a fresh process: tables of labels are translated when their module is imported."""

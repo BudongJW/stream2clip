@@ -42,6 +42,10 @@ __all__ = [
     "fetch_chzzk_chat",
     "fetch_soop_chat",
     "download_replay_chat",
+    "is_url",
+    "download_highlight_sections",
+    "source_folder_name",
+    "fetch_replay",
 ]
 
 
@@ -284,6 +288,82 @@ def download_highlight_sections(
             fetch(url, path, start, end, max_height=max_height, ytdlp=ytdlp)
         found[h.rank] = (path, start)
     return found
+
+
+def source_folder_name(url: str) -> str:
+    """A folder name for what is fetched from one address: ``youtube_<id>``, ``chzzk_<number>`` ... or a short hash."""
+    platform = platform_of(url)
+    found: tuple[str, str] | None = None
+    if platform == "chzzk":
+        match = re.search(r"/video/(\d+)", url)
+        found = ("chzzk", match.group(1)) if match else None
+    elif platform == "soop":
+        match = re.search(r"/player/(\d+)", url) or re.search(r"[?&]nTitleNo=(\d+)", url)
+        found = ("soop", match.group(1)) if match else None
+    else:
+        for name, pattern in (
+            ("youtube", r"(?:youtube\.com/(?:watch\?(?:.*&)?v=|live/|shorts/|embed/)|youtu\.be/)([A-Za-z0-9_-]{6,})"),
+            ("twitch", r"twitch\.tv/videos/(\d+)"),
+        ):
+            match = re.search(pattern, url)
+            if match:
+                found = (name, match.group(1))
+                break
+    if found is None:
+        import hashlib
+
+        return "url_" + hashlib.sha1(url.strip().encode("utf-8")).hexdigest()[:10]
+    return f"{found[0]}_{found[1]}"
+
+
+def fetch_replay(
+    url: str,
+    out_dir: str | os.PathLike[str],
+    *,
+    info: bool = True,
+    chat: bool = True,
+    reuse: bool = False,
+    ytdlp: list[str] | None = None,
+    on_stage: Callable[[str], None] | None = None,
+    warn: Callable[[str], None] | None = None,
+) -> tuple[Path | None, Path | None]:
+    """Fetch what highlight detection needs from an address - the info JSON and the chat replay, not the video.
+
+    Returns ``(info.json or None, chat file or None)``; a part that was not asked for is
+    ``None``. CHZZK and SOOP sometimes refuse the info request: that is reported through
+    ``warn`` and the chat is still collected. With ``reuse`` files that are already in
+    ``out_dir`` are kept (use a folder per address, see :func:`source_folder_name`).
+    """
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    stage = on_stage or (lambda _name: None)
+    korean = platform_of(url)
+    info_path: Path | None = None
+    chat_path: Path | None = None
+    if info:
+        target = out / "info.json"
+        if reuse and target.is_file() and target.stat().st_size > 0:
+            info_path = target
+        else:
+            stage("fetch-info")
+            try:
+                data = fetch_info(url, ytdlp=ytdlp)
+            except RuntimeError as exc:
+                if not korean:
+                    raise
+                if warn is not None:
+                    warn(str(exc))
+            else:
+                target.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+                info_path = target
+    if chat:
+        existing = sorted(out.glob("*.chat.jsonl" if korean else "*.live_chat.json")) if reuse else []
+        if existing:
+            chat_path = existing[-1]
+        else:
+            stage("fetch-chat")
+            chat_path = Path(download_replay_chat(url, out) if korean else download_chat(url, out, ytdlp=ytdlp))
+    return info_path, chat_path
 
 
 def download_video(url: str, output: str | os.PathLike[str], *, max_height: int = 1080, ytdlp: list[str] | None = None, timeout: float | None = None) -> Path:

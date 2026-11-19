@@ -58,6 +58,8 @@ QSpinBox, QComboBox, QLineEdit, QDoubleSpinBox, QPlainTextEdit {{
 QComboBox QAbstractItemView {{ background: {SURFACE_2}; selection-background-color: {LIVE_PINK}; }}
 QCheckBox::indicator {{ width: 16px; height: 16px; border-radius: 4px; border: 1px solid {BORDER}; background: {SURFACE_2}; }}
 QCheckBox::indicator:checked {{ background: {LIVE_PINK}; border-color: {LIVE_PINK}; }}
+QCheckBox:disabled, QSpinBox:disabled, QComboBox:disabled, QLineEdit:disabled, QDoubleSpinBox:disabled {{ color: #6E6880; }}
+QCheckBox::indicator:checked:disabled {{ background: #6E6880; border-color: #6E6880; }}
 QSlider::groove:horizontal {{ height: 4px; background: {BORDER}; border-radius: 2px; }}
 QSlider::handle:horizontal {{ width: 14px; margin: -6px 0; border-radius: 7px; background: {LIVE_PINK}; }}
 QScrollArea {{ background: #100E18; border: none; }}
