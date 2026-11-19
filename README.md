@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.8.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.9.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-426-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-436-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -69,6 +69,7 @@
 
 | &numsp;버&NoBreak;전&numsp; | 주요 변경 |
 |:---:|---|
+| v0.9 | 하이라이트 창의 아바타 영상 입력, 업로드 예약 게시, 자막 속 반응 표현 신호(실험) |
 | v0.8 | CHZZK, SOOP 라이브 채팅 직접 수신, 하이라이트 근거와 점검 문구의 일본어 및 영어 지원 |
 | v0.7 | 자막 개선(언어별 폰트 자동 선택, 문절 단위 줄바꿈, 스타일 프리셋과 위치), VRM 아바타 권리 검사 |
 | v0.6 | 문장 경계 맞춤, 스트리머 표시 구간(`!clip` 등), pip 레이아웃과 별도 아바타 영상 합성, Twitch 라이브 채팅 |
@@ -230,7 +231,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avat
 | &numsp;&numsp;&numsp;&numsp;&numsp;방&NoBreak;법&numsp;&numsp;&numsp;&numsp;&numsp; | 옵션 | 내용 |
 |:---:|---|---|
 | 방송 화면의 영역 | `--avatar x,y,w,h`, `--avatar auto` | 방송 화면에서 아바타가 있는 사각 영역을 잘라 사용. `auto`는 얼굴 검출로 영역 결정 |
-| 별도 아바타 영상 | `--avatar-video FILE` | 아바타만 녹화한 그린스크린 또는 알파 영상을 방송 영상 위에 합성. 사각 테두리 없이 아바타 형태 그대로 표시 |
+| 별도 아바타 영상 | `--avatar-video FILE`, 하이라이트 창의 **아바타 영상** | 아바타만 녹화한 그린스크린 또는 투명 배경 영상을 방송 영상 위에 합성. 사각 테두리 없이 아바타 형태 그대로 표시 |
 
 ```bash
 stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avatar-video vod/avatar.mp4 -o clips
@@ -240,7 +241,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avat
 |:---:|---|
 | `--corner` | `pip`의 아바타 위치. `top-left`, `top-right`(기본값), `bottom-left`, `bottom-right` |
 | `--inset` | `pip`의 아바타 폭. 화면 폭 대비 비율, 기본값 0.42 |
-| `--avatar-key` | 아바타 영상에서 제거할 색. 기본값 `#00FF00`. `none` 지정 시 영상 자체의 알파 사용 |
+| `--avatar-key` | 아바타 영상에서 제거할 색. 기본값 `auto`: 영상에 투명 정보가 있으면(ProRes 4444 MOV, 알파 WebM 등) 그대로 사용하고, 없으면 `#00FF00` 제거. `none`은 영상 자체의 투명 정보만 사용 |
 | `--avatar-offset` | 아바타 영상의 녹화가 방송보다 먼저 시작된 시간(초). 늦게 시작된 경우 음수 |
 | `--game` | 게임 화면 영역 `x,y,w,h`. 미지정 시 화면 전체 |
 
@@ -417,7 +418,8 @@ stream2clip upload clips/clip_01.mp4 --title "레전드 장면" --description-fi
 - 사전 준비: 본인 Google Cloud 프로젝트의 OAuth 클라이언트 파일(데스크톱 앱 유형). 최초 1회 브라우저에서 동의
 - 공개 범위 기본값은 비공개. YouTube API는 미지정 시 공개로 게시하므로 항상 명시하여 전송
 - `--dry-run`: 전송 내용만 표시하고 업로드 미수행
-- 앱: 하이라이트 창의 **업로드**. 내보낸 클립과 설명란 파일이 입력된 상태로 열리며 **보낼 내용 보기**로 사전 확인. 공개 범위는 열 때마다 비공개에서 시작
+- `--publish-at "2026-12-24 18:00"`: 예약 게시. 비공개로 업로드한 후 지정한 시각(시간대 미표기 시 PC의 현지 시각)에 YouTube가 공개로 전환. 공개 범위를 비공개로 둔 경우에만 사용 가능
+- 앱: 하이라이트 창의 **업로드**. 내보낸 클립과 설명란 파일이 입력된 상태로 열리며 **보낼 내용 보기**로 사전 확인. 공개 범위는 열 때마다 비공개에서 시작. **예약 게시**를 선택하면 공개 범위가 비공개로 고정되고 지정한 시각에 공개
 
 ### 아바타 위치 자동 검출
 
@@ -482,12 +484,13 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 
 ### 검출 방식 및 평가
 
-| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 요약 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp; | 요약 |
 |:---:|---|
 | 점수 계산 | 방송을 5초 단위로 분할, 신호별로 해당 방송의 평소 수준(중앙값, MAD)과 비교한 robust z-점수를 가중합 |
 | 제외 신호 | 인사 및 작별 메시지, YouTube 대기실 채팅 |
 | 평가 방법 | `evaluate` 명령으로 시청자 댓글의 타임스탬프와 비교 |
 | 평가 결과 | 공개 아카이브 7개 기준 기본값의 precision 52%, 무작위 대비 1.28배 |
+| 채팅 없는 방송 | `--speech 자막 파일`로 자막 속 반응 표현(스트리머의 발화)을 신호로 사용. 실험 기능이며 방송 5개 기준 무작위 대비 1.07배로 효과가 뚜렷하지 않음 |
 
 신호별 가중치, 기본값 산정 근거, 평가 결과 전체: [docs/DETECTION.md](docs/DETECTION.md)
 
@@ -559,7 +562,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 426개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 436개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -633,8 +636,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.8.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.8.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
+| `dist/stream2clip-0.9.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.9.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -684,6 +687,7 @@ stream2clip gui
 | 휠, 구간 더블클릭 | 타임라인 확대. 빈 곳 더블클릭 시 전체 보기 |
 | 목록의 체크 | 내보낼 구간 선택 |
 | 레이아웃 **stack**, **pip**, **자동 찾기** | 얼굴 검출로 아바타 박스 입력 |
+| **아바타 영상** | 아바타만 녹화한 영상을 stack, pip 레이아웃의 아바타로 사용. 초록 배경 제거, 투명 배경 영상은 그대로 사용 |
 | **문장 경계 맞춤** | 자막 파일이 있는 경우 구간의 시작과 끝을 자막 줄의 경계로 이동(최대 3초) |
 | **스타일** | 자막 모양(기본, 상자, 분홍 강조, 작게)과 위치(아래쪽, 가운데, 위쪽) 선택 |
 | **웃음소리 (실험)**, **노래 구간** | 웃음소리 유형의 소리에 점수 가산, 노래와 겹치는 하이라이트 표시 또는 제외 |
@@ -990,7 +994,7 @@ src/stream2clip/
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 34건</b></summary>
+<summary><b>버전별 완료 항목 37건</b></summary>
 
 <br>
 
@@ -1030,6 +1034,9 @@ src/stream2clip/
 | v0.7 | VRM 아바타 권리 검사(`check --vrm`) |
 | v0.8 | CHZZK, SOOP 라이브 채팅 직접 수신으로 라이브 모드 사용 |
 | v0.8 | 하이라이트 근거, 가이드라인 점검, VRM 검사, 업로드 경고 문구의 일본어 및 영어 지원 |
+| v0.9 | 하이라이트 창의 아바타 영상 입력, 투명 배경 아바타 영상의 자동 인식 |
+| v0.9 | YouTube 업로드 예약 게시(`--publish-at`, 업로드 창의 예약 게시) |
+| v0.9 | 자막 속 반응 표현 신호(`--speech`, 실험): 채팅이 없는 방송용 |
 
 </details>
 
