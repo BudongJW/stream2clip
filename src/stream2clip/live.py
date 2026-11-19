@@ -9,15 +9,19 @@ stands out. ``stream2clip live`` then saves OBS's replay buffer and cuts the mom
     stream2clip live https://www.youtube.com/watch?v=VIDEO_ID -o clips
 
 Chat comes from anything with a ``read()`` that returns the new messages:
-:class:`FileFollower` follows a file that some collector keeps appending to, and
-:class:`YtDlpLiveChat` runs yt-dlp for a YouTube stream and follows what it writes.
+:class:`FileFollower` follows a file that some collector keeps appending to,
+:class:`YtDlpLiveChat` runs yt-dlp for a YouTube stream and follows what it writes, and
+:class:`TwitchLiveChat` reads a Twitch channel's chat directly. :func:`open_chat` picks one.
 Message times are wall-clock seconds; a message without one counts as "now".
+
+A marker typed by the streamer or a moderator (``!clip`` ...) fires at once, surge or not.
 """
 
 from __future__ import annotations
 
 import math
 import os
+import re
 import subprocess
 import time
 from collections import deque
@@ -27,10 +31,13 @@ from typing import Any, Callable, Iterable, Protocol, Sequence
 
 import numpy as np
 
-from .chat import ChatMessage, live_messages
-from .highlights import _LABELS, REACTIONS, classify_reactions, is_routine, robust_z
+from .chat import ChatMessage, author_key, live_messages, role_of
+from .highlights import _LABELS, DEFAULT_MARKERS, REACTIONS, classify_reactions, is_routine, marker_word, robust_z
 
-__all__ = ["LiveConfig", "Trigger", "SurgeDetector", "simulate", "ChatSource", "FileFollower", "YtDlpLiveChat", "watch", "clip_span", "ReplayClipper", "SavedClip"]
+__all__ = [
+    "LiveConfig", "Trigger", "SurgeDetector", "simulate", "ChatSource", "FileFollower", "YtDlpLiveChat", "TwitchLiveChat",
+    "open_chat", "parse_twitch_irc", "twitch_channel", "watch", "clip_span", "ReplayClipper", "SavedClip",
+]
 
 
 @dataclass(frozen=True)
@@ -58,6 +65,11 @@ class LiveConfig:
     lead: float = 20.0
     tail: float = 10.0
     skip_greetings: bool = True
+    #: A message by the streamer or a moderator that is one of these words fires at once (see ``HighlightConfig.markers``).
+    markers: tuple[str, ...] = DEFAULT_MARKERS
+    marker_roles: tuple[str, ...] = ("owner", "moderator")
+    #: Two markers closer than this are one request.
+    marker_gap: float = 15.0
     weights: dict[str, float] = field(default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10})
 
     def __post_init__(self) -> None:
@@ -79,9 +91,10 @@ class Trigger:
 
 
 class _Bucket:
-    __slots__ = ("rate", "authors", "reactions", "paid", "categories")
+    __slots__ = ("rate", "authors", "reactions", "paid", "categories", "marks")
 
     def __init__(self) -> None:
+        self.marks: list[str] = []
         self.rate = 0
         self.authors: set[str] = set()
         self.reactions = 0
@@ -113,6 +126,7 @@ class SurgeDetector:
         self._history: dict[str, deque[float]] = {key: deque(maxlen=size) for key in ("rate", "unique", "reactions", "paid")}
         self._last_fired = -math.inf
         self._scores: deque[float] = deque(maxlen=self.config.smooth)
+        self._markers = tuple(word.strip().lower() for word in self.config.markers if word.strip())
 
     # ------------------------------------------------------------------ input
     def add(self, message: ChatMessage, now: float | None = None) -> None:
@@ -135,6 +149,11 @@ class SurgeDetector:
             bucket = self._open[index] = _Bucket()
         if message.is_paid or message.kind == "member":
             bucket.paid += 1
+        if self._markers and marker_word(message, self._markers, ("any",)) is not None:  # a command, whoever typed it: not a reaction
+            word = marker_word(message, self._markers, self.config.marker_roles)
+            if word is not None:
+                bucket.marks.append(word)
+            return
         if self.config.skip_greetings and message.kind == "text" and is_routine(message.text):
             return
         bucket.rate += 1
@@ -182,6 +201,13 @@ class SurgeDetector:
         end = (index + 1) * cfg.window
         values = bucket.values()
         weights = {k: v for k, v in cfg.weights.items() if k in values and v > 0}
+        live = self.live_from is None or end >= self.live_from
+        if bucket.marks and live and end - self._last_fired >= min(cfg.cooldown, cfg.marker_gap):
+            # Asked for by the streamer: no warm-up, no threshold. The score is not computed for this window.
+            self._last_fired = end
+            reasons, stats = self._explain(bucket)
+            words = ", ".join(dict.fromkeys(bucket.marks))
+            return Trigger(end, 0.0, [f"스트리머 표시 ({words})", *(reasons if bucket.rate else [])], {**stats, "marker": float(len(bucket.marks))})
         if self.seen() < cfg.warmup or not weights:
             return None
         self._scores.append(sum(float(robust_z(np.array([*self._history[k], values[k]]))[-1]) * v for k, v in weights.items()) / sum(weights.values()))
@@ -200,7 +226,8 @@ class SurgeDetector:
         stats: dict[str, float] = {"chat_per_min": per_min, "messages": float(bucket.rate), "reactions": float(bucket.reactions), "paid": float(bucket.paid)}
         if base > 1e-6:
             stats["chat_ratio"] = bucket.rate / base
-            reasons = [f"채팅 급증 {per_min:.0f}/분 (평소의 {bucket.rate / base:.1f}배)"]
+            label = "채팅 급증" if bucket.rate / base >= 1.5 else "채팅"  # it can also fire on reactions alone
+            reasons = [f"{label} {per_min:.0f}/분 (평소의 {bucket.rate / base:.1f}배)"]
         else:
             stats["chat_ratio"] = 99.0
             reasons = [f"채팅 급증 {per_min:.0f}/분 (평소엔 거의 없음)"]
@@ -331,6 +358,175 @@ class YtDlpLiveChat:
                 self._process.kill()
         if not self._log.closed:
             self._log.close()
+
+
+_TWITCH_URL = re.compile(r"^(?:https?://)?(?:www\.|m\.)?twitch\.tv/([A-Za-z0-9_]{2,25})/?(?:[?#].*)?$", re.IGNORECASE)
+_TWITCH_PAGES = {"videos", "directory", "settings", "downloads", "subscriptions", "inventory", "wallet", "p", "jobs", "turbo"}
+_IRC_LINE = re.compile(r"^(?:@(?P<tags>\S+) )?(?::(?P<prefix>\S+) )?(?P<command>\S+)(?: (?P<params>.*))?$")
+_IRC_ESCAPES = {"\\s": " ", "\\:": ";", "\\\\": "\\", "\\r": "\r", "\\n": "\n"}
+
+
+def twitch_channel(url: str) -> str | None:
+    """``https://www.twitch.tv/name`` -> ``"name"``; ``None`` for anything that is not a channel page."""
+    match = _TWITCH_URL.match(url.strip())
+    if not match or match.group(1).lower() in _TWITCH_PAGES:
+        return None
+    return match.group(1).lower()
+
+
+def parse_twitch_irc(line: str) -> ChatMessage | None:
+    """One line of Twitch chat (IRC with tags) as a message; ``None`` for everything that is not chat.
+
+    ``PRIVMSG`` is a chat line (cheers are paid, the amount in bits), ``USERNOTICE`` a
+    subscription (member) or gifted subscriptions (gift). The time is ``tmi-sent-ts``,
+    wall-clock seconds, and NaN when the line has none.
+    """
+    match = _IRC_LINE.match(line.strip())
+    if not match or match.group("command") not in ("PRIVMSG", "USERNOTICE"):
+        return None
+    tags: dict[str, str] = {}
+    for pair in (match.group("tags") or "").split(";"):
+        key, _, value = pair.partition("=")
+        tags[key] = re.sub(r"\\[s:\\rn]", lambda found: _IRC_ESCAPES[found.group()], value)
+    _channel, _, text = (match.group("params") or "").partition(" :")
+    if text.startswith("\x01ACTION ") and text.endswith("\x01"):  # /me
+        text = text[8:-1]
+    kind, amount, currency = "text", 0.0, None
+    if match.group("command") == "USERNOTICE":
+        event = tags.get("msg-id", "")
+        if event in ("sub", "resub"):
+            kind = "member"
+        elif event in ("subgift", "submysterygift", "anonsubgift", "anonsubmysterygift"):
+            kind = "gift"
+        else:
+            return None  # raids, announcements ...
+    elif tags.get("bits", "").isdigit() and int(tags["bits"]) > 0:
+        kind, amount, currency = "paid", float(tags["bits"]), "bits"
+    emotes = []
+    for group in filter(None, tags.get("emotes", "").split("/")):  # "25:0-4,6-10/1902:12-16": id, then where it stands
+        first = group.partition(":")[2].split(",")[0]
+        start, _, end = first.partition("-")
+        if start.isdigit() and end.isdigit():
+            emotes.append(text[int(start) : int(end) + 1])
+    stamp = tags.get("tmi-sent-ts", "")
+    badges = [badge.partition("/")[0] for badge in tags.get("badges", "").split(",")]
+    author = tags.get("user-id") or (match.group("prefix") or "").partition("!")[0]
+    return ChatMessage(
+        time=int(stamp) / 1000 if stamp.isdigit() else math.nan, text=text, author=author_key(author) if author else "",
+        kind=kind, amount=amount, currency=currency, emotes=tuple(emotes), role=role_of(*badges, "moderator" if tags.get("mod") == "1" else ""),
+    )
+
+
+class TwitchLiveChat:
+    """A Twitch channel's chat, read over IRC as an anonymous viewer (no account, read only).
+
+    The connection is made at the first :meth:`read`. Messages arrive as they are sent, so
+    unlike yt-dlp's YouTube chat there is no ten second wait.
+    """
+
+    HOST, PORT = "irc.chat.twitch.tv", 6697
+
+    def __init__(self, channel: str, *, connect: Callable[[], Any] | None = None, retries: int = 3) -> None:
+        self.channel = twitch_channel(channel) or channel.strip().lstrip("#").lower()
+        if not re.fullmatch(r"[a-z0-9_]{2,25}", self.channel):
+            raise ValueError(f"Not a Twitch channel: {channel}")
+        self.ended = False
+        self.retries = retries
+        self._connect = connect or self._open
+        self._socket: Any = None
+        self._rest = b""
+        self._failures = 0
+
+    def _open(self) -> Any:
+        import socket
+        import ssl
+
+        raw = socket.create_connection((self.HOST, self.PORT), timeout=15)
+        return ssl.create_default_context().wrap_socket(raw, server_hostname=self.HOST)
+
+    def _start(self) -> None:
+        import random
+
+        sock = self._connect()
+        nick = f"justinfan{random.randint(10000, 99999)}"  # Twitch's anonymous, read-only login
+        sock.sendall(f"CAP REQ :twitch.tv/tags twitch.tv/commands\r\nNICK {nick}\r\nJOIN #{self.channel}\r\n".encode())
+        sock.settimeout(0)
+        self._socket, self._rest = sock, b""
+
+    def _drop(self) -> None:
+        if self._socket is not None:
+            try:
+                self._socket.close()
+            except OSError:
+                pass
+        self._socket = None
+
+    def read(self) -> list[ChatMessage]:
+        import ssl
+
+        if self.ended:
+            return []
+        if self._socket is None:
+            try:
+                self._start()
+            except OSError as error:
+                self._failures += 1
+                if self._failures >= self.retries:
+                    raise RuntimeError(f"Could not reach Twitch chat ({self.HOST}): {error}") from error
+                return []
+        data = b""
+        try:
+            while True:
+                chunk = self._socket.recv(65536)
+                if not chunk:  # closed by Twitch: connect again at the next read
+                    self._drop()
+                    break
+                data += chunk
+        except (BlockingIOError, ssl.SSLWantReadError, ssl.SSLWantWriteError, TimeoutError):
+            pass  # nothing more for now
+        except OSError:
+            self._drop()
+        if data:
+            self._failures = 0
+        *lines, self._rest = (self._rest + data).split(b"\r\n")
+        found: list[ChatMessage] = []
+        for raw in lines:
+            line = raw.decode("utf-8", errors="replace")
+            if line.startswith("PING"):
+                self._send("PONG" + line[4:] + "\r\n")
+            elif " NOTICE " in line and "Login authentication failed" in line:
+                raise RuntimeError("Twitch refused the anonymous chat login")
+            else:
+                message = parse_twitch_irc(line)
+                if message is not None:
+                    found.append(message)
+        return found
+
+    def _send(self, text: str) -> None:
+        if self._socket is None:
+            return
+        try:
+            self._socket.settimeout(5)
+            self._socket.sendall(text.encode())
+            self._socket.settimeout(0)
+        except OSError:
+            self._drop()
+
+    def close(self) -> None:
+        self.ended = True
+        self._drop()
+
+
+def open_chat(source: str, folder: str | os.PathLike[str], *, ytdlp: list[str] | None = None) -> "tuple[ChatSource, str]":
+    """The chat source for ``source`` and a few words on what it is: a Twitch channel, another live address (yt-dlp), or a file."""
+    from .sources import is_url
+
+    if twitch_channel(source):
+        chat = TwitchLiveChat(source)
+        return chat, f"twitch.tv/{chat.channel}  (Twitch chat, as it is sent)"
+    if is_url(source):
+        return YtDlpLiveChat(source, folder, ytdlp=ytdlp), f"{source}  (yt-dlp, about every 10 s)"
+    return FileFollower(source), f"following {source}"
 
 
 # --------------------------------------------------------------------------- the loop

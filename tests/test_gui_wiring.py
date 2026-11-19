@@ -615,3 +615,15 @@ def test_live_mode_says_what_is_wrong_before_it_waits(app, tmp_path):
     wait(app, lambda: "실행 중" in win.status.text())
     win.close()  # closing the window stops the watcher and lets go of the chat
     assert sources[-1].closed
+
+
+def test_live_mode_reads_twitch_chat_for_a_twitch_address(app, tmp_path):
+    from stream2clip.live import TwitchLiveChat
+
+    win = LauncherWindow()
+    win.dialogs = False
+    assert "Twitch" in win.live_edit.placeholderText()
+    source = win.live_source("https://www.twitch.tv/some_channel", tmp_path)
+    assert isinstance(source, TwitchLiveChat) and source.channel == "some_channel"  # nothing is connected before the first read
+    source.close()
+    win.close()

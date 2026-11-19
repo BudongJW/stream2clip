@@ -198,7 +198,10 @@ def filter_path(path: str | os.PathLike[str]) -> str:
 
 
 def build_video_filter(options: ExportOptions) -> str:
-    """Return a ``-filter_complex`` graph reading ``[0:v]`` and writing ``[v]``."""
+    """Return a ``-filter_complex`` graph reading ``[0:v]`` and writing ``[v]``.
+
+    A layout that takes the avatar from its own video also reads ``[1:v]``.
+    """
     pre: list[str] = []
     if options.crop is not None:
         c = options.crop
@@ -208,7 +211,8 @@ def build_video_filter(options: ExportOptions) -> str:
     scale = _scale_filter(options)
     prefix, src = "", "[0:v]"
     if options.layout is not None:
-        prefix = f"[0:v]{','.join(pre) or 'null'}[pre];{options.layout.graph('[pre]', '[lay]')};"
+        avatar_inp = "[1:v]" if options.layout.uses_avatar_video else None
+        prefix = f"[0:v]{','.join(pre) or 'null'}[pre];{options.layout.graph('[pre]', '[lay]', avatar_inp=avatar_inp, fps=options.fps)};"
         src = "[lay]"
         chain: list[str] = [scale] if scale and (options.width or options.height) else []
     else:
@@ -269,6 +273,20 @@ def _codec_args(options: ExportOptions) -> list[str]:
     raise AssertionError(fmt)  # pragma: no cover
 
 
+def avatar_input_args(options: ExportOptions) -> list[str]:
+    """The second input of a layout that takes the avatar from its own video, cut to the same span as the first."""
+    layout = options.layout
+    if layout is None or not layout.uses_avatar_video:
+        return []
+    start = (options.start or 0.0) + layout.avatar_offset
+    if start < 0:
+        raise ValueError(f"The avatar video starts {-start:.1f} s after this clip does: it does not cover the clip")
+    args = ["-ss", f"{start:.3f}"]
+    if options.duration is not None:
+        args += ["-t", f"{options.duration:.3f}"]
+    return args + ["-i", os.fspath(layout.avatar_source)]  # type: ignore[arg-type]
+
+
 def build_export_command(
     input_path: str | os.PathLike[str] | None,
     output_path: str | os.PathLike[str],
@@ -291,7 +309,10 @@ def build_export_command(
         if options.duration is not None:
             cmd += ["-t", f"{options.duration:.3f}"]
         cmd += ["-i", os.fspath(input_path)]  # type: ignore[arg-type]
+        cmd += avatar_input_args(options)
     else:
+        if options.layout is not None and options.layout.uses_avatar_video:
+            raise ValueError("A layout with an avatar video needs a video file as its main input")
         cmd += raw_input.args()
 
     cmd += ["-filter_complex", build_video_filter(options), "-map", "[v]"]

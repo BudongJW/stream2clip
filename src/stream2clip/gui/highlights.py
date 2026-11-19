@@ -9,6 +9,7 @@ checked ones. All the work is done by the core (``pipeline.find_highlights`` /
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -38,14 +39,14 @@ from ..ffmpeg import ExportOptions
 from ..geometry import Region
 from ..highlights import Highlight, HighlightConfig, HighlightResult
 from ..i18n import tr
-from ..layouts import LAYOUTS, VerticalLayout
+from ..layouts import AVATAR_LAYOUTS, LAYOUTS, VerticalLayout
 from . import theme
 from .qt import app_icon, mascot, pil_to_qimage
 from .settings import load_section, save_section
 
 __all__ = ["HighlightsWindow", "TimelineWidget", "default_clip_dir", "mood_for"]
 
-_LAYOUT_LABELS = {"blur": tr("blur: 블러 배경"), "center": tr("center: 가운데 채우기"), "fit": tr("fit: 전체 보이기"), "stack": tr("stack: 아바타 위 / 게임 아래"), "none": tr("원본 화면 그대로")}
+_LAYOUT_LABELS = {"blur": tr("blur: 블러 배경"), "center": tr("center: 가운데 채우기"), "fit": tr("fit: 전체 보이기"), "stack": tr("stack: 아바타 위 / 게임 아래"), "pip": tr("pip: 게임 화면에 아바타 삽입"), "none": tr("원본 화면 그대로")}
 _STAGES = {
     "chat": tr("채팅 읽는 중"), "audio": tr("음량 분석 중 (영상 길이에 따라 수십 초)"), "laughter": tr("웃음소리 찾는 중"),
     "singing": tr("노래 구간 찾는 중"), "detect": tr("하이라이트 찾는 중"), "avatar": tr("아바타 찾는 중"),
@@ -429,6 +430,9 @@ class HighlightsWindow(QMainWindow):
         self.laughter_check = QCheckBox(tr("웃음소리 (실험)"))
         self.laughter_check.setToolTip(tr("끊어지는 큰 소리(웃음 같은 소리)가 있는 장면에 점수를 더합니다. 다른 신호로 찾은 장면은 그대로 남습니다."))
         options.addWidget(self.laughter_check)
+        self.snap_check = QCheckBox(tr("문장 경계 맞춤"), checked=True)
+        self.snap_check.setToolTip(tr("자막 파일이 있으면 구간의 시작과 끝을 말이 끊기지 않는 위치로 옮깁니다 (최대 3초)."))
+        options.addWidget(self.snap_check)
         self.singing_combo = QComboBox()
         for key, label in _SINGING:
             self.singing_combo.addItem(label, key)
@@ -461,14 +465,14 @@ class HighlightsWindow(QMainWindow):
         grid.setVerticalSpacing(8)
         grid.addWidget(QLabel(tr("레이아웃")), 0, 0)
         self.layout_combo = QComboBox()
-        for key in ("blur", "stack", "center", "fit", "none"):
+        for key in ("blur", "stack", "pip", "center", "fit", "none"):
             self.layout_combo.addItem(_LAYOUT_LABELS[key], key)
         self.layout_combo.currentIndexChanged.connect(self._on_layout_changed)
         grid.addWidget(self.layout_combo, 0, 1, 1, 2)
 
         grid.addWidget(QLabel(tr("아바타")), 1, 0)
         self.avatar_edit = QLineEdit()
-        self.avatar_edit.setPlaceholderText(tr("x,y,w,h (stack 레이아웃)"))
+        self.avatar_edit.setPlaceholderText(tr("x,y,w,h (stack, pip 레이아웃)"))
         self.avatar_edit.editingFinished.connect(self.refresh_preview)
         grid.addWidget(self.avatar_edit, 1, 1)
         self.avatar_button = QPushButton(tr("자동 찾기"))
@@ -577,7 +581,7 @@ class HighlightsWindow(QMainWindow):
     # ------------------------------------------------------------------ remembered settings
     def _restore(self) -> None:
         saved = load_section("highlights")
-        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual")):
+        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
         for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.format_combo, "format"), (self.agency_combo, "agency")):
@@ -598,7 +602,7 @@ class HighlightsWindow(QMainWindow):
 
     def remember(self) -> None:
         save_section("highlights", {
-            "audio": self.audio_check.isChecked(), "laughter": self.laughter_check.isChecked(), "singing": self.singing_combo.currentData(),
+            "audio": self.audio_check.isChecked(), "laughter": self.laughter_check.isChecked(), "snap": self.snap_check.isChecked(), "singing": self.singing_combo.currentData(),
             "top": self.top_spin.value(), "threshold": round(self.threshold_spin.value(), 2),
             "layout": self.layout_combo.currentData(), "subtitles": self.subs_combo.currentData(), "language": self.language_edit.text().strip(),
             "karaoke": self.karaoke_check.isChecked(), "translator": self.translator_choice(), "target": self.target_edit.text().strip(),
@@ -683,7 +687,7 @@ class HighlightsWindow(QMainWindow):
         if busy:
             self.set_mood("focus")
         self.analyse_button.setEnabled(not busy)
-        self.avatar_button.setEnabled(not busy and self.layout_combo.currentData() == "stack")
+        self.avatar_button.setEnabled(not busy and self.layout_combo.currentData() in AVATAR_LAYOUTS)
         self.export_button.setEnabled(not busy and bool(self.checked_highlights()))
         if message is not None:
             self.status.setText(message)
@@ -711,10 +715,10 @@ class HighlightsWindow(QMainWindow):
         if kind == "none":
             return None
         avatar = None
-        if kind == "stack":
+        if kind in AVATAR_LAYOUTS:
             text = self.avatar_edit.text().strip()
             if not text:
-                raise ValueError(tr("stack 레이아웃은 아바타 위치가 필요합니다. 자동 찾기 버튼을 누르거나 x,y,w,h를 입력하세요."))
+                raise ValueError(tr("이 레이아웃은 아바타 위치가 필요합니다. 자동 찾기 버튼을 누르거나 x,y,w,h를 입력하세요."))
             avatar = Region.parse(text)
         assert kind in LAYOUTS
         return VerticalLayout(kind, avatar=avatar)
@@ -739,6 +743,7 @@ class HighlightsWindow(QMainWindow):
         audio = self.audio_check.isChecked() and not url
         laughter = self.laughter_check.isChecked() and not url
         singing = self.singing_combo.currentData() if not url else "off"
+        spoken = self.subs_edit.text().strip() if self.snap_check.isChecked() else ""
         folder = self.source_folder(url) if url else None
         self.remember()
         self._set_busy(True, tr("분석 시작"))
@@ -769,6 +774,11 @@ class HighlightsWindow(QMainWindow):
 
                 self._stage.emit("singing")
                 mark_singing(result, [(s.start, s.end) for s in singing_sections(video)], drop=singing == "skip")
+            if spoken and Path(spoken).is_file():  # before the spans are shown: they can still be dragged afterwards
+                from ..highlights import snap_to_cues
+                from ..subtitles import load_subtitles
+
+                snap_to_cues(result.highlights, load_subtitles(spoken), duration=result.duration)
             self._analysed.emit(result)
 
         self._run(work)
@@ -812,7 +822,7 @@ class HighlightsWindow(QMainWindow):
             self.list.item(index).setText(self._item_text(self.timeline.highlights[index]))
 
     def _on_layout_changed(self) -> None:
-        stack = self.layout_combo.currentData() == "stack"
+        stack = self.layout_combo.currentData() in AVATAR_LAYOUTS
         self.avatar_edit.setEnabled(stack)
         self.avatar_button.setEnabled(stack and not self.busy)
         if self.result is not None:
@@ -839,7 +849,7 @@ class HighlightsWindow(QMainWindow):
             self.preview.setText(tr("아바타 위치를\n정하면 보입니다"))
             return
         if layout is not None:  # a small canvas is enough for a still and renders quickly
-            layout = VerticalLayout(layout.kind, 360, 640, avatar=layout.avatar, game=layout.game, split=layout.split)
+            layout = replace(layout, width=360, height=640)
         moment = self.timeline.highlights[index].peak - offset
         self._preview_token += 1
         token = self._preview_token
@@ -851,7 +861,10 @@ class HighlightsWindow(QMainWindow):
                 frames = grab_frames(video, [moment], layout=layout)
             except Exception:  # a preview that cannot be made is not worth a dialog
                 frames = []
-            self._previewed.emit(token, frames[0] if frames else None)
+            try:
+                self._previewed.emit(token, frames[0] if frames else None)
+            except RuntimeError:  # the window was closed while the frame was being made
+                pass
 
         threading.Thread(target=work, name="stream2clip-preview", daemon=True).start()
 

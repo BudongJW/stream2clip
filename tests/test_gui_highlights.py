@@ -296,3 +296,40 @@ def test_launcher_opens_the_highlights_window(app):
     assert launcher.open_highlights() is win  # reused, not opened twice
     win.close()
     launcher.close()
+
+
+def test_pip_layout_asks_for_an_avatar_like_stack(app, window):
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("pip"))
+    assert window.avatar_edit.isEnabled() and window.avatar_button.isEnabled()
+    with pytest.raises(ValueError, match="아바타"):
+        window.layout_choice()
+    window.avatar_edit.setText("100,40,60,40")
+    layout = window.layout_choice()
+    assert layout.kind == "pip" and layout.avatar == Region(100, 40, 60, 40)
+
+
+@needs_ffmpeg
+def test_analysis_moves_span_edges_off_spoken_lines(app, window, stream_files, tmp_path):
+    video, chat = stream_files
+    window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.snap_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    plain = window.timeline.highlights[0]
+    start, end = plain.start, plain.end
+
+    def stamp(t):
+        return f"00:00:{int(t):02d},{int(round((t % 1) * 1000)):03d}"
+
+    subs = tmp_path / "subs.srt"  # one line is being spoken across each edge of the span
+    subs.write_text(f"1\n{stamp(start - 1)} --> {stamp(start + 1)}\nfirst\n\n2\n{stamp(end - 1)} --> {stamp(end + 1)}\nlast\n", encoding="utf-8")
+    window.set_paths(video=str(video), chat=str(chat), subtitles=str(subs), output=str(tmp_path / "clips"))
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert (window.timeline.highlights[0].start, window.timeline.highlights[0].end) == (start, end)  # switched off: untouched
+    window.snap_check.setChecked(True)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    snapped = window.timeline.highlights[0]
+    assert snapped.start == pytest.approx(start - 1.15, abs=0.01) and snapped.end == pytest.approx(end + 1.15, abs=0.01)

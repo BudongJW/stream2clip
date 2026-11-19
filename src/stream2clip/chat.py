@@ -42,6 +42,8 @@ class ChatMessage:
     amount: float = 0.0
     currency: str | None = None
     emotes: tuple[str, ...] = field(default_factory=tuple)
+    #: "owner" (the streamer), "moderator", or "" - used for the markers a streamer leaves in chat.
+    role: str = ""
 
     @property
     def is_paid(self) -> bool:
@@ -118,6 +120,23 @@ def _youtube_actions(line: dict[str, Any]) -> Iterator[tuple[float | None, dict[
             yield None, action
 
 
+_ROLES = {
+    "owner": "owner", "broadcaster": "owner", "streamer": "owner",
+    "moderator": "moderator", "mod": "moderator", "streaming_channel_manager": "moderator", "streaming_chat_manager": "moderator",
+}
+
+
+def role_of(*names: Any) -> str:
+    """The first of ``names`` (badge types, role codes) that says streamer or moderator."""
+    found = {_ROLES.get(str(name).strip().lower(), "") for name in names if name}
+    return "owner" if "owner" in found else ("moderator" if "moderator" in found else "")
+
+
+def _youtube_role(renderer: dict[str, Any]) -> str:
+    badges = (b.get("liveChatAuthorBadgeRenderer", {}) for b in renderer.get("authorBadges") or [] if isinstance(b, dict))
+    return role_of(*((badge.get("icon") or {}).get("iconType") for badge in badges))
+
+
 def _parse_youtube_item(item: dict[str, Any], offset: float | None) -> ChatMessage | None:
     renderers = {
         "liveChatTextMessageRenderer": "text",
@@ -143,7 +162,7 @@ def _parse_youtube_item(item: dict[str, Any], offset: float | None) -> ChatMessa
             time = int(r["videoOffsetTimeMsec"]) / 1000
         if time is None:
             return None
-        return ChatMessage(time=max(0.0, time), text=text, author=author_key(author), kind=kind, amount=amount, currency=currency, emotes=emotes)
+        return ChatMessage(time=max(0.0, time), text=text, author=author_key(author), kind=kind, amount=amount, currency=currency, emotes=emotes, role=_youtube_role(r))
     return None
 
 
@@ -268,6 +287,7 @@ def _load_chat_downloader(items: list[dict[str, Any]]) -> list[ChatMessage]:
                 amount=float(money.get("amount", 0) or 0),
                 currency=money.get("currency"),
                 emotes=emotes,
+                role=role_of(*(name for badge in author.get("badges") or [] if isinstance(badge, dict) for name in (badge.get("name"), badge.get("title")))),
             )
         )
     return out
@@ -293,6 +313,7 @@ def _load_twitch_downloader(data: dict[str, Any]) -> list[ChatMessage]:
                 amount=bits,
                 currency="bits" if bits else None,
                 emotes=emotes,
+                role=role_of(*(badge.get("_id") for badge in message.get("user_badges") or [] if isinstance(badge, dict))),
             )
         )
     return out
@@ -341,6 +362,7 @@ def parse_chzzk(data: Any) -> list[ChatMessage]:
                     amount=amount,
                     currency="KRW" if amount else None,
                     emotes=tuple(f":{name}:" for name in _CHZZK_EMOJI.findall(raw)),
+                    role=role_of(_json_object(m.get("profile")).get("userRoleCode")),
                 )
             )
     return out
@@ -407,6 +429,7 @@ def _generic_row(row: dict[str, Any]) -> ChatMessage | None:
         kind=kind,
         amount=amount,
         currency=currency,
+        role=role_of(keys.get("role")),
     )
 
 
@@ -473,5 +496,5 @@ def save_chat_jsonl(messages: Iterable[ChatMessage], path: str | os.PathLike[str
     out = Path(path)
     with out.open("w", encoding="utf-8") as fh:
         for m in messages:
-            fh.write(json.dumps({"time": round(m.time, 3), "text": m.text, "author": m.author, "kind": m.kind, "amount": m.amount, "currency": m.currency}, ensure_ascii=False) + "\n")
+            fh.write(json.dumps({"time": round(m.time, 3), "text": m.text, "author": m.author, "kind": m.kind, "amount": m.amount, "currency": m.currency, **({"role": m.role} if m.role else {})}, ensure_ascii=False) + "\n")
     return out
