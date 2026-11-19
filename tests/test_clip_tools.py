@@ -442,6 +442,19 @@ def test_open_chat_picks_the_source(tmp_path, monkeypatch):
     assert started == [("https://www.youtube.com/watch?v=abc", ["yt-dlp"])]
 
 
+def test_live_command_needs_yt_dlp_only_for_addresses_it_reads(tmp_path, monkeypatch, capsys):
+    def missing(**_options):
+        raise RuntimeError("yt-dlp is not installed")
+
+    monkeypatch.setattr("stream2clip.sources.ytdlp_command", missing)
+    log = tmp_path / "chat.jsonl"
+    log.write_text("", encoding="utf-8")
+    assert main(["live", str(log), "--no-obs", "--duration", "0.2", "-o", str(tmp_path / "out")]) == 0
+    assert "following" in capsys.readouterr().out
+    assert main(["live", "https://www.youtube.com/watch?v=abc", "--no-obs", "--duration", "0.2", "-o", str(tmp_path / "out")]) == 1
+    assert "yt-dlp is not installed" in capsys.readouterr().err
+
+
 def test_twitch_messages_drive_the_detector():
     rng = random.Random(4)
     detector = SurgeDetector(LiveConfig(warmup=60, min_messages=5))

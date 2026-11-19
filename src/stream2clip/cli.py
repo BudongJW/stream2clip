@@ -552,7 +552,7 @@ def _live_config(args: argparse.Namespace):
 
 
 def cmd_live(args: argparse.Namespace) -> int:
-    from .live import ReplayClipper, SurgeDetector, open_chat, simulate, watch
+    from .live import ReplayClipper, SurgeDetector, open_chat, simulate, twitch_channel, watch
     from .sources import is_url, ytdlp_command
 
     config = _live_config(args)
@@ -581,7 +581,10 @@ def cmd_live(args: argparse.Namespace) -> int:
         print(f"obs    OBS {version}, replay buffer running", flush=True)
     out.mkdir(parents=True, exist_ok=True)
     started = time.time()
-    source, described = open_chat(args.source, out / "chat", ytdlp=ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser))
+    # yt-dlp is only looked for when it is the one that reads the chat: a file or a Twitch channel works without it.
+    through_ytdlp = is_url(args.source) and not twitch_channel(args.source)
+    ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser) if through_ytdlp else None
+    source, described = open_chat(args.source, out / "chat", ytdlp=ytdlp)
     print(f"chat   {described}", flush=True)
     detector = SurgeDetector(config, live_from=started)
     log = out / "live.jsonl"
