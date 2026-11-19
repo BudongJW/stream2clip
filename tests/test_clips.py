@@ -86,7 +86,7 @@ def test_ass_karaoke_and_plain(tmp_path):
     cue = Cue(0.5, 2.0, "a b", (Word(0.5, 1.0, "a"), Word(1.2, 2.0, "b")))
     ass = to_ass([cue, Cue(3, 4, "x{y}")], play_res=(540, 960))
     lines = ass.splitlines()
-    assert "PlayResX: 540" in ass and "Style: Default,Noto Sans KR,32," in ass
+    assert "PlayResX: 540" in ass and "Style: Default,Noto Sans,32," in ass
     assert lines[-2].endswith("{\\k50}a{\\k20}{\\k80} b")
     assert lines[-1].endswith("x(y)") and "\\1c&HFFFFFF&" in lines[-1]
     assert "\\k" not in to_ass([cue], karaoke=False).splitlines()[-1]

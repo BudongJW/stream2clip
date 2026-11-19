@@ -92,17 +92,20 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 | 레이아웃 | `layouts.py` | 필터그래프 조각을 만드는 순수 함수. `stack`, `pip`는 아바타를 방송 화면의 영역에서 잘라 쓰거나 별도 아바타 영상(`avatar_source`)에서 가져옴. 별도 영상은 두 번째 입력(`[1:v]`)으로 받아 색을 제거한 후 합성하며, `ffmpeg.avatar_input_args`가 방송 영상과 같은 구간으로 맞춤 |
 | 문장 경계, 표시 구간 | `highlights.py` | `snap_to_cues`가 구간의 시작과 끝을 자막 줄의 경계로 이동. `marker_times`가 스트리머, 모더레이터의 표시 명령 시각을 찾고 `detect_highlights`가 해당 시점을 항상 구간으로 포함 |
 | YouTube 업로드 | `upload.py` | 요청 본문을 만드는 순수 함수(`video_resource`)와 실제 전송(`upload_video`)을 분리. 공개 범위 기본값은 비공개 |
+| VRM 권리 검사 | `vrm.py` | GLB의 JSON 청크만 읽어 `VRMC_vrm.meta`(1.0) 또는 `VRM.meta`(0.x)를 1.0의 용어로 통일한 `VrmMeta`로 변환. `check_vrm`이 수익화, 법인 사용 여부와 대조하여 `compliance.Issue` 목록 반환. 표준 라이브러리만 사용 |
 | CHZZK, SOOP | `sources.py`, `chat.py` | 채팅을 yt-dlp 대신 각 플랫폼의 다시보기 API에서 수신(`fetch_chzzk_chat`, `fetch_soop_chat`, 표준 라이브러리 `urllib`). 응답 해석은 순수 함수 `parse_chzzk`, `parse_soop`. 저장 형식은 작성자를 해시한 정규화 JSONL 1종. 네트워크 함수는 `get`을 교체할 수 있어 테스트가 실제 요청을 보내지 않음 |
 | 채팅 정리 | `chat.py`, `highlights.py` | `load_chat`은 YouTube 다시보기에서 0초로 기록된 대기실 채팅을 보낸 시각(`timestampUsec` − 오프셋 = 방송 시작 시각)으로 판별하여 제외. `highlights`는 인사, 작별(`ROUTINE`)을 채팅 신호에서 제외. 둘 다 실제 아카이브에서 방송 시작과 종료 시점에 가짜 봉우리를 만들던 요인. `ChatMessage.role`은 스트리머(`owner`)와 모더레이터(`moderator`)를 구분하며 표시 명령 판정에만 사용 |
 
 필터 및 자막 처리:
 
-| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 필터 순서 | `crop, fps, [layout 그래프], scale, subtitles, extra, colorkey, 포맷별 처리`. 레이아웃은 `[pre], [lay]` 레이블을 사용하는 서브그래프이므로 GIF 팔레트 등 이후 단계와 그대로 연결 |
 | 자막 시간 | `-ss`를 입력 옵션으로 사용하므로 필터 기준 시간은 0부터 시작. 자막은 `slice_cues`로 클립 기준 시간으로 이동(자막의 표시 시간을 테스트로 확인) |
 | 자막 경로 | `filter_path()`가 ffmpeg의 2단계 이스케이프(옵션, 필터그래프) 처리. Windows `C:\` 경로와 `' [] , ; :`가 포함된 경로도 테스트 |
 | 자막 크기 | 스타일 값은 짧은 변 1080px 기준이며 출력 크기에 비례하여 조정. 세로 화면에서는 쇼츠 하단 UI를 피하여 아래에서 약 20% 위에 배치 |
+| 자막 폰트 | `SubtitleStyle.font`의 기본값 `auto`는 자막의 문자 구성(`script_of`)에 맞는 후보 중 설치된 첫 폰트를 선택(`pick_font`). 설치 목록은 Windows 레지스트리, 그 외는 `fc-list`로 조회하며 조회 불가 시 후보의 첫 항목 사용. 원문 병기 자막은 줄별로 `\fn` 지정 |
+| 자막 줄바꿈 | 표시 폭(전각 1, 그 외 0.55) 기준으로 `max_chars` 이내의 줄을 최대 `max_lines`개로 균등 분할. 일본어는 `_phrases`가 문절 경계 후보를 계산(히라가나 다음의 한자, 가타카나, 영문자 앞과 문장 부호 뒤). 그래도 넘치면 해당 자막에 `\fscx`, `\fscy`로 축소 지정 |
 
 ### 하이라이트 창 (`gui/highlights.py`)
 

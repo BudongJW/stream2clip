@@ -1,5 +1,27 @@
 # 변경 내역
 
+## v0.7.0: 2026-11-19
+
+### 자막
+- 폰트의 언어별 자동 선택: 자막의 문자 구성에 맞는 후보 중 설치된 첫 폰트 사용(일본어는 Noto Sans JP, Yu Gothic, Meiryo 순, 한국어는 Noto Sans KR, Malgun Gothic 순). 이전에는 Noto Sans KR 고정이어서 일본어 한자가 한국어 자형으로 표시됨. `--font`로 직접 지정 가능
+- 원문 병기 자막은 원문 줄과 번역 줄에 각 언어의 폰트 적용
+- 줄바꿈 개선: 표시 폭 기준(전각 1, 영문자 약 0.55)으로 최대 3줄까지 균등 분할. 일본어는 문절 경계에서 분할. 이전에는 글자 수 기준 2줄 고정이어서 일본어가 단어 중간에서 나뉘고 긴 자막은 화면 밖으로 넘침
+- 3줄로도 넘치는 자막은 해당 자막만 축소 표시
+- 스타일 프리셋 4종(`default`, `box`, `pink`, `small`)과 위치 3종(`bottom`, `middle`, `top`): `--subtitle-style`, `--subtitle-position`, `--font-size`, 하이라이트 창의 **스타일** 줄
+- 코어: `subtitles.subtitle_style`, `SUBTITLE_STYLES`, `pick_font`, `script_of`, `installed_fonts`, `SubtitleStyle(font="auto", max_lines=3, box=False)`
+
+### 권리 검사
+- VRM 아바타 권리 검사: `stream2clip check --vrm model.vrm [--monetized] [--corporation]`. 파일에 기록된 사용 조건(아바타 사용 범위, 영리 사용, 크레딧 표기, 개변과 재배포)을 표시하고 계획한 사용과 대조. VRM 1.0과 0.x 지원
+- 코어: `vrm.read_vrm_meta`, `check_vrm`
+
+### 확인 내용
+- 자막: 스타일 4종과 위치 3종, 113자 일본어 자막, 원문 병기 자막을 키 비주얼 영상에 렌더링하여 확인
+- VRM: 메타 항목 이름을 공식 스키마(1.0, 0.x) 원문과 대조. 실제 VRM 모델 파일은 미검증
+- 라이브 모드: 실제 Twitch 채팅과 실제 OBS Studio 33.0.1로 클립 저장 확인(급증 2회에 35초 클립 2개). 스트리머의 `!clip` 표시로 급증 없이 클립 1개 저장 확인
+
+### 변경 사항
+- 라이브 모드 출력: 표시 명령으로 저장한 경우 `surge 0.0` 대신 `marker`로 표기
+
 ## v0.6.0: 2026-11-19
 
 ### 클립 제작

@@ -24,6 +24,12 @@ def isolated_settings(tmp_path_factory, monkeypatch):
     return folder
 
 
+@pytest.fixture(autouse=True)
+def no_font_lookup(monkeypatch):
+    """Caption fonts follow what is installed: tests see no fonts, so the first candidate is chosen on every machine."""
+    monkeypatch.setattr("stream2clip.subtitles._installed", frozenset())
+
+
 @pytest.fixture
 def green_screen_video(tmp_path: Path) -> Path:
     """2 s, 160x120, 10 fps: a red square moving over a pure green background."""

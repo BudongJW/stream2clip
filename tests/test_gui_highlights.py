@@ -333,3 +333,26 @@ def test_analysis_moves_span_edges_off_spoken_lines(app, window, stream_files, t
     wait(app, lambda: not window.busy)
     snapped = window.timeline.highlights[0]
     assert snapped.start == pytest.approx(start - 1.15, abs=0.01) and snapped.end == pytest.approx(end + 1.15, abs=0.01)
+
+
+@needs_ffmpeg
+def test_caption_look_chosen_in_the_window_reaches_the_clip(app, window, stream_files, tmp_path):
+    video, chat = stream_files
+    subs = tmp_path / "subs.srt"
+    subs.write_text("1\n00:00:00,000 --> 00:00:59,000\n今日は配信です\n", encoding="utf-8")
+    out = tmp_path / "clips"
+    window.set_paths(video=str(video), chat=str(chat), subtitles=str(subs), output=str(out))
+    window.audio_check.setChecked(False)
+    window.snap_check.setChecked(False)
+    assert [window.style_combo.itemData(i) for i in range(window.style_combo.count())] == ["default", "box", "pink", "small"]
+    window.style_combo.setCurrentIndex(window.style_combo.findData("box"))
+    window.position_combo.setCurrentIndex(window.position_combo.findData("top"))
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    window.export()
+    wait(app, lambda: not window.busy, 120)
+    style = next(line for line in (out / "clip_01.ass").read_text(encoding="utf-8").splitlines() if line.startswith("Style:")).split(",")
+    assert style[1] == "Noto Sans JP" and style[15] == "3" and style[18] == "8"  # the font of the text, a plate, at the top
+    again = HighlightsWindow()  # the choice is remembered
+    assert again.style_combo.currentData() == "box" and again.position_combo.currentData() == "top"
+    again.close()

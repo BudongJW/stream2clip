@@ -368,6 +368,10 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--transcribe", metavar="MODEL", help='transcribe each clip with faster-whisper (e.g. "small", "large-v3")')
     s.add_argument("--language", help="speech language for --transcribe (ja, ko, en ...)")
     s.add_argument("--no-karaoke", action="store_true", help="plain captions instead of word-by-word highlighting")
+    s.add_argument("--subtitle-style", default="default", choices=["default", "box", "pink", "small"], help="look of the captions: box = on a dark plate, pink = pink highlight, small = smaller and lighter")
+    s.add_argument("--subtitle-position", default="bottom", choices=["bottom", "middle", "top"], help="where the captions sit (default bottom; top keeps them off a game's own text box)")
+    s.add_argument("--font", metavar="FAMILY", help="caption font (default: an installed font for the language of the text)")
+    s.add_argument("--font-size", type=int, metavar="PIXELS", help="caption size on a 1080 px wide frame (default 64)")
     s.add_argument("--snap", type=float, default=3.0, metavar="SECONDS", help="with --subtitles: move a clip edge that falls inside a spoken line to the edge of that line, by at most this much (default 3; 0 = leave the edges alone)")
     s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
@@ -385,7 +389,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     from .compliance import get_profile
     from .layouts import VerticalLayout
     from .pipeline import make_clips
-    from .subtitles import FasterWhisperTranscriber, load_subtitles
+    from .subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
 
     if args.ranks:
         wanted = {int(r) for r in args.ranks.split(",") if r.strip()}
@@ -432,6 +436,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
         section=(lambda h: sections[h.rank]) if sections is not None else None,
         karaoke=not args.no_karaoke, source=source, profile=profile, registered=True if args.registered else None,
+        subtitle_style=subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size),
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
     )
@@ -593,7 +598,8 @@ def cmd_live(args: argparse.Namespace) -> int:
         return time.strftime("%H:%M:%S", time.localtime(seconds))
 
     def fired(trigger) -> None:
-        print(f"[{stamp(trigger.time)}] surge {trigger.score:.1f}  {' / '.join(trigger.reasons)}", flush=True)
+        what = "marker    " if trigger.stats.get("marker") else f"surge {trigger.score:.1f}"  # a marker has no score: it was asked for
+        print(f"[{stamp(trigger.time)}] {what}  {' / '.join(trigger.reasons)}", flush=True)
         entry = {**trigger.to_dict(), "at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(trigger.time))}
         if clipper is not None:
             try:
@@ -750,10 +756,19 @@ def cmd_check(args: argparse.Namespace) -> int:
             print(f"{key:10s} {prof.name}" + (f"  ({prof.guideline_url}, 개정 {prof.revised})" if prof.guideline_url else ""))
         return 0
     source = _source(args)
-    if source is None:
-        raise ValueError("Give --info or --source-url/--source-title")
-    description = Path(args.description).read_text(encoding="utf-8") if args.description else None
-    issues = check_upload(source, get_profile(args.agency), description=description, registered=True if args.registered else None, uses_ai=args.uses_ai)
+    if source is None and not args.vrm:
+        raise ValueError("Give --info or --source-url/--source-title, or a model with --vrm")
+    issues = []
+    if args.vrm:  # what the avatar's own licence allows
+        from .vrm import check_vrm, read_vrm_meta
+
+        meta = read_vrm_meta(args.vrm)
+        for line in meta.summary():
+            print(line)
+        issues += check_vrm(meta, monetized=args.monetized or args.corporation, corporation=args.corporation)
+    if source is not None:
+        description = Path(args.description).read_text(encoding="utf-8") if args.description else None
+        issues += check_upload(source, get_profile(args.agency), description=description, registered=True if args.registered else None, uses_ai=args.uses_ai)
     for issue in issues:
         print(issue)
     return 1 if any(i.level == "error" for i in issues) else 0
@@ -948,6 +963,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--description", help="text file with the planned video description")
     p.add_argument("--registered", action="store_true")
     p.add_argument("--uses-ai", action="store_true", help="AI tools (e.g. automatic transcription) were used")
+    p.add_argument("--vrm", metavar="FILE", help="a VRM avatar: show what its licence allows (who may use it, commercial use, credit) and check it")
+    p.add_argument("--monetized", action="store_true", help="--vrm: the channel earns money (ads, memberships, Super Chat)")
+    p.add_argument("--corporation", action="store_true", help="--vrm: the channel is run by a company")
     p.add_argument("--list", action="store_true", help="list known agency profiles")
     p.set_defaults(func=cmd_check)
 

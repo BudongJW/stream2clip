@@ -52,6 +52,8 @@ _STAGES = {
     "singing": tr("노래 구간 찾는 중"), "detect": tr("하이라이트 찾는 중"), "avatar": tr("아바타 찾는 중"),
     "fetch-info": tr("방송 정보 받는 중"), "fetch-chat": tr("채팅 다시보기 받는 중 (긴 방송은 몇 분 걸립니다)"),
 }
+_SUBTITLE_STYLES = [("default", tr("기본")), ("box", tr("상자")), ("pink", tr("분홍 강조")), ("small", tr("작게"))]
+_SUBTITLE_POSITIONS = [("bottom", tr("아래쪽")), ("middle", tr("가운데")), ("top", tr("위쪽"))]
 _SINGING = [("off", tr("노래 구간 안 봄")), ("mark", tr("노래 구간 표시")), ("skip", tr("노래 구간 제외"))]
 _PICK_FILE = "\x00file"  # the "choose a .py file" entry of the translator list
 _AGENCIES = ["", "hololive", "nijisanji", "vspo", "aogiri", "generic"]
@@ -495,12 +497,24 @@ class HighlightsWindow(QMainWindow):
         self.karaoke_check.setToolTip(tr("말하는 단어에 맞춰 색이 바뀝니다 (번역한 자막에는 적용되지 않습니다)"))
         grid.addWidget(self.karaoke_check, 3, 2)
 
-        grid.addWidget(QLabel(tr("번역")), 4, 0)
+        grid.addWidget(QLabel(tr("스타일")), 4, 0)
+        self.style_combo = QComboBox()
+        for key, label in _SUBTITLE_STYLES:
+            self.style_combo.addItem(label, key)
+        self.style_combo.setToolTip(tr("자막의 모양. 상자는 복잡한 게임 화면 위에서도 읽기 쉽습니다."))
+        grid.addWidget(self.style_combo, 4, 1)
+        self.position_combo = QComboBox()
+        for key, label in _SUBTITLE_POSITIONS:
+            self.position_combo.addItem(label, key)
+        self.position_combo.setToolTip(tr("자막의 위치. 게임 자체의 대사 창이 아래에 있으면 위쪽을 고르세요."))
+        grid.addWidget(self.position_combo, 4, 2)
+
+        grid.addWidget(QLabel(tr("번역")), 5, 0)
         self.translator_combo = QComboBox()
         self.translator_combo.setToolTip(tr("번역 서비스는 내장돼 있지 않습니다. 설치한 번역기 플러그인을 고르거나,\ntranslate(texts, target, source) 함수가 있는 .py 파일을 고르세요 (examples/translators 참고)."))
         self._fill_translators()
         self.translator_combo.activated.connect(self._on_translator_picked)
-        grid.addWidget(self.translator_combo, 4, 1)
+        grid.addWidget(self.translator_combo, 5, 1)
         translate_row = QHBoxLayout()
         translate_row.setSpacing(6)
         self.target_edit = QLineEdit("ko")
@@ -510,35 +524,35 @@ class HighlightsWindow(QMainWindow):
         self.bilingual_check = QCheckBox(tr("원문 병기"))
         self.bilingual_check.setToolTip(tr("원문 줄 아래에 번역을 함께 넣습니다"))
         translate_row.addWidget(self.bilingual_check)
-        grid.addLayout(translate_row, 4, 2)
+        grid.addLayout(translate_row, 5, 2)
 
-        grid.addWidget(QLabel(tr("용어집")), 5, 0)
+        grid.addWidget(QLabel(tr("용어집")), 6, 0)
         self.glossary_edit = QLineEdit()
         self.glossary_edit.setPlaceholderText(tr("(선택) 이름 고정 CSV, JSON"))
         self.glossary_edit.setToolTip(tr("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다."))
-        grid.addWidget(self.glossary_edit, 5, 1)
+        grid.addWidget(self.glossary_edit, 6, 1)
         pick_glossary = QPushButton(tr("찾기"))
         pick_glossary.clicked.connect(lambda: self._browse(self.glossary_edit, "Glossary (*.csv *.json);;All files (*)"))
-        grid.addWidget(pick_glossary, 5, 2)
+        grid.addWidget(pick_glossary, 6, 2)
 
-        grid.addWidget(QLabel(tr("형식")), 6, 0)
+        grid.addWidget(QLabel(tr("형식")), 7, 0)
         self.format_combo = QComboBox()
         for fmt in ("mp4", "webm", "webp", "gif"):
             self.format_combo.addItem(fmt.upper(), fmt)
-        grid.addWidget(self.format_combo, 6, 1)
+        grid.addWidget(self.format_combo, 7, 1)
         self.agency_combo = QComboBox()
         for key in _AGENCIES:
             self.agency_combo.addItem(key or tr("가이드라인 없음"), key)
         self.agency_combo.setToolTip(tr("설명란과 업로드 전 점검에 쓸 기획사 프로필 (체크리스트일 뿐 법적 판단이 아닙니다)"))
-        grid.addWidget(self.agency_combo, 6, 2)
+        grid.addWidget(self.agency_combo, 7, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 7, 0)
+        grid.addWidget(QLabel(tr("저장")), 8, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 7, 1)
+        grid.addWidget(self.output_edit, 8, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 7, 2)
-        grid.setRowStretch(8, 1)
+        grid.addWidget(pick, 8, 2)
+        grid.setRowStretch(9, 1)
         self._on_layout_changed()
         return card
 
@@ -584,7 +598,7 @@ class HighlightsWindow(QMainWindow):
         for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
-        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.format_combo, "format"), (self.agency_combo, "agency")):
+        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
@@ -605,6 +619,7 @@ class HighlightsWindow(QMainWindow):
             "audio": self.audio_check.isChecked(), "laughter": self.laughter_check.isChecked(), "snap": self.snap_check.isChecked(), "singing": self.singing_combo.currentData(),
             "top": self.top_spin.value(), "threshold": round(self.threshold_spin.value(), 2),
             "layout": self.layout_combo.currentData(), "subtitles": self.subs_combo.currentData(), "language": self.language_edit.text().strip(),
+            "subtitle_style": self.style_combo.currentData(), "subtitle_position": self.position_combo.currentData(),
             "karaoke": self.karaoke_check.isChecked(), "translator": self.translator_choice(), "target": self.target_edit.text().strip(),
             "glossary": self.glossary_edit.text().strip(), "bilingual": self.bilingual_check.isChecked(),
             "format": self.format_combo.currentData(), "agency": self.agency_combo.currentData(), "output": self.output_edit.text().strip(),
@@ -927,6 +942,7 @@ class HighlightsWindow(QMainWindow):
         model = mode if mode in ("small", "medium") else None
         language = self.language_edit.text().strip() or None
         karaoke = self.karaoke_check.isChecked()
+        look, place = self.style_combo.currentData(), self.position_combo.currentData()
         info_path = self.info_edit.text().strip()
         agency = self.agency_combo.currentData()
         out_dir = self.output_edit.text().strip() or str(default_clip_dir())
@@ -949,7 +965,7 @@ class HighlightsWindow(QMainWindow):
             from ..compliance import get_profile
             from ..pipeline import make_clips
             from ..sources import load_info, source_from_info
-            from ..subtitles import FasterWhisperTranscriber, load_subtitles
+            from ..subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
 
             cues = load_subtitles(subs_path) if subs_path else None
             transcriber = FasterWhisperTranscriber(model) if model else None
@@ -968,6 +984,7 @@ class HighlightsWindow(QMainWindow):
             results = make_clips(
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
+                subtitle_style=subtitle_style(look, position=place),
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )

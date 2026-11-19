@@ -85,9 +85,13 @@ def test_bilingual_lines_are_not_rewrapped():
 
     cue = translate_cues([Cue(0.0, 2.0, "全部当たっているだろう")], Korean(), bilingual=True)[0]
     line = next(ln for ln in to_ass([cue]).splitlines() if ln.startswith("Dialogue"))
-    text = line.split(",,", 2)[-1].split("}", 1)[-1]
+    import re
+
+    text = line.split(",,", 2)[-1]
+    # each line in the font of its own language: Japanese kanji are not drawn in their Korean shapes
+    assert "{" + chr(92) + "fnNoto Sans JP}全部" in text and "{" + chr(92) + "fnNoto Sans KR}전부" in text
     # one break, exactly between the two lines (Korean has spaces; wrapping by length used to split inside it)
-    assert text == "全部当たっているだろう" + chr(92) + "N전부 맞았다고 생각했는데 하나도 안 맞았어요"
+    assert re.sub(r"[{][^}]*[}]", "", text) == "全部当たっているだろう" + chr(92) + "N전부 맞았다고 생각했는데 하나도 안 맞았어요"
 
 
 def test_translator_lookup(monkeypatch):
