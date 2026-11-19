@@ -27,7 +27,7 @@
 <a href="#️-기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#️-기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#-개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-310-4ADE80?style=flat-square"></a>
+<a href="#-개발"><img alt="tests" src="https://img.shields.io/badge/tests-316-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#-출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%20%C2%B7%20WebP%20%C2%B7%20MP4%20%C2%B7%20WebM%20%C2%B7%20MOV%20%C2%B7%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -39,7 +39,7 @@
 
 <br>
 
-[✨ 기능](#-주요-기능) · [🔥 자동 클립](#-방송--클립-자동화) · [🖼️ 스크린샷](#️-스크린샷) · [🛠️ 스펙](#️-기술-스펙) · [🚀 설치](#-설치) · [⌨️ 사용법](#️-사용법) · [🧩 이식](#-라이브러리로-쓰기--다른-프로젝트에-이식) · [🏗️ 구조](#️-구조) · [🎨 브랜드](#-브랜드) · [🗺️ 로드맵](#️-로드맵)
+**[⬇️ 내려받기 · 설명서](https://budongjw.github.io/stream2clip/)** · [✨ 기능](#-주요-기능) · [🔥 자동 클립](#-방송--클립-자동화) · [🖼️ 스크린샷](#️-스크린샷) · [🛠️ 스펙](#️-기술-스펙) · [🚀 설치](#-설치) · [⌨️ 사용법](#️-사용법) · [🧩 이식](#-라이브러리로-쓰기--다른-프로젝트에-이식) · [🏗️ 구조](#️-구조) · [🎨 브랜드](#-브랜드) · [🗺️ 로드맵](#️-로드맵)
 
 <br>
 
@@ -459,7 +459,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 | ⌨️ 전역 단축키 | Win32 `RegisterHotKey` / **pynput** | — | — | Windows는 추가 설치 없음, 그 외 `[hotkey]` |
 | 🤖 아바타 검출 (선택) | **onnxruntime** + deepghs/anime_face_detection | 1.16+ | 1.32 | `[detect]`, `--avatar auto` · 모델 12MB는 처음 쓸 때 다운로드 |
 | 🔤 OCR (선택) | **Tesseract** + pytesseract | 0.3+ | — | `[ocr]`, 번역 플러그인과 함께 사용 |
-| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 310개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
+| 🧪 테스트 | **pytest** · Xvfb | 8+ | 9.2 | 316개 · 실제 마우스 이벤트 · F8/F9 · VOD→클립 end-to-end · Windows 전역 단축키/배율 |
 | ⚙️ CI | **GitHub Actions** | — | — | Ubuntu(Xvfb, GUI 포함) + Windows, 패키징이 바뀌면 Windows 실행 파일을 빌드해 실행 |
 | 📦 패키징 | `pyproject.toml` · setuptools · **PyInstaller** | 77+ · 6.10+ | — · 6.22 | `stream2clip` / `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 폴더 · zip 빌드 |
 | 🗂️ 데이터 포맷 | **JSON Schema** 2020-12 | — | — | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -505,6 +505,9 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 <br>
 
 ## 🚀 설치
+
+> [!TIP]
+> Windows에서 바로 쓰려면 [홈페이지](https://budongjw.github.io/stream2clip/)에서 실행 파일 zip과 [설명서](https://budongjw.github.io/stream2clip/guide.html)를 받으세요. 아래는 파이썬으로 설치하는 방법입니다.
 
 > [!IMPORTANT]
 > **Python 3.10+** 와 **ffmpeg**가 필요합니다. ffmpeg는 PATH에 두거나 `STREAM2CLIP_FFMPEG` 환경 변수로 경로를 지정하세요.
@@ -893,6 +896,7 @@ src/stream2clip/
 - [x] 🖥️ 앱의 하이라이트 창에서 주소로 시작하기 — 영상 칸에 주소를 넣으면 채팅을 받아 찾고, 내보낼 구간만 내려받음
 - [x] 📊 여러 방송 평가 — `evaluate`: 시청자 댓글 타임스탬프와 비교해 precision · recall · 무작위 대비 배수 <sup>v0.4</sup>
 - [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항) <sup>v0.4</sup>
+- [x] 🌐 홈페이지 — [내려받기 · 설명서](https://budongjw.github.io/stream2clip/)(PDF 포함), GitHub Pages로 배포 (`site/`, `packaging/build_site.py`)
 - [x] 📡 라이브 모드 — `stream2clip live`: 방송 중 채팅 급증을 보고 OBS 리플레이를 자동 저장 (YouTube 주소 · 채팅 파일)
 - [ ] 📡 라이브 모드를 앱(런처)에서 켜기, CHZZK · SOOP 라이브 채팅 직접 받기
 - [x] 🌏 앱 화면 일본어 · 영어 — 런처 · 하이라이트 창 · 업로드 창 · 편집기 · 녹화 화면의 문구 230개 <sup>v0.4</sup>
@@ -920,6 +924,12 @@ pip install -e ".[dev]"
 ruff check .
 ```
 
+홈페이지(`site/`)는 조립해서 봅니다. 그림은 `assets/brand` · `docs/images`의 것을 가져다 쓰고, `--pdf`는 Chrome · Edge로 설명서를 PDF로 인쇄합니다.
+
+```bash
+python packaging/build_site.py --pdf
+```
+
 ```bash
 pytest
 ```
@@ -945,6 +955,7 @@ xvfb-run -a pytest
 | `test_cli.py` | CLI 명령 (`auto` 전체 흐름 포함) |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지 · 이름 고정 · 두 줄 자막 · 묶음 전송, Holodex 초안, `--translate` |
 | `test_i18n.py` | 화면 문구와 일본어 · 영어 번역 목록이 빠짐없이 맞는지(자리 표시 · 줄바꿈 포함), 감싸지 않은 한국어 문구가 없는지, 언어 결정 순서(앱 설정 · 환경 변수 · 시스템), 영어 · 일본어로 실제 창 띄우기 |
+| `test_site.py` | 홈페이지: 조립 결과에 페이지가 가리키는 파일 · 책갈피가 모두 있는지, 내려받기 버튼이 최신 릴리즈를 따르는지, 설명서가 현재 버전을 말하는지, 브랜드 색 · 서체, PDF 인쇄 명령 |
 | `test_live.py` | 라이브 모드: 급증 발동(준비 시간 · 쿨다운 · 인사말 · 후원 · 늦게 온 채팅), 구간이 닫힌 뒤에만 판정, yt-dlp 라이브 채팅 줄 읽기, 파일 따라 읽기(반쪽 줄 · 교체된 파일), 리플레이에서 장면 위치 계산, 가짜 OBS로 클립 저장, `live` 명령 |
 | `test_evaluation.py` | 댓글에서 타임스탬프 읽기(시각이 아닌 숫자 제외), 가까운 표시 묶기 · 댓글 수 세기, precision · recall · 무작위 기대값 계산, 설정값 바꿔 가며 비교, `evaluate` · `fetch --comments` |
 | `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 내려받기(여유 시간 · 이미 받은 파일 재사용), 구간 파일에서 잘라도 자막 · 설명란은 방송 시각 기준, CHZZK 구간에서만 ffmpeg 확장자 검사 끄기, `clips <주소>` · `auto <주소>`, 방송별 폴더 이름, 정보 · 채팅만 받기(재사용 · CHZZK/SOOP 정보 거부) |
