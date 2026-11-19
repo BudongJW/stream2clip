@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 取扱説明書</h1>
   <dl>
-    <dt>対象バージョン</dt><dd>v0.11</dd>
+    <dt>対象バージョン</dt><dd>v0.12</dd>
     <dt>対象</dt><dd>Windows用インストーラー、実行ファイルおよびPythonパッケージの利用者</dd>
     <dt>配布元</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -204,7 +204,7 @@
     <h2 id="clips">ハイライトクリップの作成</h2>
     <p>ランチャーの<strong>ハイライトを探す</strong>で検出、区間の調整、書き出しを行う。</p>
     <figure>
-      <img src="../assets/shots/ja/highlights_window.png" alt="ハイライト画面: 上部に入力、中央にタイムラインと区間一覧、右側に書き出し設定" width="1350" height="1108" loading="lazy">
+      <img src="../assets/shots/ja/highlights_window.png" alt="ハイライト画面: 上部に入力、中央にタイムラインと区間一覧、右側に書き出し設定" width="1350" height="1140" loading="lazy">
       <figcaption>ハイライト画面。ピンクの棒は検出区間、黄色の枠は選択中の区間</figcaption>
     </figure>
     <h3>入力</h3>
@@ -242,6 +242,7 @@
         <thead><tr><th>項目</th><th>内容</th></tr></thead>
         <tbody>
           <tr><th scope="row">出典表記</th><td>入力した文言をクリップの左上に小さく表示。例: 元配信: チャンネル名</td></tr>
+          <tr><th scope="row">静かな部分を短縮</th><td>クリップ内で 0.7 秒を超えて静かな部分を短い間に短縮。字幕も一緒に移動。音量で判定するため、投稿前に結果を確認</td></tr>
           <tr><th scope="row">まとめ動画</th><td>選択すると、書き出したクリップを配信の順につないだ <code>compilation.mp4</code> とチャプター一覧 <code>compilation.txt</code> も保存</td></tr>
           <tr><th scope="row">編集用に書き出し</th><td>チェックした区間をカットリスト <code>highlights.edl</code>、タイムラインマーカー <code>markers.edl</code>、タイムスタンプ一覧 <code>timestamps.txt</code> として保存。DaVinci Resolve、Premiere Pro などで読み込んで編集を継続</td></tr>
         </tbody>
@@ -374,6 +375,7 @@
         <thead><tr><th>症状</th><th>対処</th></tr></thead>
         <tbody>
           <tr><th scope="row">プログラムの実行がブロックされる</th><td>コード署名未適用によるブロック。Smart App Controlが有効な環境ではPythonパッケージを使用</td></tr>
+          <tr><th scope="row">新バージョンの通知</th><td>開始画面の上部に表示。<strong>ダウンロードページを開く</strong>で新しいインストーラーを取得、<strong>通知をオフ</strong>で確認を停止。確認は1日1回以内で、ユーザー情報は送信しない</td></tr>
           <tr><th scope="row">ffmpegが見つからない</th><td>アプリの開始画面の <strong>ffmpeg をダウンロード</strong> ボタンを使用。コマンドラインでは <code>stream2clip setup --ffmpeg</code>。自分でインストールした場合は <strong>再確認</strong> ボタン、またはプログラムを再起動</td></tr>
           <tr><th scope="row">区間が検出されない</th><td>しきい値を下げて再実行。チャットファイルが該当配信のものか確認</td></tr>
           <tr><th scope="row">YouTubeでログインを要求される</th><td>コマンドラインで <code>--cookies-from-browser chrome</code> オプションによりブラウザのCookieを渡す</td></tr>

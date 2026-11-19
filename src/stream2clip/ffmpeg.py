@@ -36,6 +36,7 @@ __all__ = [
     "build_export_command",
     "build_capture_command",
     "build_concat_command",
+    "keep_filters",
     "extension_for",
     "filter_path",
 ]
@@ -136,6 +137,9 @@ class ExportOptions:
     layout: "VerticalLayout | None" = None
     #: Subtitle file (.ass/.srt/.vtt) burned in after the layout, timed from the clip start.
     subtitles: "str | os.PathLike[str] | None" = None
+    #: Parts of the cut that stay, as (start, end) seconds from its beginning; the rest is dropped and
+    #: what stays is closed up (see :func:`stream2clip.audio.sound_parts`). Subtitle times are those of the result.
+    keep: "tuple[tuple[float, float], ...] | None" = None
 
     def __post_init__(self) -> None:
         if self.format not in FORMATS:
@@ -156,6 +160,14 @@ class ExportOptions:
             raise ValueError("start must be >= 0")
         if self.start is not None and self.end is not None and self.end <= self.start:
             raise ValueError("end must be greater than start")
+        if self.keep is not None:
+            last = 0.0
+            if not self.keep:
+                raise ValueError("keep must name at least one part")
+            for a, b in self.keep:
+                if a < last or b <= a:
+                    raise ValueError("keep must be (start, end) parts in order, without overlap")
+                last = b
 
     @property
     def duration(self) -> float | None:
@@ -207,6 +219,28 @@ def filter_path(path: str | os.PathLike[str]) -> str:
     return re.sub(r"([\\'\[\],;])", r"\\\1", value)  # graph level
 
 
+def keep_filters(options: ExportOptions) -> tuple[list[str], str]:
+    """Filters that drop everything outside ``options.keep`` and close the result up: (video filters, audio chain).
+
+    With a known frame rate the picture is chosen by frame number, so each part is a whole
+    number of frames and the sound - cut in 160-sample steps - stays with it across many cuts.
+    """
+    if not options.keep:
+        return [], ""
+    fps = options.fps
+    if fps:
+        spans = [(int(round(a * fps)), int(round(b * fps))) for a, b in options.keep]
+        spans = [(i, j) for i, j in spans if j > i]
+        picture = "+".join(f"between(n,{i},{j - 1})" for i, j in spans)
+        sound = "+".join(f"gte(t,{i / fps:.4f})*lt(t,{j / fps:.4f})" for i, j in spans)
+        video = [f"select='{picture}'", f"setpts=N/({fps:g}*TB)"]
+    else:
+        picture = "+".join(f"gte(t,{a:.4f})*lt(t,{b:.4f})" for a, b in options.keep)
+        sound = picture
+        video = [f"select='{picture}'", "setpts=N/FRAME_RATE/TB"]
+    return video, f"asetnsamples=n=160:p=0,aselect='{sound}',asetpts=N/SR/TB"
+
+
 def build_video_filter(options: ExportOptions) -> str:
     """Return a ``-filter_complex`` graph reading ``[0:v]`` and writing ``[v]``.
 
@@ -227,6 +261,7 @@ def build_video_filter(options: ExportOptions) -> str:
         chain: list[str] = [scale] if scale and (options.width or options.height) else []
     else:
         chain = pre + ([scale] if scale else [])
+    chain.extend(keep_filters(options)[0])  # before the captions: their times are those of the shortened clip
     if options.subtitles is not None:
         chain.append(f"subtitles=filename={filter_path(options.subtitles)}")
     chain.extend(options.extra_filters)
@@ -332,12 +367,14 @@ def build_export_command(
             raise ValueError("A layout with an avatar video needs a video file as its main input")
         cmd += raw_input.args()
 
-    cmd += ["-filter_complex", build_video_filter(options), "-map", "[v]"]
     wants_audio = options.audio and raw_input is None and options.format in _AUDIO_CODECS
-    if wants_audio:
-        cmd += ["-map", "0:a:0?"] + _AUDIO_CODECS[options.format]
+    graph = build_video_filter(options)
+    if wants_audio and options.keep:  # the sound loses the same parts as the picture (the input must have sound)
+        cmd += ["-filter_complex", f"{graph};[0:a:0]{keep_filters(options)[1]}[a]", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
+    elif wants_audio:
+        cmd += ["-filter_complex", graph, "-map", "[v]", "-map", "0:a:0?"] + _AUDIO_CODECS[options.format]
     else:
-        cmd += ["-an"]
+        cmd += ["-filter_complex", graph, "-map", "[v]", "-an"]
     cmd += _codec_args(options)
     cmd.append(os.fspath(output_path))
     return cmd

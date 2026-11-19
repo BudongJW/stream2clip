@@ -206,6 +206,89 @@ def test_closing_the_start_window_stops_a_download(app, monkeypatch):
     assert stopped == [True]
 
 
+# ----------------------------------------------------------------------------- newer release
+
+
+def test_start_window_tells_about_a_newer_release(app, monkeypatch):
+    from stream2clip import __version__, updates
+
+    asked = []
+
+    def newer(self):
+        asked.append(1)
+        return updates.Release("99.1.0", "https://github.com/BudongJW/stream2clip/releases/tag/v99.1.0")
+
+    monkeypatch.setattr(LauncherWindow, "fetch_release", newer)
+    quiet = LauncherWindow()  # the test run forbids asking (conftest): nothing is fetched, nothing shown
+    assert asked == [] and quiet.update_notice.isHidden() and not quiet.check_updates()
+    quiet.close()
+
+    monkeypatch.delenv("STREAM2CLIP_NO_UPDATE_CHECK")
+    win = LauncherWindow()
+    wait(app, lambda: not win.update_notice.isHidden())
+    assert asked == [1] and win.update_label.text() == f"새 버전 99.1.0 있음 (현재 {__version__})"
+    opened = []
+    win.open_url = opened.append
+    win.update_open.click()
+    assert opened == [updates.DOWNLOAD_PAGE]
+    saved = settings.load_section("app")
+    assert saved["update_latest"] == "99.1.0" and saved["update_checked"] > 0
+    assert not win.check_updates()  # asked a moment ago: once a day is enough
+    assert win.check_updates(now=saved["update_checked"] + 90000)  # ... a day later it asks again
+    wait(app, lambda: len(asked) == 2)
+    win._update_thread.join(5)
+    app.processEvents()  # the answer is taken in before the window goes
+    win.close()
+
+    again = LauncherWindow()  # the same day: the answer is shown again without asking
+    assert len(asked) == 2 and not again.update_notice.isHidden()
+    again.language_combo.activated.emit(again.language_combo.findData("ja"))  # another setting of the app does not wipe the answer
+    assert settings.load_section("app")["update_latest"] == "99.1.0" and settings.load_section("app")["language"] == "ja"
+    again.update_skip.click()
+    assert again.update_notice.isHidden() and settings.load_section("app")["update_skipped"] == "99.1.0"
+    again.close()
+    settings.save_section("app", {**settings.load_section("app"), "language": "ko"})
+
+    skipped = LauncherWindow()
+    assert skipped.update_notice.isHidden()  # that version is not mentioned again ...
+    skipped.show_update("99.2.0")
+    assert not skipped.update_notice.isHidden()  # ... the next one is
+    skipped.update_off.click()
+    assert skipped.update_notice.isHidden() and settings.load_section("app")["update_check"] is False and skipped.status.text() == "새 버전 알림 꺼짐"
+    skipped.close()
+
+    off = LauncherWindow()
+    assert off.update_notice.isHidden() and not off.check_updates(force=True) and len(asked) == 2  # turned off: never asked
+    off.close()
+
+
+def test_start_window_stays_quiet_when_up_to_date_or_offline(app, monkeypatch):
+    monkeypatch.delenv("STREAM2CLIP_NO_UPDATE_CHECK")
+    calls = []
+
+    def offline(self):
+        calls.append("offline")
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(LauncherWindow, "fetch_release", offline)
+    win = LauncherWindow()
+    wait(app, lambda: calls == ["offline"])
+    win._update_thread.join(5)
+    app.processEvents()
+    assert win.update_notice.isHidden() and "update_checked" not in settings.load_section("app")  # no answer: it asks again next time
+    win.close()
+
+    def latest(self):
+        calls.append("latest")
+        return None
+
+    monkeypatch.setattr(LauncherWindow, "fetch_release", latest)
+    win = LauncherWindow()
+    wait(app, lambda: "update_checked" in settings.load_section("app"))
+    assert calls == ["offline", "latest"] and win.update_notice.isHidden() and settings.load_section("app")["update_latest"] == ""
+    win.close()
+
+
 # ----------------------------------------------------------------------------- OBS replay button
 
 

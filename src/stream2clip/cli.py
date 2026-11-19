@@ -364,6 +364,8 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--fps", type=float, default=30)
     g.add_argument("--quality", type=int, default=85)
     g.add_argument("--ranks", help="only these highlight ranks, e.g. 1,2,5")
+    g.add_argument("--trim-silence", type=float, nargs="?", const=0.7, metavar="SECONDS", help="shorten pauses inside each clip: silences of this length or longer (default 0.7) are cut down to a short pause; captions move along")
+    g.add_argument("--silence-level", type=float, default=24.0, metavar="DB", help="--trim-silence: how far below the clip's loud parts counts as silent (default 24 dB; smaller cuts more)")
     s = p.add_argument_group("subtitles")
     s.add_argument("--subtitles", help="SRT / WebVTT / Whisper JSON for the whole VOD (YouTube auto-captions work)")
     s.add_argument("--transcribe", metavar="MODEL", help='transcribe each clip with faster-whisper (e.g. "small", "large-v3")')
@@ -457,11 +459,12 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         karaoke=not args.no_karaoke, source=source, profile=profile, registered=True if args.registered else None,
         subtitle_style=subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size),
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
-        credit=credit or None, credit_position=args.credit_position,
+        credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
         on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
     )
     for r in results:
-        print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else ""))
+        print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
+              + (f"  ({r.removed:.1f} s of silence removed)" if r.removed else ""))
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")
@@ -787,6 +790,14 @@ def cmd_setup(args: argparse.Namespace) -> int:
         from .detect import ensure_model
 
         print(tr("얼굴 검출 모델: {0}").format(ensure_model()))
+    if args.check_update:
+        from . import updates
+
+        release = updates.check_for_update()
+        if release is None:
+            print(tr("최신 버전 사용 중 ({0})").format(__version__))
+        else:
+            print(tr("새 버전 {0} 있음 (현재 {1})").format(release.version, __version__) + f": {updates.DOWNLOAD_PAGE}")
     found = tools.components(obs=None if args.no_obs else ("127.0.0.1", args.obs_port))
     for line in tools.report_lines(found):
         print(line)
@@ -1101,6 +1112,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--from", dest="archive", metavar="ZIP", help="with --ffmpeg: take the programs out of this already downloaded archive of the pinned build instead of downloading")
     p.add_argument("--force", action="store_true", help="with --ffmpeg: fetch even when ffmpeg is already found")
     p.add_argument("--model", action="store_true", help="download the face detection model now (12 MB) instead of on first use")
+    p.add_argument("--check-update", action="store_true", help="ask GitHub whether a newer release exists (one request; nothing about this PC is sent)")
     p.add_argument("--obs-port", type=int, default=4455, help="port of OBS's WebSocket server to look for (default: 4455)")
     p.add_argument("--no-obs", action="store_true", help="do not look for OBS")
     p.set_defaults(func=cmd_setup)

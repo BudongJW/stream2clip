@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import tools
+from .. import __version__, tools
 from ..editor import Document
 from ..ffmpeg import ExportOptions
 from ..i18n import LANGUAGES, language, tr
@@ -86,6 +86,7 @@ class LauncherWindow(QMainWindow):
     _live_note = Signal(str, str)
     _ffmpeg_progress = Signal(int, int)
     _ffmpeg_done = Signal(str)
+    _update_answer = Signal(str, str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -120,6 +121,8 @@ class LauncherWindow(QMainWindow):
         outer.addLayout(header)
         self.ffmpeg_notice = self._ffmpeg_notice()
         outer.addWidget(self.ffmpeg_notice)
+        self.update_notice = self._update_notice()
+        outer.addWidget(self.update_notice)
 
         outer.addWidget(_eyebrow(tr("캡쳐")))
         outer.addWidget(self._capture_card())
@@ -152,6 +155,7 @@ class LauncherWindow(QMainWindow):
         self._live_note.connect(self._on_live)
         self._ffmpeg_progress.connect(self._on_ffmpeg_progress)
         self._ffmpeg_done.connect(self._on_ffmpeg_done)
+        self._update_answer.connect(self._on_update_answer)
 
         self.controller = RecordController(lambda: self.settings, self)
         self.controller.stateChanged.connect(self._on_record_state)
@@ -170,6 +174,111 @@ class LauncherWindow(QMainWindow):
         self.resize(760, 780)
         self.setAcceptDrops(True)  # an image opens in the editor, stream files go to the highlights window
         self.check_ffmpeg()
+        self.check_updates()
+
+    # ------------------------------------------------------------------ newer release
+    def _update_notice(self) -> QWidget:
+        """The row shown when a newer release exists: open the download page, skip that version, or stop asking."""
+        card = QWidget(objectName="Notice")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(14, 10, 14, 10)
+        row.setSpacing(10)
+        self.update_version, self.update_url = "", ""
+        self._update_thread: threading.Thread | None = None
+        self.update_label = QLabel()
+        self.update_label.setWordWrap(True)
+        row.addWidget(self.update_label, 1)
+        self.update_open = QPushButton(tr("내려받기 페이지 열기"), objectName="Primary")
+        self.update_open.clicked.connect(self.open_update_page)
+        row.addWidget(self.update_open)
+        self.update_skip = QPushButton(tr("이 버전 건너뛰기"))
+        self.update_skip.clicked.connect(self.skip_update)
+        row.addWidget(self.update_skip)
+        self.update_off = QPushButton(tr("알림 끄기"))
+        self.update_off.setToolTip(tr("새 버전 확인 중지. 설정 파일(settings.json)의 update_check 항목을 지우면 다시 확인"))
+        self.update_off.clicked.connect(self.stop_update_checks)
+        row.addWidget(self.update_off)
+        card.setVisible(False)
+        return card
+
+    def _app_settings(self, **changes) -> dict:
+        """The app's own section of the settings; ``changes`` are saved without dropping what else is there."""
+        data = load_section("app")
+        if changes:
+            data.update(changes)
+            save_section("app", data)
+        return data
+
+    def fetch_release(self):
+        """The newer release, or ``None`` when this is the latest (tests replace this)."""
+        from .. import updates
+
+        return updates.check_for_update()
+
+    def open_url(self, url: str) -> None:
+        """Open a page in the browser (tests replace this)."""
+        QDesktopServices.openUrl(QUrl(url))
+
+    def check_updates(self, *, force: bool = False, now: float | None = None) -> bool:
+        """Ask, at most once a day, whether a newer release exists; returns whether a request was started.
+
+        Nothing is asked when it was turned off (the notice's button, or ``STREAM2CLIP_NO_UPDATE_CHECK``).
+        An answer from earlier today is shown again without asking.
+        """
+        from .. import updates
+
+        saved = self._app_settings()
+        if not updates.enabled() or saved.get("update_check") is False:
+            return False
+        known, page = saved.get("update_latest"), saved.get("update_url")
+        if isinstance(known, str) and known:
+            self.show_update(known, page if isinstance(page, str) else "")
+        now = time.time() if now is None else now
+        last = saved.get("update_checked")
+        if not force and isinstance(last, (int, float)) and 0 <= now - last < 86400:
+            return False
+
+        def work() -> None:
+            try:
+                release = self.fetch_release()
+            except Exception:  # offline, or an answer that makes no sense: nothing to say, ask again next time
+                return
+            try:
+                self._update_answer.emit(release.version if release else "", release.url if release else "")
+            except RuntimeError:  # the window was closed meanwhile
+                pass
+
+        self._update_thread = threading.Thread(target=work, name="stream2clip-update", daemon=True)
+        self._update_thread.start()
+        return True
+
+    def _on_update_answer(self, version: str, url: str) -> None:
+        self._app_settings(update_checked=time.time(), update_latest=version, update_url=url)
+        self.show_update(version, url)
+
+    def show_update(self, version: str, url: str = "") -> None:
+        """Show the notice for a release that is newer than this program and was not skipped; hide it otherwise."""
+        from .. import updates
+
+        wanted = bool(version) and updates.is_newer(version) and self._app_settings().get("update_skipped") != version
+        self.update_notice.setVisible(wanted)
+        if wanted:
+            self.update_version, self.update_url = version, url or updates.RELEASES_PAGE
+            self.update_label.setText(tr("새 버전 {0} 있음 (현재 {1})").format(version, __version__))
+
+    def open_update_page(self) -> None:
+        from .. import updates
+
+        self.open_url(updates.DOWNLOAD_PAGE)
+
+    def skip_update(self) -> None:
+        self._app_settings(update_skipped=self.update_version)
+        self.update_notice.setVisible(False)
+
+    def stop_update_checks(self) -> None:
+        self._app_settings(update_check=False)
+        self.update_notice.setVisible(False)
+        self.status.setText(tr("새 버전 알림 꺼짐"))
 
     # ------------------------------------------------------------------ ffmpeg
     def _ffmpeg_notice(self) -> QWidget:
@@ -643,7 +752,7 @@ class LauncherWindow(QMainWindow):
     def _set_language(self, index: int) -> None:
         """Remember the language; windows that are already open keep theirs, so it applies from the next start."""
         code = self.language_combo.itemData(index)
-        save_section("app", {"language": code})
+        self._app_settings(language=code)
         if code != language():
             # said in the language that was chosen, so it can be read by whoever chose it
             notice = {"ko": "다시 시작하면 한국어로 표시됩니다", "ja": "再起動すると日本語で表示されます", "en": "English is used after a restart"}

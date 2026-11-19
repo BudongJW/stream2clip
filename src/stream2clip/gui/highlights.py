@@ -610,13 +610,18 @@ class HighlightsWindow(QMainWindow):
         self.compile_check.setToolTip(tr("내보낸 클립을 방송 순서대로 이어 붙인 영상과 챕터 목록을 함께 저장 (MP4, WebM)"))
         grid.addWidget(self.compile_check, 9, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 10, 0)
+        grid.addWidget(QLabel(tr("무음 구간")), 10, 0)
+        self.silence_check = QCheckBox(tr("조용한 부분 줄이기"))
+        self.silence_check.setToolTip(tr("클립 안에서 0.7초 넘게 조용한 부분을 짧은 쉼으로 줄임. 자막도 함께 이동.\n배경 음악이 큰 방송은 줄일 부분이 적고, 말 없이 게임 소리만 작게 나는 장면도 줄어듦"))
+        grid.addWidget(self.silence_check, 10, 1, 1, 2)
+
+        grid.addWidget(QLabel(tr("저장")), 11, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 10, 1)
+        grid.addWidget(self.output_edit, 11, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 10, 2)
-        grid.setRowStretch(11, 1)
+        grid.addWidget(pick, 11, 2)
+        grid.setRowStretch(12, 1)
         self._on_layout_changed()
         return card
 
@@ -659,7 +664,7 @@ class HighlightsWindow(QMainWindow):
     # ------------------------------------------------------------------ remembered settings
     def _restore(self) -> None:
         saved = load_section("highlights")
-        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile")):
+        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
         for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency")):
@@ -687,7 +692,7 @@ class HighlightsWindow(QMainWindow):
             "karaoke": self.karaoke_check.isChecked(), "translator": self.translator_choice(), "target": self.target_edit.text().strip(),
             "glossary": self.glossary_edit.text().strip(), "bilingual": self.bilingual_check.isChecked(),
             "format": self.format_combo.currentData(), "agency": self.agency_combo.currentData(), "output": self.output_edit.text().strip(),
-            "credit": self.credit_edit.text().strip(), "compile": self.compile_check.isChecked(),
+            "credit": self.credit_edit.text().strip(), "compile": self.compile_check.isChecked(), "trim_silence": self.silence_check.isChecked(),
             "last_dir": self.last_dir,
         })
 
@@ -1090,6 +1095,7 @@ class HighlightsWindow(QMainWindow):
         glossary_path = self.glossary_edit.text().strip()
         bilingual = self.bilingual_check.isChecked()
         credit = self.credit_edit.text().strip() or None
+        trim = 0.7 if self.silence_check.isChecked() else None
         joined = self.compile_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm")
         self.last_compilation = None
         if translator_spec and not subs_path and model is None:
@@ -1125,7 +1131,7 @@ class HighlightsWindow(QMainWindow):
             results = make_clips(
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
-                subtitle_style=subtitle_style(look, position=place), credit=credit,
+                subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )
@@ -1161,6 +1167,9 @@ class HighlightsWindow(QMainWindow):
         note = tr(", 가이드라인 확인 필요 {0}건 (clips.json)").format(warnings) if warnings else ""
         if getattr(self, "last_compilation", None) is not None:
             note += tr(", 모음 영상 {0}").format(self.last_compilation.path.name)
+        quiet = sum(r.removed for r in value)
+        if quiet >= 0.5:
+            note += tr(", 조용한 부분 {0:.0f}초 줄임").format(quiet)
         where = value[0].path.parent if value else self.output_edit.text()
         self._set_busy(False, tr("클립 {0}개 저장됨: {1}{2}").format(len(value), where, note))
         self.set_mood("cut")

@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.11.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.12.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-482-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-496-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -69,6 +69,7 @@
 
 | &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 주요 변경 |
 |:---:|---|
+| v0.12 | 무음 구간 제거(`--trim-silence`), 앱의 새 버전 알림 |
 | v0.11 | 편집 프로그램용 내보내기(EDL 컷 목록, 타임라인 마커, 타임스탬프), 모음 영상(`compile`), 출처 표기(`--credit`), 파일 끌어다 놓기 |
 | v0.10 | ffmpeg 한 번에 설치(설치 프로그램의 내려받기 작업, 앱 시작 화면의 버튼), 구성요소 점검 명령 `setup` |
 | v0.9 | 하이라이트 창의 아바타 영상 입력, 업로드 예약 게시, 자막 속 반응 표현 신호(실험) |
@@ -388,6 +389,30 @@ stream2clip compile clips --order rank --ranks 1,2,5 -o best.mp4
 - 가로 모음 영상은 `--layout none`으로 제작한 클립 사용
 - 챕터 문구는 검출 근거의 첫 항목. 게시 전 직접 수정 필요
 
+### 무음 구간 제거
+
+클립 안에서 조용한 부분을 짧은 쉼으로 줄여 길이 단축. 자막과 출처 표기는 줄어든 길이에 맞춰 이동
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --trim-silence -o clips
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
+|:---:|---|
+| `--trim-silence` | 0.7초 이상 조용한 부분을 앞뒤 0.25초씩만 남기고 제거 |
+| `--trim-silence 초` | 지정한 길이 이상 조용한 부분만 제거 |
+| `--silence-level dB` | 조용함의 기준. 클립의 큰 소리보다 이 값 이상 작은 부분이 대상(기본값 24). 값이 작을수록 더 많이 제거 |
+
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 판정 방식 | 음량 기준. 말소리를 인식하는 방식이 아니므로 말 없이 게임 소리만 작게 나는 장면도 줄어듦 |
+| 배경 음악 | 음악이 계속 큰 방송은 조용한 부분이 적어 줄어드는 양이 적음 |
+| 화면과 소리 | 화면은 프레임 단위, 소리는 160샘플 단위로 같은 부분을 제거. 10곳 이상 자른 후에도 어긋남 1프레임 이내 |
+| 기록 | `clips.json`의 `removed`에 클립별로 줄어든 길이(초) 기록 |
+
+- 앱: 하이라이트 창의 **조용한 부분 줄이기** 선택 후 **클립 내보내기**
+- 실제 방송 1개의 클립 4개 기준 길이의 29% 단축. 음성 인식으로 찾은 발화 시간 중 3.6%가 제거 구간에 포함(277개 단어 중 5개). 게시 전 결과 확인 필요
+
 ### 편집 프로그램용 내보내기
 
 찾은 하이라이트를 편집 프로그램에서 이어서 작업할 수 있도록 컷 목록과 타임스탬프 목록으로 저장
@@ -629,7 +654,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 482개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 496개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -723,6 +748,7 @@ stream2clip setup
 | `--ffmpeg` | Windows에서 ffmpeg, ffprobe 내려받기. 이미 있으면 내려받지 않음(`--force`로 다시 받기) |
 | `--from 파일.zip` | 내려받는 대신 이미 받아 둔 압축 파일 사용. 고정된 빌드의 파일만 허용 |
 | `--model` | 얼굴 검출 모델을 미리 내려받기 |
+| `--check-update` | 새 버전 유무 확인. 요청할 때만 조회 |
 | `--no-obs`, `--obs-port 포트` | OBS 확인 생략, 확인할 포트 지정 |
 
 ### ffmpeg 내려받기
@@ -786,8 +812,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.11.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.11.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
+| `dist/stream2clip-0.12.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.12.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -842,6 +868,7 @@ stream2clip gui
 | **스타일** | 자막 모양(기본, 상자, 분홍 강조, 작게)과 위치(아래쪽, 가운데, 위쪽) 선택 |
 | **웃음소리 (실험)**, **노래 구간** | 웃음소리 유형의 소리에 점수 가산, 노래와 겹치는 하이라이트 표시 또는 제외 |
 | **번역**, **용어집**, **원문 병기** | 자막 번역기(플러그인 또는 `.py` 파일) 선택, 이름 고정, 원문과 2줄 표시 |
+| **조용한 부분 줄이기** | 클립 안에서 0.7초 넘게 조용한 부분을 짧은 쉼으로 단축. 자막도 함께 이동 |
 | **출처 표기**, **모음 영상** | 클립 구석에 넣을 문구 입력, 내보낸 클립을 이어 붙인 영상과 챕터 목록 함께 저장 |
 | **편집용 내보내기** | 체크한 구간을 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 저장. 타임스탬프 목록은 클립보드에도 복사 |
 | 파일 끌어다 놓기 | 영상, 채팅, 정보, 자막 파일 또는 방송 주소를 창에 놓으면 해당 칸에 입력. 런처에 이미지를 놓으면 편집기 실행 |
@@ -854,6 +881,8 @@ stream2clip gui
 | 리플레이 저장 | 런처의 **리플레이 저장**으로 OBS 리플레이 버퍼를 저장하여 마지막 N초를 클립으로 변환 |
 | 설정 저장 | 녹화 형식, 저장 폴더, 하이라이트 창의 선택, OBS 주소, OAuth 파일 경로를 `settings.json`에 보관. 비밀번호 미저장 |
 | 설정 위치 | Windows `%APPDATA%\stream2clip`, macOS `~/Library/Application Support/stream2clip`, Linux `~/.config/stream2clip`. `STREAM2CLIP_CONFIG_DIR`로 변경, 파일 삭제 시 기본값 복원 |
+| 새 버전 알림 | 앱 시작 시 하루 1회 이내로 GitHub의 최신 릴리즈 번호 조회. 새 버전이 있으면 시작 화면 상단에 표시. 사용자와 PC에 관한 정보는 전송하지 않음 |
+| 알림 끄기 | 알림의 **알림 끄기**, 또는 환경 변수 `STREAM2CLIP_NO_UPDATE_CHECK=1`. **이 버전 건너뛰기**는 해당 버전만 제외. 다시 켜려면 `settings.json`의 `update_check` 항목 삭제 |
 
 > [!TIP]
 > **투명** 도구는 드래그 시 해당 영역 삭제, 클릭 시 클릭한 색을 이미지 전체에서 투명 처리. **자르기**는 원본을 보존한 상태로 남길 영역만 지정. 저장 시 `.json` 선택 시 주석만 별도 저장
@@ -1058,6 +1087,7 @@ src/stream2clip/
 ├── vrm.py         VRM 모델의 사용 조건 판독, 사용 계획 대조
 ├── tools.py       ffmpeg 내려받기(고정 빌드, SHA-256 확인), 구성요소 점검
 ├── handoff.py     편집 프로그램용 내보내기: EDL 컷 목록, 타임라인 마커, 타임스탬프 목록
+├── updates.py     새 버전 확인 (GitHub 최신 릴리즈 번호 조회)
 ├── pipeline.py    하이라이트에서 완성 클립 일괄 생성
 ├── capture/       캡처 백엔드 (mss, numpy 배열, 플러그인) + 커서 합성
 ├── editor/        주석 모델, 렌더러, 되돌리기, JSON 직렬화
@@ -1148,14 +1178,14 @@ src/stream2clip/
 | 가이드라인 | 한국 기획사 프로필. 공식 원문이 확인된 곳부터 추가(스텔라이브, 이세계아이돌은 원문 미확보) |
 | 아바타 레이어 | Spout2, NDI 알파 레이어 녹화, VMC 및 VTube Studio 파라미터 기록 후 재렌더 |
 | 실서비스 검증 | 실제 YouTube 업로드, Holodex API 키 사용 검증 |
-| 편집 연계 | 무음 구간 제거(말이 없는 부분을 줄인 클립), 편집 프로그램에서의 EDL 가져오기 실측, FCPXML 내보내기 |
-| 초보자 지원 | 앱의 구성요소 점검 창, 새 버전 알림 |
+| 편집 연계 | 편집 프로그램에서의 EDL 가져오기 실측, FCPXML 내보내기, 말소리 인식 기반의 무음 구간 판정 |
+| 초보자 지원 | 앱의 구성요소 점검 창 |
 | 검출 신호 | SOOP 구독 및 팔로우 알림, Streamer.bot 이벤트, 사용자가 연결하는 판정 플러그인(LLM 등) |
 
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 43건</b></summary>
+<summary><b>버전별 완료 항목 45건</b></summary>
 
 <br>
 
@@ -1203,6 +1233,8 @@ src/stream2clip/
 | v0.11 | 모음 영상(`compile`, `--compile`): 클립을 이어 붙인 영상과 챕터 목록 |
 | v0.11 | 출처 표기(`--credit`): 클립 구석에 원본 채널 표시 |
 | v0.11 | 파일 끌어다 놓기: 하이라이트 창과 런처 |
+| v0.12 | 무음 구간 제거(`--trim-silence`, 하이라이트 창의 조용한 부분 줄이기) |
+| v0.12 | 새 버전 알림: 시작 화면의 안내, `setup --check-update` |
 | v0.10 | 구성요소 점검 명령(`setup`): 기능별 필요 구성요소의 유무와 해결 방법 |
 
 </details>
@@ -1251,6 +1283,7 @@ src/stream2clip/
 | Windows 실행 파일 | 코드 서명 미적용. Smart App Control 사용 환경에서 실행이 차단될 수 있음 |
 | ffmpeg 내려받기 | Windows만 제공하며 인터넷 연결 필요. macOS, Linux는 패키지 관리자 사용 |
 | 편집 프로그램용 내보내기 | EDL은 독립된 판독기(OpenTimelineIO)로 확인. DaVinci Resolve, Premiere Pro에서의 실제 가져오기는 미검증. 마커 목록은 DaVinci Resolve 형식만 제공 |
+| 무음 구간 제거 | 음량 기준 판정. 말소리가 작게 깔린 부분이 함께 줄어들 수 있으며 배경 음악이 큰 방송은 효과가 적음. 실제 방송 1개로만 측정 |
 | 모음 영상 | 클립을 다시 인코딩하여 이어 붙임. 챕터 문구는 검출 근거이므로 게시 전 수정 필요 |
 
 기능별 실환경 검증 결과와 미검증 범위: [docs/VERIFICATION.md](docs/VERIFICATION.md)

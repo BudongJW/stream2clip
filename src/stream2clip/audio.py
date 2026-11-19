@@ -10,7 +10,7 @@ import numpy as np
 
 from .ffmpeg import find_ffmpeg
 
-__all__ = ["SingingSection", "audio_levels", "audio_envelope", "decode_pcm", "laughter_levels", "singing_sections"]
+__all__ = ["SingingSection", "audio_levels", "audio_envelope", "decode_pcm", "sound_parts", "laughter_levels", "singing_sections"]
 
 
 def audio_levels(path: str | os.PathLike[str], *, window: float = 10.0, sample_rate: int = 8000, ffmpeg: str | None = None) -> np.ndarray:
@@ -119,16 +119,70 @@ def laughter_levels(source: "str | os.PathLike[str] | np.ndarray", *, window: fl
     return out
 
 
-def decode_pcm(path: str | os.PathLike[str], *, sample_rate: int = 16000, ffmpeg: str | None = None) -> np.ndarray:
-    """Decode a media file to mono float32 samples in -1..1 (what speech models take as input)."""
-    cmd = [
-        ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin",
-        "-i", os.fspath(path), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "f32le", "-",
-    ]
+def decode_pcm(
+    path: str | os.PathLike[str], *, sample_rate: int = 16000, start: float | None = None, duration: float | None = None, ffmpeg: str | None = None,
+) -> np.ndarray:
+    """Decode a media file (or ``duration`` seconds of it from ``start``) to mono float32 samples in -1..1."""
+    cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin"]
+    if start is not None:
+        cmd += ["-ss", f"{max(0.0, start):.3f}"]
+    if duration is not None:
+        cmd += ["-t", f"{duration:.3f}"]
+    cmd += ["-i", os.fspath(path), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "f32le", "-"]
     proc = subprocess.run(cmd, capture_output=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(f"ffmpeg could not decode audio from {path}: {proc.stderr.decode('utf-8', 'replace').strip()[-400:]}")
     return np.frombuffer(proc.stdout[: len(proc.stdout) - len(proc.stdout) % 4], dtype=np.float32)
+
+
+def sound_parts(
+    samples: np.ndarray,
+    sample_rate: int,
+    *,
+    min_silence: float = 0.7,
+    level: float = 24.0,
+    pad: float = 0.25,
+    frame: float = 0.02,
+) -> list[tuple[float, float]]:
+    """The parts of a recording that stay when its silences are shortened, as (start, end) seconds.
+
+    A stretch counts as silent when it stays ``level`` dB or more below the loud parts of the
+    recording (the 95th percentile of its 20 ms frames) for at least ``min_silence`` seconds.
+    ``pad`` seconds are left on each side of a silence, so words are not clipped and a pause
+    stays a short pause. Measured against the recording itself, so a quiet microphone is not
+    all "silence" - and where music plays under the voice there is little silence to find.
+    """
+    total = len(samples) / sample_rate if sample_rate else 0.0
+    step = max(1, int(round(frame * sample_rate)))
+    count = len(samples) // step
+    if count == 0 or total <= 0:
+        return [(0.0, total)] if total > 0 else []
+    frames = samples[: count * step].astype(np.float64).reshape(count, step)
+    db = 20.0 * np.log10(np.maximum(np.sqrt(np.mean(frames * frames, axis=1)), 1e-9))
+    loud = float(np.percentile(db, 95))
+    if loud < -60.0:  # nothing but silence: there is no speech to keep apart from it
+        return [(0.0, total)]
+    quiet = db < max(loud - level, -75.0)
+    parts: list[tuple[float, float]] = []
+    kept_from = 0.0
+    index = 0
+    while index < count:
+        if not quiet[index]:
+            index += 1
+            continue
+        run = index
+        while run < count and quiet[run]:
+            run += 1
+        begin, end = index * frame, (run * frame if run < count else total)
+        if end - begin >= min_silence and end - begin > 2 * pad:
+            cut_from, cut_to = (begin + pad if index > 0 else begin), (end - pad if run < count else end)
+            if cut_from > kept_from:
+                parts.append((kept_from, cut_from))
+            kept_from = cut_to
+        index = run
+    if total > kept_from:
+        parts.append((kept_from, total))
+    return [(round(a, 3), round(b, 3)) for a, b in parts if b - a > 1e-6]
 
 
 def _rms_db(samples: np.ndarray) -> float:
