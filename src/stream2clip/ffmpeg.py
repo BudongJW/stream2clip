@@ -284,7 +284,14 @@ def avatar_input_args(options: ExportOptions) -> list[str]:
     args = ["-ss", f"{start:.3f}"]
     if options.duration is not None:
         args += ["-t", f"{options.duration:.3f}"]
-    return args + ["-i", os.fspath(layout.avatar_source)]  # type: ignore[arg-type]
+    return args + avatar_decoder_args(layout) + ["-i", os.fspath(layout.avatar_source)]  # type: ignore[arg-type]
+
+
+def avatar_decoder_args(layout: "VerticalLayout") -> list[str]:
+    """ffmpeg's own VP9 decoder drops the alpha plane of a WebM: when the file's transparency is to be used, libvpx reads it."""
+    if layout.avatar_key is None and os.fspath(layout.avatar_source).lower().endswith(".webm"):  # type: ignore[arg-type]
+        return ["-c:v", "libvpx-vp9"]
+    return []
 
 
 def build_export_command(

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from .layouts import VerticalLayout
 
-__all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "probe", "run_ffmpeg"]
+__all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "has_alpha", "probe", "run_ffmpeg"]
 
 
 class FFmpegError(RuntimeError):
@@ -88,7 +88,9 @@ def grab_frames(path: str | os.PathLike[str], times: Sequence[float], *, layout:
     for t in times:
         avatar = []
         if layout is not None and layout.uses_avatar_video:
-            avatar = ["-ss", f"{max(0.0, t + layout.avatar_offset):.3f}", "-i", os.fspath(layout.avatar_source)]  # type: ignore[arg-type]
+            from .ffmpeg import avatar_decoder_args
+
+            avatar = ["-ss", f"{max(0.0, t + layout.avatar_offset):.3f}", *avatar_decoder_args(layout), "-i", os.fspath(layout.avatar_source)]  # type: ignore[arg-type]
         cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-ss", f"{max(0.0, t):.3f}", "-i", os.fspath(path),
                *avatar, *shape, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]
         proc = subprocess.run(cmd, capture_output=True, check=False)
@@ -98,6 +100,20 @@ def grab_frames(path: str | os.PathLike[str], times: Sequence[float], *, layout:
             continue  # past the end of the file
         frames.append(np.frombuffer(proc.stdout[: width * height * 4], dtype=np.uint8).reshape(height, width, 4).copy())
     return frames
+
+
+def has_alpha(path: str | os.PathLike[str], *, ffprobe: str | None = None) -> bool:
+    """Whether a video carries its own transparency (ProRes 4444, PNG and the like by pixel format, WebM by its alpha tag)."""
+    cmd = [ffprobe or find_ffprobe(), "-v", "error", "-print_format", "json", "-show_streams", os.fspath(path)]
+    proc = subprocess.run(cmd, capture_output=True, check=False)
+    if proc.returncode != 0:
+        raise FFmpegError(cmd, proc.returncode, proc.stderr.decode("utf-8", "replace"))
+    video = next((s for s in json.loads(proc.stdout or b"{}").get("streams", []) if s.get("codec_type") == "video"), None)
+    if video is None:
+        raise ValueError(f"No video stream in {path}")
+    pix_fmt = str(video.get("pix_fmt") or "")
+    tags = {str(key).lower(): str(value) for key, value in (video.get("tags") or {}).items()}
+    return pix_fmt.startswith(("yuva", "rgba", "bgra", "argb", "abgr", "gbrap", "ya")) or tags.get("alpha_mode") == "1"
 
 
 def _fraction(value: str | None) -> float | None:

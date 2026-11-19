@@ -19,7 +19,7 @@ from stream2clip.highlights import Highlight, HighlightConfig, detect_highlights
 from stream2clip.layouts import LAYOUTS, VerticalLayout
 from stream2clip.live import FileFollower, LiveConfig, SurgeDetector, TwitchLiveChat, open_chat, parse_twitch_irc, twitch_channel
 from stream2clip.pipeline import make_clips
-from stream2clip.subtitles import Cue
+from stream2clip.subtitles import Cue, Word
 
 from .conftest import needs_ffmpeg
 
@@ -479,3 +479,46 @@ def test_twitch_messages_drive_the_detector():
         fired += detector.advance(1700000000.0 + second)
     assert len(fired) == 1 and 1700000240 < fired[0].time <= 1700000260
     assert np.isfinite(fired[0].score) and any("채팅 급증" in reason for reason in fired[0].reasons)
+
+
+# --------------------------------------------------------------------------- reaction words in the subtitles (experimental)
+
+
+def test_speech_levels_count_reaction_lines():
+    from stream2clip.highlights import speech_levels
+
+    cues = [Cue(2.0, 4.0, "今日はここまで"), Cue(12.0, 13.0, "えっ"), Cue(13.0, 15.0, "やばいやばい"), Cue(31.0, 33.0, "", (Word(31.0, 32.0, "すご"), Word(32.0, 33.0, "い")))]
+    assert speech_levels(cues, window=5.0).tolist() == [0, 0, 2, 0, 0, 0, 1]
+    assert speech_levels(cues, window=5.0, delay=8.0).tolist() == [0, 0, 0, 0, 2, 0, 0, 1]  # moved onto the chat's clock
+    assert speech_levels([Cue(0, 1, "普通の話")]).size == 0
+
+
+def test_a_stream_without_chat_is_searched_by_what_the_streamer_says(tmp_path, capsys):
+    lines, t = [], 0
+    for index in range(240):  # 20 minutes of talk, one line every 5 s ...
+        said = "それでね、次の話なんだけど"
+        if 120 <= index < 123:  # ... and at 10:00 the streamer is startled three lines in a row
+            said = ["えっ", "やばいやばい", "うわああ"][index - 120]
+        lines.append(f"{index + 1}\n00:{t // 60:02d}:{t % 60:02d},000 --> 00:{(t + 4) // 60:02d}:{(t + 4) % 60:02d},000\n{said}\n")
+        t += 5
+    subs = tmp_path / "talk.srt"
+    subs.write_text("\n".join(lines), encoding="utf-8")
+    assert main(["highlights", "--speech", str(subs), "-o", str(tmp_path / "h.json")]) == 0
+    out = capsys.readouterr().out
+    assert "analysed 0 chat messages" in out and "자막 속 반응 표현 3회" in out
+    found = json.loads((tmp_path / "h.json").read_text(encoding="utf-8"))["highlights"]
+    assert len(found) == 1 and found[0]["start"] < 600 < found[0]["end"] and found[0]["stats"]["speech_reactions"] == 3
+    assert main(["highlights", "-o", str(tmp_path / "none.json")]) == 1
+    assert "--speech" in capsys.readouterr().err
+
+
+def test_speech_is_only_used_when_asked_for():
+    from stream2clip.highlights import speech_levels
+
+    messages = quiet_chat(1800)
+    cues = [Cue(900.0 + i, 901.0 + i, "やばい") for i in range(0, 12, 2)]
+    plain = detect_highlights(messages, duration=1800)
+    with_speech = detect_highlights(messages, duration=1800, speech=speech_levels(cues, delay=HighlightConfig().chat_delay))
+    assert "speech" not in plain.signals and "speech" in with_speech.signals
+    assert any(h.start < 900 < h.end and h.stats.get("speech_reactions") for h in with_speech.highlights)
+    assert not any(h.start < 900 < h.end for h in plain.highlights)

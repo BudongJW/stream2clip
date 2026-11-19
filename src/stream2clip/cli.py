@@ -260,6 +260,7 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--info", help="yt-dlp info JSON (most-replayed heatmap, title/URL for descriptions)")
     g.add_argument("--audio", action="store_true", help="also use the video's loudness")
     g.add_argument("--laughter", action="store_true", help="experimental: also score laughter-like bursts in the audio")
+    g.add_argument("--speech", metavar="SUBTITLES", help="experimental: also score reaction words in this subtitle file (what the streamer says); a way to find moments in a stream without chat")
     g.add_argument("--mark-singing", action="store_true", help="find the songs in the video and say which highlights overlap one")
     g.add_argument("--skip-singing", action="store_true", help="like --mark-singing, and leave out highlights that are mostly a song")
     g.add_argument("--top", type=int, default=10, help="maximum number of highlights (default 10)")
@@ -293,12 +294,12 @@ def _detect(args: argparse.Namespace, video: str | None):
     from .highlights import HighlightConfig, render_timeline
     from .pipeline import find_highlights
 
-    if not args.chat and not args.info and not (video and args.audio):
-        raise ValueError("Give --chat, --info (heatmap) or --audio with a video")
+    if not args.chat and not args.info and not (video and args.audio) and not args.speech:
+        raise ValueError("Give --chat, --info (heatmap), --audio with a video, or --speech with subtitles")
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
                           min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings, **_markers(args))
     src = _source(args)
-    result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), config=cfg,
+    result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), speech=args.speech, config=cfg,
                              source={"url": src.url, "title": src.title} if src else {})
     if video and (args.mark_singing or args.skip_singing):
         from .audio import singing_sections
@@ -347,7 +348,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--layout", default="blur", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default blur): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
     g.add_argument("--avatar", type=_avatar, help="stack / pip layout: avatar box x,y,w,h in source pixels, or 'auto' to find it with anime face detection")
     g.add_argument("--avatar-video", metavar="FILE", help="stack / pip layout: take the avatar from its own recording (green screen or alpha) instead of a box in the stream")
-    g.add_argument("--avatar-key", default="#00FF00", metavar="COLOR", help="colour removed from --avatar-video (default #00FF00); 'none' uses the file's own transparency")
+    g.add_argument("--avatar-key", default="auto", metavar="COLOR", help="colour removed from --avatar-video: 'auto' (default) uses the file's own transparency when it has one and removes #00FF00 otherwise; 'none' always uses the file's transparency")
     g.add_argument("--avatar-offset", type=float, default=0.0, metavar="SECONDS", help="--avatar-video: seconds its recording started before the stream's (negative: after)")
     g.add_argument("--corner", default="top-right", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="pip layout: where the avatar goes (default top-right)")
     g.add_argument("--inset", type=float, default=0.42, help="pip layout: avatar width as a fraction of the frame (default 0.42)")
@@ -415,9 +416,15 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         if avatar == "auto":
             aspect = args.size[0] / (args.size[1] * args.split) if args.layout == "stack" else 0.8  # the pip box: a little taller than wide
             avatar = _find_avatar(sample_video, aspect=aspect, model=args.face_model, samples=args.avatar_samples).region if args.layout in ("stack", "pip") else None
+        key = args.avatar_key
+        if key.lower() == "auto" and args.avatar_video:
+            from .export import has_alpha
+
+            key = "none" if has_alpha(args.avatar_video) else "#00FF00"
+            print(f"avatar {args.avatar_video}: " + ("its own transparency is used" if key == "none" else "#00FF00 is removed"))
         layout = VerticalLayout(
             args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split, corner=args.corner, inset=args.inset,
-            avatar_source=args.avatar_video, avatar_key=None if args.avatar_key.lower() == "none" else args.avatar_key, avatar_offset=args.avatar_offset,
+            avatar_source=args.avatar_video, avatar_key=None if key.lower() == "none" else ("#00FF00" if key.lower() == "auto" else key), avatar_offset=args.avatar_offset,
         )
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
@@ -655,7 +662,7 @@ def cmd_upload(args: argparse.Namespace) -> int:
     tags = [t for t in (args.tags or "").split(",") if t.strip()]
     resource = video_resource(
         args.title, description, tags=tags, category_id=args.category, privacy=args.privacy, made_for_kids=args.made_for_kids,
-        synthetic_media=True if args.synthetic_media else None, language=args.language, shorts=args.shorts,
+        synthetic_media=True if args.synthetic_media else None, language=args.language, shorts=args.shorts, publish_at=args.publish_at,
     )
     if args.shorts:
         info = probe(args.video)
@@ -671,6 +678,8 @@ def cmd_upload(args: argparse.Namespace) -> int:
     print(f"uploading {args.video} as {args.privacy} ...", flush=True)
     response = upload_video(args.video, resource, credentials=credentials, on_progress=lambda f: print(f"  {f:4.0%}", flush=True))
     print(f"uploaded {video_url(response['id'])}  ({response.get('status', {}).get('privacyStatus', args.privacy)})")
+    if resource["status"].get("publishAt"):
+        print(f"scheduled to become public at {resource['status']['publishAt']}")
     return 0
 
 
@@ -932,6 +941,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--description-file", help="read the description from a file, e.g. clips/clip_01.txt")
     p.add_argument("--tags", help="comma separated")
     p.add_argument("--privacy", choices=["private", "unlisted", "public"], default="private")
+    p.add_argument("--publish-at", metavar="WHEN", help='keep the video private and make it public at this time, e.g. "2026-12-24 18:00" (your local time)')
     p.add_argument("--category", default="20", help="YouTube category id (default 20 = Gaming)")
     p.add_argument("--language", help="default language of the title / description, e.g. ko")
     p.add_argument("--made-for-kids", action="store_true")

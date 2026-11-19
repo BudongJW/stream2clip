@@ -85,7 +85,7 @@
  "개": "",
  "낮추면 더 많이, 높이면 확실한 장면만 찾습니다": "Lower finds more, higher keeps only the clear moments",
  "하이라이트 찾기": "Find highlights",
- "x,y,w,h (stack, pip 레이아웃)": "x,y,w,h (stack, pip layouts)",
+ "x,y,w,h": "x,y,w,h",
  "자동 찾기": "Find it",
  "애니메 얼굴 검출로 아바타 위치를 찾습니다 (처음 한 번 12MB 모델 다운로드)": "Finds the avatar with anime face detection (downloads a 12 MB model the first time)",
  "자막 파일 사용 (있으면)": "Use the subtitle file (if given)",
@@ -133,7 +133,7 @@
  "번역하려면 자막이 필요합니다. 자막 파일을 고르거나 받아쓰기를 켜세요.": "Translation needs subtitles. Choose a subtitle file or switch transcription on.",
  "아바타 {0}: 프레임 {1}/{2}장에서 확인": "Avatar {0}: seen in {1} of {2} frames",
  "가이드라인 없음": "No guideline",
- "이 레이아웃은 아바타 위치가 필요합니다. 자동 찾기 버튼을 누르거나 x,y,w,h를 입력하세요.": "This layout needs the avatar position. Press the Find it button or enter x,y,w,h.",
+ "이 레이아웃은 아바타 위치 또는 아바타 영상이 필요합니다. 자동 찾기 버튼을 누르거나 x,y,w,h를 입력하세요.": "This layout needs the avatar position or an avatar video. Press the Find it button or enter x,y,w,h.",
  "아바타 위치를\n정하면 보입니다": "Set the avatar\nposition to see it",
  "아바타를 찾지 못했습니다. 같은 자리에 계속 나오는 얼굴이 없습니다. x,y,w,h를 직접 입력하세요.": "No avatar found: no face stays in one place. Type x,y,w,h yourself.",
  "[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중": "[{0}/{1}] #{2:02d} {3} - {4} encoding",
@@ -354,5 +354,14 @@
  "크레딧 표기가 필요합니다: {0}": "A credit is required: {0}",
  "크레딧 표기가 필요합니다.": "A credit is required.",
  "추가 조건 확인: {0}": "Read the further terms: {0}",
- "VRM 0.x 메타는 영리 사용을 허용과 불가로만 구분합니다. 개인과 법인의 구분은 배포처의 약관에서 확인해야 합니다.": "VRM 0.x only says whether commercial use is allowed or not. Whether that covers companies is in the terms where the model is distributed."
+ "VRM 0.x 메타는 영리 사용을 허용과 불가로만 구분합니다. 개인과 법인의 구분은 배포처의 약관에서 확인해야 합니다.": "VRM 0.x only says whether commercial use is allowed or not. Whether that covers companies is in the terms where the model is distributed.",
+ "아바타 영상": "Avatar video",
+ "(선택) 아바타만 녹화한 영상": "(optional) avatar recording",
+ "방송과 같은 시간에 아바타만 따로 녹화한 영상입니다. 초록 배경(#00FF00)은 지우고, 투명 배경 영상은 그대로 씁니다.\n넣으면 아바타 위치 대신 이 영상이 stack, pip 레이아웃의 아바타가 됩니다.": "A recording of the avatar alone, made at the same time as the stream. A green background (#00FF00) is removed, a transparent video is used as it is.\nWhen given, this video is the avatar of the stack and pip layouts instead of a box in the stream.",
+ "아바타 영상 파일을 찾을 수 없습니다: {0}": "The avatar video file was not found: {0}",
+ "예약": "Schedule",
+ "예약 게시": "Publish later",
+ "비공개로 올린 뒤 정한 시각에 YouTube가 공개로 바꿉니다.": "Uploaded private; YouTube makes it public at the time set here.",
+ "자막 속 반응 표현 {0}회": "{0} reaction lines in the subtitles",
+ "stack, pip 레이아웃에서 방송 화면 속 아바타의 위치와 크기 (픽셀)": "For the stack and pip layouts: where the avatar is in the stream picture, and its size (pixels)"
 }
