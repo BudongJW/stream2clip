@@ -82,7 +82,8 @@ def test_kept_parts_are_whole_frames_and_the_sound_loses_the_same_parts():
     options = ExportOptions(format="mp4", fps=30, start=10.0, end=20.0, keep=((0.0, 2.0), (3.5, 6.0)), subtitles="clip.ass")
     video, audio = keep_filters(options)
     assert video == ["select='between(n,0,59)+between(n,105,179)'", "setpts=N/(30*TB)"]
-    assert audio == "asetnsamples=n=160:p=0,aselect='gte(t,0.0000)*lt(t,2.0000)+gte(t,3.5000)*lt(t,6.0000)',asetpts=N/SR/TB"
+    # the sound is chosen by counting 160-sample frames at 48 kHz (300 a second), never by a timestamp
+    assert audio == "aresample=48000,asetnsamples=n=160:p=0,aselect='between(n,0,599)+between(n,1050,1799)',asetpts=N/SR/TB"
     graph = build_video_filter(options)
     assert graph.index("fps=30") < graph.index("select=") < graph.index("subtitles=")  # captions are drawn on the shortened clip
     cmd = build_export_command("in.mp4", "out.mp4", options, ffmpeg="ffmpeg")
@@ -155,6 +156,7 @@ def test_trimmed_clip_is_shorter_and_picture_stays_with_sound(flashes, tmp_path)
     assert probe(plain.path).duration == pytest.approx(12.0, abs=0.2)
     assert probe(cut.path).duration == pytest.approx(12.0 - cut.removed, abs=0.15)
 
+    assert len(decode_pcm(cut.path, sample_rate=48000)) / 48000 == pytest.approx(12.0 - cut.removed, abs=0.15)  # the sound is as long as the picture
     white, loud = white_and_loud(cut.path)
     apart = white != loud
     assert int(white.sum()) == pytest.approx(spoken * 30, abs=6)  # every white frame is still there ...

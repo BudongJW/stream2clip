@@ -219,11 +219,17 @@ def filter_path(path: str | os.PathLike[str]) -> str:
     return re.sub(r"([\\'\[\],;])", r"\\\1", value)  # graph level
 
 
+#: Sound is cut in frames of this many samples at this rate when parts of a clip are dropped (3.3 ms).
+_KEEP_RATE, _KEEP_STEP = 48000, 160
+
+
 def keep_filters(options: ExportOptions) -> tuple[list[str], str]:
     """Filters that drop everything outside ``options.keep`` and close the result up: (video filters, audio chain).
 
-    With a known frame rate the picture is chosen by frame number, so each part is a whole
-    number of frames and the sound - cut in 160-sample steps - stays with it across many cuts.
+    Both are chosen by counting, not by timestamps: with a known frame rate the picture by frame
+    number, the sound - brought to 48 kHz and cut into 160-sample frames - by the number of those.
+    Each part is then a whole number of picture frames with its sound to within 3 ms, whatever
+    timestamps the file or the ffmpeg at hand gives its frames, and the two stay together across many cuts.
     """
     if not options.keep:
         return [], ""
@@ -231,14 +237,16 @@ def keep_filters(options: ExportOptions) -> tuple[list[str], str]:
     if fps:
         spans = [(int(round(a * fps)), int(round(b * fps))) for a, b in options.keep]
         spans = [(i, j) for i, j in spans if j > i]
+        times = [(i / fps, j / fps) for i, j in spans]
         picture = "+".join(f"between(n,{i},{j - 1})" for i, j in spans)
-        sound = "+".join(f"gte(t,{i / fps:.4f})*lt(t,{j / fps:.4f})" for i, j in spans)
         video = [f"select='{picture}'", f"setpts=N/({fps:g}*TB)"]
     else:
-        picture = "+".join(f"gte(t,{a:.4f})*lt(t,{b:.4f})" for a, b in options.keep)
-        sound = picture
+        times = list(options.keep)
+        picture = "+".join(f"gte(t,{a:.4f})*lt(t,{b:.4f})" for a, b in times)
         video = [f"select='{picture}'", "setpts=N/FRAME_RATE/TB"]
-    return video, f"asetnsamples=n=160:p=0,aselect='{sound}',asetpts=N/SR/TB"
+    steps = [(int(round(a * _KEEP_RATE / _KEEP_STEP)), int(round(b * _KEEP_RATE / _KEEP_STEP))) for a, b in times]
+    sound = "+".join(f"between(n,{i},{j - 1})" for i, j in steps if j > i)
+    return video, f"aresample={_KEEP_RATE},asetnsamples=n={_KEEP_STEP}:p=0,aselect='{sound}',asetpts=N/SR/TB"
 
 
 def build_video_filter(options: ExportOptions) -> str:
