@@ -510,6 +510,10 @@ def test_a_stream_without_chat_is_searched_by_what_the_streamer_says(tmp_path, c
     assert len(found) == 1 and found[0]["start"] < 600 < found[0]["end"] and found[0]["stats"]["speech_reactions"] == 3
     assert main(["highlights", "-o", str(tmp_path / "none.json")]) == 1
     assert "--speech" in capsys.readouterr().err
+    calm = tmp_path / "calm.srt"  # subtitles without a single reaction line: say so, instead of a puzzling error
+    calm.write_text("1\n00:00:01,000 --> 00:00:04,000\n今日は配信に来てくれてありがとうございます\n", encoding="utf-8")
+    assert main(["highlights", "--speech", str(calm), "-o", str(tmp_path / "calm.json")]) == 1
+    assert "No reaction words" in capsys.readouterr().err and not (tmp_path / "calm.json").exists()
 
 
 def test_speech_is_only_used_when_asked_for():
