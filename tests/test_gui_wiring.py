@@ -161,6 +161,31 @@ def test_replay_button_reports_a_missing_obs(app, tmp_path):
     win.close()
 
 
+def test_f10_replay_hotkey_is_opt_in(app):
+    win = LauncherWindow()
+    win.dialogs = False
+    registered = []
+    win.hotkeys.unregister()
+    win.hotkeys.register = lambda keys: registered.append(list(keys)) or "fake"
+    saved = []
+    win.save_replay = lambda: saved.append(True)
+
+    assert not win.replay_hotkey_check.isChecked() and win._hotkey_names() == ["F8", "F9"]  # off unless asked for
+    win._on_hotkey("F10")
+    assert saved == [True]  # the key itself is handled...
+    win.replay_hotkey_check.setChecked(True)
+    assert registered == [["F8", "F9", "F10"]]  # ...but only taken system-wide when switched on
+    win.replay_hotkey_check.setChecked(False)
+    assert registered[-1] == ["F8", "F9"]
+    win.replay_hotkey_check.setChecked(True)
+    win.close()
+
+    again = LauncherWindow()  # remembered, and registered from the start
+    assert again.replay_hotkey_check.isChecked() and again._hotkey_names() == ["F8", "F9", "F10"]
+    again.replay_hotkey_check.setChecked(False)
+    again.close()
+
+
 # ----------------------------------------------------------------------------- highlights window
 
 

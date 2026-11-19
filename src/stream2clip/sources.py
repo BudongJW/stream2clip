@@ -15,7 +15,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 if TYPE_CHECKING:
     from .chat import ChatMessage
@@ -121,8 +121,12 @@ def ytdlp_command(*, cookies: str | os.PathLike[str] | None = None, cookies_from
     return base
 
 
-def build_info_command(url: str, *, ytdlp: list[str] | None = None) -> list[str]:
-    return [*(ytdlp or ytdlp_command()), "--dump-single-json", "--no-warnings", "--skip-download", url]
+def build_info_command(url: str, *, ytdlp: list[str] | None = None, comments: int = 0) -> list[str]:
+    """``comments`` > 0 also puts that many top comments into the JSON (viewers' timestamps, see ``evaluation``)."""
+    cmd = [*(ytdlp or ytdlp_command()), "--dump-single-json", "--no-warnings", "--skip-download"]
+    if comments > 0:
+        cmd += ["--write-comments", "--extractor-args", f"youtube:max_comments={int(comments)},all,0,0;comment_sort=top"]
+    return [*cmd, url]
 
 
 def build_chat_command(url: str, out_dir: str | os.PathLike[str], *, ytdlp: list[str] | None = None) -> list[str]:
@@ -152,19 +156,62 @@ def build_section_command(
     end: float | None = None,
     max_height: int = 1080,
     ytdlp: list[str] | None = None,
+    ffmpeg_input_args: Sequence[str] = (),
 ) -> list[str]:
-    """Download only ``start..end`` of a VOD (keyframe-accurate cuts) as MP4."""
+    """Download only ``start..end`` of a VOD (keyframe-accurate cuts) as MP4.
+
+    ``ffmpeg_input_args`` are handed to the ffmpeg that yt-dlp runs for a section download.
+    """
+    section = start is not None or end is not None
+    formats = f"bv*[height<={max_height}]+ba/b[height<={max_height}]/b"
+    if section:
+        # A section is read by ffmpeg in one connection. YouTube serves its DASH formats to such a reader at a
+        # crawl (a 64 s section had not arrived after 6 minutes), its HLS formats at full speed (13 s) - so HLS first.
+        hls = "[protocol*=m3u8]"
+        formats = f"bv*{hls}[height<={max_height}]+ba{hls}/b{hls}[height<={max_height}]/" + formats
     cmd = [
         *(ytdlp or ytdlp_command()),
-        "-f", f"bv*[height<={max_height}]+ba/b[height<={max_height}]/b",
+        "-f", formats,
         "--merge-output-format", "mp4",
         "--no-warnings",
         "-o", os.fspath(output),
     ]
-    if start is not None or end is not None:
+    if section:
         cmd += ["--download-sections", f"*{_hms(start or 0)}-{_hms(end) if end is not None else 'inf'}", "--force-keyframes-at-cuts"]
+        if ffmpeg_input_args:
+            cmd += ["--downloader-args", "ffmpeg_i:" + " ".join(ffmpeg_input_args)]
     cmd.append(url)
     return cmd
+
+
+_HLS_PICKY: dict[str, list[str]] = {}
+
+
+def hls_relaxed_args(ffmpeg: str | None = None) -> list[str]:
+    """``["-extension_picky", "0"]`` when this ffmpeg has that switch (7.1 and later), else ``[]``.
+
+    Newer ffmpeg refuses HLS segments whose file extension does not match the detected
+    format. CHZZK serves fragmented MP4 as ``.m4s``, so a section download dies with
+    "mismatches allowed extensions" unless the check is switched off for that download.
+    """
+    from .ffmpeg import find_ffmpeg
+
+    try:
+        binary = ffmpeg or find_ffmpeg()
+    except Exception:
+        return []
+    if binary not in _HLS_PICKY:
+        try:
+            proc = subprocess.run([binary, "-hide_banner", "-h", "demuxer=hls"], capture_output=True, text=True, timeout=20, check=False)
+            text = (proc.stdout or "") + (proc.stderr or "")
+        except (OSError, subprocess.SubprocessError):
+            text = ""
+        _HLS_PICKY[binary] = ["-extension_picky", "0"] if "extension_picky" in text else []
+    return list(_HLS_PICKY[binary])
+
+
+def is_url(text: object) -> bool:
+    return isinstance(text, str) and text.lower().startswith(("http://", "https://"))
 
 
 def _run(cmd: list[str], timeout: float | None = None) -> subprocess.CompletedProcess[str]:
@@ -175,8 +222,8 @@ def _run(cmd: list[str], timeout: float | None = None) -> subprocess.CompletedPr
     return proc
 
 
-def fetch_info(url: str, *, ytdlp: list[str] | None = None, timeout: float | None = 120) -> dict[str, Any]:
-    return json.loads(_run(build_info_command(url, ytdlp=ytdlp), timeout).stdout)
+def fetch_info(url: str, *, ytdlp: list[str] | None = None, timeout: float | None = 120, comments: int = 0) -> dict[str, Any]:
+    return json.loads(_run(build_info_command(url, ytdlp=ytdlp, comments=comments), timeout if comments <= 0 else None).stdout)
 
 
 def download_chat(url: str, out_dir: str | os.PathLike[str], *, ytdlp: list[str] | None = None, timeout: float | None = None) -> Path:
@@ -201,8 +248,42 @@ def download_subs(url: str, out_dir: str | os.PathLike[str], langs: str = "ja", 
 def download_section(url: str, output: str | os.PathLike[str], start: float | None = None, end: float | None = None, *, max_height: int = 1080, ytdlp: list[str] | None = None, timeout: float | None = None) -> Path:
     out = Path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
-    _run(build_section_command(url, out, start=start, end=end, max_height=max_height, ytdlp=ytdlp), timeout)
+    section = start is not None or end is not None
+    extra = hls_relaxed_args() if section and platform_of(url) == "chzzk" else []
+    _run(build_section_command(url, out, start=start, end=end, max_height=max_height, ytdlp=ytdlp, ffmpeg_input_args=extra), timeout)
     return out
+
+
+def download_highlight_sections(
+    url: str,
+    highlights: "Sequence[Any]",
+    out_dir: str | os.PathLike[str],
+    *,
+    pad: float = 2.0,
+    max_height: int = 1080,
+    ytdlp: list[str] | None = None,
+    download: Callable[..., Path] | None = None,
+    on_progress: Callable[[int, int, Any], None] | None = None,
+) -> dict[int, tuple[Path, float]]:
+    """Download only the footage of each highlight: ``{rank: (file, stream time at the file's start)}``.
+
+    A three-hour stream is not fetched to cut five clips out of it. Each file covers the
+    highlight plus ``pad`` seconds on both sides; a file that is already there is reused,
+    so a run that was interrupted continues where it stopped.
+    """
+    fetch = download or download_section
+    out = Path(out_dir)
+    found: dict[int, tuple[Path, float]] = {}
+    for index, h in enumerate(highlights, start=1):
+        start = max(0.0, float(h.start) - pad)
+        end = float(h.end) + pad
+        path = out / f"section_{h.rank:02d}_{int(start * 10):07d}-{int(end * 10):07d}.mp4"
+        if on_progress is not None:
+            on_progress(index, len(highlights), h)
+        if not (path.is_file() and path.stat().st_size > 0):
+            fetch(url, path, start, end, max_height=max_height, ytdlp=ytdlp)
+        found[h.rank] = (path, start)
+    return found
 
 
 def download_video(url: str, output: str | os.PathLike[str], *, max_height: int = 1080, ytdlp: list[str] | None = None, timeout: float | None = None) -> Path:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import sys
 import time
@@ -225,9 +226,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     korean = platform_of(args.url)  # CHZZK / SOOP: chat comes from their own replay API, not yt-dlp
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
     try:
-        info = fetch_info(args.url, ytdlp=ytdlp)
+        info = fetch_info(args.url, ytdlp=ytdlp, comments=args.comments) if args.comments else fetch_info(args.url, ytdlp=ytdlp)
         (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-        print(f"info   {out / 'info.json'}  ({info.get('title', '')})")
+        print(f"info   {out / 'info.json'}  ({info.get('title', '')})" + (f"  + {len(info.get('comments') or [])} comments" if args.comments else ""))
     except RuntimeError as exc:
         if not korean:
             raise
@@ -332,6 +333,9 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--avatar", type=_avatar, help="stack layout: avatar box x,y,w,h in source pixels, or 'auto' to find it with anime face detection")
     g.add_argument("--face-model", help="--avatar auto: ONNX face model file (default: downloaded once, 12 MB)")
     g.add_argument("--avatar-samples", type=int, default=12, help="--avatar auto: frames to look at (default 12)")
+    g.add_argument("--max-height", type=int, default=1080, help="when the video is an address: the largest picture height to download (default 1080)")
+    g.add_argument("--cookies", help="when the video is an address: Netscape cookies.txt for yt-dlp")
+    g.add_argument("--cookies-from-browser", metavar="BROWSER", help="when the video is an address: let yt-dlp read cookies from chrome / firefox / edge ...")
     g.add_argument("--game", type=_region, help="stack layout: game box x,y,w,h (default: whole frame)")
     g.add_argument("--split", type=float, default=0.42, help="stack layout: avatar panel height fraction")
     g.add_argument("--size", type=_size, default=(1080, 1920), help="layout canvas WxH (default 1080x1920)")
@@ -368,11 +372,23 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     if not highlights:
         print("no highlights to export")
         return 0
+    from .sources import download_highlight_sections, is_url, ytdlp_command
+
+    sections = None
+    video, sample_video = args.video, args.video
+    if is_url(args.video):  # only the footage of the highlights is downloaded, not the whole stream
+        folder = Path(args.output) / "sections"
+        sections = download_highlight_sections(
+            args.video, highlights, folder, max_height=args.max_height,
+            ytdlp=ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser),
+            on_progress=lambda i, n, h: print(f"download [{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
+        )
+        video, sample_video = None, os.fspath(sections[highlights[0].rank][0])
     layout = None
     if args.layout != "none":
         avatar = args.avatar
         if avatar == "auto":
-            avatar = _find_avatar(args.video, aspect=args.size[0] / (args.size[1] * args.split), model=args.face_model, samples=args.avatar_samples).region if args.layout == "stack" else None
+            avatar = _find_avatar(sample_video, aspect=args.size[0] / (args.size[1] * args.split), model=args.face_model, samples=args.avatar_samples).region if args.layout == "stack" else None
         layout = VerticalLayout(args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split)
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
@@ -388,7 +404,8 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     source = _source(args)
     profile = get_profile(args.agency) if (args.agency or source) else None
     results = make_clips(
-        args.video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
+        video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
+        section=(lambda h: sections[h.rank]) if sections is not None else None,
         karaoke=not args.no_karaoke, source=source, profile=profile, registered=True if args.registered else None,
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
@@ -435,12 +452,42 @@ def cmd_clips(args: argparse.Namespace) -> int:
     return _make_clips(args, load_highlights(args.highlights))
 
 
+def _prepare_from_url(args: argparse.Namespace, out: Path) -> None:
+    """``auto <URL>``: fetch what highlight detection needs (chat replay, info) - the video comes later, in parts."""
+    from .sources import download_chat, download_replay_chat, fetch_info, platform_of, ytdlp_command
+
+    for option in ("audio", "laughter", "mark_singing", "skip_singing"):
+        if getattr(args, option, False):
+            raise ValueError(f"--{option.replace('_', '-')} needs the whole video. Download it first (stream2clip fetch URL -o DIR --video) and give the file instead of the address.")
+    ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
+    korean = platform_of(args.video)
+    if not args.info:
+        try:
+            info = fetch_info(args.video, ytdlp=ytdlp)
+            (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+            args.info = str(out / "info.json")
+            print(f"info   {args.info}  ({info.get('title', '')})")
+        except RuntimeError as exc:
+            if not korean:
+                raise
+            print(f"info   (skipped) {exc}", file=sys.stderr)
+    if not args.chat:
+        args.chat = str(download_replay_chat(args.video, out) if korean else download_chat(args.video, out, ytdlp=ytdlp))
+        print(f"chat   {args.chat}")
+
+
 def cmd_auto(args: argparse.Namespace) -> int:
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     if not args.plot:
         args.plot = str(out / "timeline.png")
-    result = _detect(args, args.video)
+    from .sources import is_url
+
+    if is_url(args.video):
+        _prepare_from_url(args, out)
+        result = _detect(args, None)
+    else:
+        result = _detect(args, args.video)
     result.save(out / "highlights.json")
     return _make_clips(args, result.highlights)
 
@@ -483,6 +530,48 @@ def cmd_upload(args: argparse.Namespace) -> int:
     print(f"uploading {args.video} as {args.privacy} ...", flush=True)
     response = upload_video(args.video, resource, credentials=credentials, on_progress=lambda f: print(f"  {f:4.0%}", flush=True))
     print(f"uploaded {video_url(response['id'])}  ({response.get('status', {}).get('privacyStatus', args.privacy)})")
+    return 0
+
+
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    from .evaluation import evaluate_streams, load_stream, parse_sweep
+    from .highlights import HighlightConfig
+
+    streams = []
+    for folder in args.folders:
+        try:
+            stream = load_stream(folder, min_votes=args.min_votes)
+        except ValueError as exc:  # one incomplete folder should not stop the others
+            print(f"skip   {exc}", file=sys.stderr)
+            continue
+        if not stream.labels:
+            print(f"skip   {stream.name}: no timestamps in its comments (fetch with --comments N)", file=sys.stderr)
+            continue
+        streams.append(stream)
+    if not streams:
+        raise ValueError("No stream with viewer timestamps to compare against")
+    base = HighlightConfig(top=args.top)
+    settings = [("defaults", base)]
+    for sweep in args.sweep:
+        settings += parse_sweep(sweep, base)
+
+    def line(name: str, s) -> str:
+        return f"{name:<28.28} {s.highlights:>4} {s.labels:>6} {s.precision:>9.0%} {s.recall:>7.0%} {s.chance:>7.0%} {s.lift:>5.2f}"
+
+    report = []
+    header = f"{'':<28} {'clip':>4} {'marked':>6} {'precision':>9} {'recall':>7} {'chance':>7} {'lift':>5}"
+    for label, cfg in settings:
+        rows, pooled = evaluate_streams(streams, cfg, tolerance=args.tolerance)
+        print(f"\n[{label}]")
+        print(header)
+        for name, score in rows:
+            print(line(name, score))
+        print(line(f"all {len(rows)} streams", pooled))
+        report.append({"setting": label, "streams": {name: vars(score) for name, score in rows},
+                       "pooled": {**vars(pooled), "precision": pooled.precision, "recall": pooled.recall, "lift": pooled.lift}})
+    if args.output:
+        Path(args.output).write_text(json.dumps({"schema": "stream2clip.evaluation/v1", "tolerance": args.tolerance, "results": report}, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"\nsaved {args.output}")
     return 0
 
 
@@ -596,7 +685,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cookies", help="Netscape cookies.txt for yt-dlp (fixes \"Sign in to confirm you're not a bot\")")
     p.add_argument("--cookies-from-browser", metavar="BROWSER", help="let yt-dlp read cookies from chrome / firefox / edge ...")
     p.add_argument("--subs", metavar="LANGS", help='also download captions as WebVTT (auto captions included), e.g. "ja" or "ja,ko"')
+    p.add_argument("--comments", type=int, default=0, metavar="N", help="also keep the N top comments in info.json (viewers' timestamps for `stream2clip evaluate`)")
     p.set_defaults(func=cmd_fetch)
+
+    p = sub.add_parser("evaluate", help="score the detector against the timestamps viewers left in the comments")
+    p.add_argument("folders", nargs="+", help="folders made by `fetch URL -o FOLDER --comments N` (chat replay + info.json)")
+    p.add_argument("--sweep", action="append", default=[], metavar="NAME=V1,V2", help="try several values of one setting, e.g. threshold=1.5,2,2.5 or delay=4,8,12 (repeatable)")
+    p.add_argument("--tolerance", type=float, default=10.0, help="seconds a marked moment may lie outside a highlight and still count (default 10)")
+    p.add_argument("--min-votes", type=int, default=1, help="only use moments marked by at least this many comments (default 1)")
+    p.add_argument("--top", type=int, default=10, help="maximum number of highlights per stream (default 10)")
+    p.add_argument("-o", "--output", help="write the numbers as JSON")
+    p.set_defaults(func=cmd_evaluate)
 
     p = sub.add_parser("highlights", help="find highlight moments from chat / audio / most-replayed")
     p.add_argument("--video", help="VOD file (duration, and loudness with --audio)")
@@ -605,7 +704,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_highlights)
 
     p = sub.add_parser("clips", help="export highlights as vertical clips with subtitles and descriptions")
-    p.add_argument("video")
+    p.add_argument("video", help="VOD file, or the stream's address: then only the highlights' footage is downloaded")
     p.add_argument("--highlights", required=True, help="JSON from `stream2clip highlights`")
     p.add_argument("-o", "--output", required=True, help="output directory")
     p.add_argument("--info", help="yt-dlp info JSON (source title / URL)")
@@ -614,7 +713,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_clips)
 
     p = sub.add_parser("auto", help="VOD + chat -> highlights -> clips in one go")
-    p.add_argument("video")
+    p.add_argument("video", help="VOD file, or the stream's address: chat replay is fetched and only the highlights' footage is downloaded")
     p.add_argument("-o", "--output", required=True, help="output directory")
     p.add_argument("--strict", action="store_true", help="exit 1 when the guideline check finds errors")
     _add_highlight_args(p)

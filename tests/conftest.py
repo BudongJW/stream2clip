@@ -47,3 +47,30 @@ def moving_square(t: float, size: tuple[int, int] = (96, 64)) -> np.ndarray:
     x = int(t * 60) % (w - 16)
     frame[20:36, x : x + 16] = (255, 0, 0, 255)
     return frame
+
+
+_exit_status = 0
+
+
+def pytest_sessionfinish(session, exitstatus):
+    global _exit_status
+    _exit_status = int(exitstatus)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config):
+    """Python 3.10 + PySide6: skip interpreter finalization once the run has been reported.
+
+    On 3.10 the interpreter sometimes aborts while shutting down after every test has
+    passed ("Fatal Python error: none_dealloc: deallocating None", exit code 134) - a
+    reference-count slip in an extension module during the final garbage collection, not
+    something a test did. The results are already printed here, so leave with the real
+    exit status instead of letting that crash turn a green run red.
+    """
+    import os
+    import sys
+
+    if sys.version_info < (3, 11) and "PySide6" in sys.modules:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(_exit_status)
