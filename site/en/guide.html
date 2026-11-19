@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.9</dd>
+    <dt>Version</dt><dd>v0.10</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -81,16 +81,22 @@
     <ol>
       <li>Download the Windows installer (<code>setup.exe</code>) from the <a href="https://github.com/BudongJW/stream2clip/releases/latest">releases page</a> and run it</li>
       <li>Choose the language on the first page: Korean, Japanese or English. It is used for the installer and for the app</li>
-      <li>Confirm the folder and install. No administrator rights needed</li>
-      <li>Install ffmpeg. Restart the terminal afterwards
-        <pre><code>winget install Gyan.FFmpeg</code></pre>
-        Alternative: place <code>ffmpeg.exe</code> and <code>ffprobe.exe</code> in the installation folder</li>
+      <li>Confirm the folder. No administrator rights needed</li>
+      <li>On the additional tasks page, keep <strong>Download ffmpeg</strong> ticked and install. ffmpeg (115 MB), which video conversion needs, is downloaded during the installation. The task is not shown on a PC that already has ffmpeg</li>
       <li>Start stream2clip from the Start menu</li>
     </ol>
     <ul>
-      <li>Without installing: download the zip file, unzip it to any folder and run <code>stream2clip-gui.exe</code></li>
+      <li>Download unticked or failed: the <strong>Download ffmpeg</strong> button at the top of the app's start window does it again</li>
+      <li>Checking components: <code>stream2clip setup</code> on the command line lists what each feature needs, whether it is there and how to get it</li>
+    </ul>
+    <figure>
+      <img src="../assets/shots/en/launcher_ffmpeg.png" alt="Start window on a PC without ffmpeg: the notice at the top with the Download ffmpeg button" width="1109" height="388" loading="lazy">
+      <figcaption>Start window on a PC without ffmpeg. The notice goes away once ffmpeg is there</figcaption>
+    </figure>
+    <ul>
+      <li>Without installing: download the zip file, unzip it to any folder and run <code>stream2clip-gui.exe</code>. The <strong>Download ffmpeg</strong> button on the start window gets ffmpeg</li>
       <li>The language of the app can be changed later at the bottom of the launcher</li>
-      <li>Removal: uninstall stream2clip in the installed apps list of the Windows settings</li>
+      <li>Removal: uninstall stream2clip in the installed apps list of the Windows settings. The downloaded ffmpeg is removed with it</li>
     </ul>
     <div class="note">
       <h4>Note</h4>
@@ -356,7 +362,7 @@
         <thead><tr><th>Symptom</th><th>Action</th></tr></thead>
         <tbody>
           <tr><th scope="row">Program blocked</th><td>Caused by the missing code signature. Use the Python package where Smart App Control is on</td></tr>
-          <tr><th scope="row">ffmpeg not found</th><td>Install ffmpeg and restart the program, or place <code>ffmpeg.exe</code> and <code>ffprobe.exe</code> in the same folder as the executables</td></tr>
+          <tr><th scope="row">ffmpeg not found</th><td>Use the <strong>Download ffmpeg</strong> button on the app's start window, or <code>stream2clip setup --ffmpeg</code> on the command line. After installing it yourself: <strong>Look again</strong>, or restart the program</td></tr>
           <tr><th scope="row">No spans found</th><td>Lower the threshold and run again. Check that the chat file belongs to the stream</td></tr>
           <tr><th scope="row">YouTube asks for sign-in</th><td>Pass browser cookies on the command line with <code>--cookies-from-browser chrome</code></td></tr>
           <tr><th scope="row">Replay buffer not running</th><td>Enable the replay buffer in the Output section of the OBS settings and start it. OBS does not start the buffer for a scene without sources</td></tr>

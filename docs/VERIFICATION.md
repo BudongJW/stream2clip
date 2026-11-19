@@ -27,6 +27,12 @@
   - 설치 결과: 사용자 폴더의 `AppData\Local\Programs\stream2clip`에 프로그램, `language.txt`(`ja`), 제거 프로그램 생성. 시작 메뉴 바로 가기와 제거 항목 등록
   - 완료 화면의 실행 선택으로 앱이 일본어 화면으로 시작. 명령줄 프로그램의 `language`도 `ja`
   - 제거: 제거 프로그램의 확인 창을 거쳐 프로그램, 바로 가기, 제거 항목 삭제 확인
+- ffmpeg 내려받기 작업: GitHub Actions의 Windows 러너에서 ffmpeg가 PATH에 없는 상태로 확인
+  - 작업을 선택한 자동 설치: 고정한 빌드(115MB)를 내려받아 SHA-256 확인 후 사용자 폴더에 `ffmpeg.exe`, `ffprobe.exe`, 라이선스 문서만 배치. 설치된 프로그램의 `setup`이 필수 구성요소 모두 있음으로 판정(종료 코드 0), 내려받은 ffmpeg로 GIF 클립 제작
+  - 작업을 해제한 자동 설치: ffmpeg를 내려받지 않으며 `setup`의 종료 코드 1
+  - 제거: 프로그램과 함께 내려받은 ffmpeg 삭제
+  - 추가 작업 화면: ffmpeg 내려받기 선택, 바탕 화면 바로 가기 미선택 상태로 표시(러너 화면 캡쳐)
+  - 프로그램 자체 내려받기(`setup --ffmpeg`): 115MB 수신, SHA-256 확인, 내려받은 ffmpeg로 클립 제작
 - 코드 서명 미적용. Smart App Control 사용 PC에서 3회 빌드한 결과 `stream2clip.exe`는 매회, `stream2clip-gui.exe`는 1회 차단(2회는 실행). Smart App Control을 사용하지 않는 상태에서는 차단 없이 실행
 
 ## 실행 파일

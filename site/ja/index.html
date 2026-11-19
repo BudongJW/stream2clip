@@ -100,7 +100,7 @@
             <tbody>
               <tr><th scope="row">配布形態</th><td>Windows用インストーラー(setup.exe)または圧縮ファイル(zip)。アプリ <code>stream2clip-gui.exe</code>、コマンドラインツール <code>stream2clip.exe</code> を同梱</td></tr>
               <tr><th scope="row">対応環境</th><td>Windows 64ビット。Windows 11で検証</td></tr>
-              <tr><th scope="row">必須コンポーネント</th><td>ffmpeg (動画変換)</td></tr>
+              <tr><th scope="row">必須コンポーネント</th><td>ffmpeg (動画変換)。インストール中にダウンロード</td></tr>
               <tr><th scope="row">インストール方法</th><td>インストーラーの実行時に言語を選択(韓国語、日本語、英語)。管理者権限は不要。zipは解凍して実行</td></tr>
               <tr><th scope="row">コード署名</th><td>未適用。Windows SmartScreenの警告が表示される場合あり。Smart App Controlが有効な環境ではPythonパッケージを推奨</td></tr>
               <tr><th scope="row">整合性の確認</th><td><a href="https://github.com/BudongJW/stream2clip/releases/latest">リリースページ</a>のSHA-256値と照合</td></tr>
@@ -114,12 +114,10 @@
           <ol class="procedure">
             <li><a data-download href="https://github.com/BudongJW/stream2clip/releases/latest">インストーラーをダウンロード</a>して実行</li>
             <li>最初の画面で言語を選択。選択した言語がアプリの表示言語として適用</li>
-            <li>ffmpegをインストール
-              <pre><code>winget install Gyan.FFmpeg</code></pre>
-            </li>
+            <li>追加タスクの画面で <strong>ffmpeg をダウンロード</strong> を選択したままインストール</li>
             <li>スタートメニューからstream2clipを起動</li>
           </ol>
-          <p class="alt">インストールせずに使用: <a data-download="zip" href="https://github.com/BudongJW/stream2clip/releases/latest">zipファイルをダウンロード</a>して解凍し、<code>stream2clip-gui.exe</code> を実行</p>
+          <p class="alt">インストールせずに使用: <a data-download="zip" href="https://github.com/BudongJW/stream2clip/releases/latest">zipファイルをダウンロード</a>して解凍し、<code>stream2clip-gui.exe</code> を実行。ffmpegは開始画面のボタンでダウンロード</p>
           <h3 class="spaced">Pythonパッケージ</h3>
           <pre class="wrap"><code>pip install "stream2clip[gui,ingest,obs] @ git+https://github.com/BudongJW/stream2clip"</code></pre>
         </div>

@@ -100,7 +100,7 @@
             <tbody>
               <tr><th scope="row">Package</th><td>Windows installer (setup.exe) or zip file. Contains the app <code>stream2clip-gui.exe</code> and the command line tool <code>stream2clip.exe</code></td></tr>
               <tr><th scope="row">Platform</th><td>Windows 64-bit. Verified on Windows 11</td></tr>
-              <tr><th scope="row">Requirement</th><td>ffmpeg (video conversion)</td></tr>
+              <tr><th scope="row">Requirement</th><td>ffmpeg (video conversion). Downloaded during the installation</td></tr>
               <tr><th scope="row">Installation</th><td>The installer asks for the language (Korean, Japanese, English). No administrator rights needed. The zip file is unzipped and run</td></tr>
               <tr><th scope="row">Code signing</th><td>Not signed. Windows SmartScreen may show a warning. The Python package is recommended where Smart App Control is on</td></tr>
               <tr><th scope="row">Integrity</th><td>Compare with the SHA-256 value on the <a href="https://github.com/BudongJW/stream2clip/releases/latest">releases page</a></td></tr>
@@ -114,12 +114,10 @@
           <ol class="procedure">
             <li><a data-download href="https://github.com/BudongJW/stream2clip/releases/latest">Download the installer</a> and run it</li>
             <li>Choose the language on the first page. The app is shown in that language</li>
-            <li>Install ffmpeg
-              <pre><code>winget install Gyan.FFmpeg</code></pre>
-            </li>
+            <li>On the additional tasks page, keep <strong>Download ffmpeg</strong> ticked and install</li>
             <li>Start stream2clip from the Start menu</li>
           </ol>
-          <p class="alt">Without installing: <a data-download="zip" href="https://github.com/BudongJW/stream2clip/releases/latest">download the zip file</a>, unzip it and run <code>stream2clip-gui.exe</code></p>
+          <p class="alt">Without installing: <a data-download="zip" href="https://github.com/BudongJW/stream2clip/releases/latest">download the zip file</a>, unzip it and run <code>stream2clip-gui.exe</code>. ffmpeg is downloaded with the button on the start window</p>
           <h3 class="spaced">Python package</h3>
           <pre class="wrap"><code>pip install "stream2clip[gui,ingest,obs] @ git+https://github.com/BudongJW/stream2clip"</code></pre>
         </div>
