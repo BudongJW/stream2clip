@@ -93,7 +93,7 @@ def find_highlights(
         if not said.any():
             said = None  # no reaction line in these subtitles: the signal has nothing to say
             if not messages and levels is None and not heatmap:
-                raise ValueError(f"No reaction words (やばい, えっ, すごい, wow, 헐 ...) were found in {os.fspath(speech)}: with nothing else to analyse, there is no highlight to find")
+                raise ValueError(f"No reaction words (やばい, えっ, すごい, wow ...) were found in {os.fspath(speech)}: with nothing else to analyse, there is no highlight to find")
     if not messages and levels is None and not heatmap and said is None:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
