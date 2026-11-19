@@ -15,7 +15,7 @@ import shutil
 import sys
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from .chroma import DEFAULT_KEY_COLOR, colorkey_filter
 from .geometry import Region
@@ -35,6 +35,7 @@ __all__ = [
     "build_video_filter",
     "build_export_command",
     "build_capture_command",
+    "build_concat_command",
     "extension_for",
     "filter_path",
 ]
@@ -338,6 +339,59 @@ def build_export_command(
     else:
         cmd += ["-an"]
     cmd += _codec_args(options)
+    cmd.append(os.fspath(output_path))
+    return cmd
+
+
+def build_concat_command(
+    inputs: "Sequence[str | os.PathLike[str]]",
+    output_path: str | os.PathLike[str],
+    *,
+    size: tuple[int, int],
+    durations: "Sequence[float]",
+    has_audio: "Sequence[bool]",
+    fps: float = 30.0,
+    fade: float = 0.0,
+    quality: int = 85,
+    format: str = "mp4",
+    ffmpeg: str | None = None,
+    overwrite: bool = True,
+) -> list[str]:
+    """Join clips into one video: each is fitted into ``size`` (bars where the shape differs), brought to ``fps``
+    and encoded once. A clip without sound gets silence, so sound and picture stay together.
+
+    ``fade`` seconds of fade to black end each clip and open the next (0: hard cuts). ``durations`` and
+    ``has_audio`` describe the inputs, one entry each (see :func:`stream2clip.export.probe`).
+    """
+    if not inputs:
+        raise ValueError("Nothing to join")
+    if not len(inputs) == len(durations) == len(has_audio):
+        raise ValueError("inputs, durations and has_audio must have one entry per clip")
+    if format not in _AUDIO_CODECS:
+        raise ValueError(f"A compilation is a video with sound: use one of {', '.join(sorted(_AUDIO_CODECS))}, not {format}")
+    width, height = (int(side) - int(side) % 2 for side in size)
+    cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y" if overwrite else "-n"]
+    for path in inputs:
+        cmd += ["-i", os.fspath(path)]
+    parts, last = [], len(inputs) - 1
+    for index, (length, sound) in enumerate(zip(durations, has_audio)):
+        ramp = min(fade, length / 3) if fade > 0 else 0.0
+        video = [f"scale={width}:{height}:force_original_aspect_ratio=decrease", f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2", "setsar=1", f"fps={fps:g}", "format=yuv420p"]
+        audio = ["aresample=48000", "aformat=sample_fmts=fltp:channel_layouts=stereo"]
+        if ramp and index > 0:
+            video.append(f"fade=t=in:st=0:d={ramp:.3f}")
+            audio.append(f"afade=t=in:st=0:d={ramp:.3f}")
+        if ramp and index < last:
+            video.append(f"fade=t=out:st={max(0.0, length - ramp):.3f}:d={ramp:.3f}")
+            audio.append(f"afade=t=out:st={max(0.0, length - ramp):.3f}:d={ramp:.3f}")
+        parts.append(f"[{index}:v:0]{','.join(video)}[v{index}]")
+        if sound:
+            parts.append(f"[{index}:a:0]{','.join(audio)}[a{index}]")
+        else:
+            parts.append(f"anullsrc=r=48000:cl=stereo,atrim=duration={length:.3f}[a{index}]")
+    parts.append("".join(f"[v{index}][a{index}]" for index in range(len(inputs))) + f"concat=n={len(inputs)}:v=1:a=1[v][a]")
+    cmd += ["-filter_complex", ";".join(parts), "-map", "[v]", "-map", "[a]"]
+    cmd += _AUDIO_CODECS[format] + _codec_args(ExportOptions(format=format, quality=quality))
     cmd.append(os.fspath(output_path))
     return cmd
 

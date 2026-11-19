@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from .translate import Translator
     from .translation import Glossary
 
-__all__ = ["ClipResult", "default_clip_options", "find_highlights", "make_clips"]
+__all__ = ["ClipResult", "Compilation", "compile_clips", "compile_folder", "default_clip_options", "find_highlights", "make_clips"]
 
 
 @dataclass
@@ -103,6 +103,129 @@ def find_highlights(
     )
 
 
+@dataclass
+class Compilation:
+    """One video made of several clips."""
+
+    path: Path
+    #: (start in the compilation, label, clip file) per part, in playing order.
+    parts: list[tuple[float, str, Path]]
+    #: Chapter list (and, when the clips came with their source, the description) written next to the video.
+    notes: Path | None = None
+
+    @property
+    def duration(self) -> float:
+        return self.parts[-1][0] + probe(self.parts[-1][2]).duration if self.parts else 0.0
+
+    def chapters(self) -> str:
+        """``0:00 label`` per part: pasted into a description, YouTube turns these into chapters
+        (it wants the first at 0:00, at least three, each ten seconds or longer)."""
+        from .handoff import clock
+
+        return "".join(f"{clock(start)} {label}".rstrip() + "\n" for start, label, _ in self.parts)
+
+
+def compile_clips(
+    clips: "Sequence[str | os.PathLike[str]]",
+    out_path: str | os.PathLike[str],
+    *,
+    labels: Sequence[str] | None = None,
+    size: tuple[int, int] | None = None,
+    fps: float | None = None,
+    fade: float = 0.0,
+    quality: int = 85,
+    notes: bool = True,
+) -> Compilation:
+    """Join finished clips, in the order given, into one video; write ``<name>.txt`` with the chapter list.
+
+    The picture takes the size and frame rate of the first clip unless told otherwise; clips of
+    another shape get bars. Captions burned into the clips stay as they are.
+    """
+    from .export import run_ffmpeg
+    from .ffmpeg import _AUDIO_CODECS, build_concat_command
+
+    files = [Path(clip) for clip in clips]
+    if not files:
+        raise ValueError("No clips to compile")
+    missing = [str(path) for path in files if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(f"Clip not found: {missing[0]}")
+    if labels is not None and len(labels) != len(files):
+        raise ValueError(f"{len(labels)} labels for {len(files)} clips")
+    out = Path(out_path)
+    fmt = out.suffix.lower().lstrip(".")
+    if fmt not in _AUDIO_CODECS:
+        raise ValueError(f"A compilation is saved as {', '.join('.' + name for name in sorted(_AUDIO_CODECS))}, not {out.suffix or out.name!r}")
+    if out.resolve() in {path.resolve() for path in files}:
+        raise ValueError(f"{out.name} is one of the clips: choose another name for the compilation")
+    facts = [probe(path) for path in files]
+    still = [path.name for path, info in zip(files, facts) if not info.duration]
+    if still:
+        raise ValueError(f"{still[0]} has no length: only videos can be compiled")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    durations = [float(info.duration) for info in facts]
+    run_ffmpeg(build_concat_command(
+        files, out, size=size or (facts[0].width, facts[0].height), fps=fps or facts[0].fps or 30.0,
+        durations=durations, has_audio=[info.has_audio for info in facts], fade=fade, quality=quality, format=fmt,
+    ))
+    starts = [sum(durations[:index]) for index in range(len(files))]
+    names = [" ".join(str(label).split()) for label in labels] if labels is not None else [path.stem for path in files]
+    result = Compilation(out, list(zip(starts, names, files)))
+    if notes:
+        result.notes = out.with_suffix(".txt")
+        result.notes.write_text(result.chapters(), encoding="utf-8")
+    return result
+
+
+def compile_folder(
+    folder: str | os.PathLike[str],
+    out_path: str | os.PathLike[str] | None = None,
+    *,
+    order: str = "time",
+    ranks: "set[int] | None" = None,
+    **options,
+) -> Compilation:
+    """Compile the clips of one ``make_clips`` run (a folder with ``clips.json``, or that file).
+
+    The parts are labelled with the reasons they were picked for. When the clips came with their
+    source, the notes start with the description for that source and list each part's place in
+    the original stream.
+    """
+    from .handoff import clock, ordered
+    from .highlights import Highlight
+
+    index = Path(folder)
+    index = index / "clips.json" if index.is_dir() else index
+    if not index.is_file():
+        raise FileNotFoundError(f"No clips.json in {Path(folder)}: export clips first, or give the clip files themselves")
+    data = json.loads(index.read_text(encoding="utf-8"))
+    rows = {}
+    for item in data.get("clips", []):
+        h = Highlight(rank=int(item.get("rank", len(rows) + 1)), start=float(item["start"]), end=float(item["end"]), peak=float(item.get("peak", item["start"])),
+                      score=float(item.get("score", 0)), reasons=list(item.get("reasons", [])))
+        if (ranks is None or h.rank in ranks) and item.get("file"):
+            rows[id(h)] = (h, index.parent / item["file"])
+    chosen = ordered([h for h, _ in rows.values()], order)
+    if not chosen:
+        raise ValueError(f"{index} lists no clips to compile")
+    files = [rows[id(h)][1] for h in chosen]
+    labels = [h.reasons[0] if h.reasons else f"#{h.rank:02d}" for h in chosen]  # chapter titles: the main reason, to be reworded by hand
+    wants_notes = options.pop("notes", True)
+    result = compile_clips(files, out_path or index.parent / f"compilation{files[0].suffix}", labels=labels, notes=False, **options)
+    if wants_notes:
+        text = result.chapters()
+        source = SourceInfo(**{key: value for key, value in (data.get("source") or {}).items() if key in SourceInfo.__dataclass_fields__}) if data.get("source") else None
+        if source is not None and source.url:
+            from .compliance import get_profile
+
+            profile = get_profile(data["agency"]) if data.get("agency") else None
+            where = "".join(f"{clock(start)} {source.timestamp_url(h.start)}\n" for (start, _, _), h in zip(result.parts, chosen))
+            text = build_description(source, profile).rstrip("\n") + "\n\n" + text + "\n" + where
+        result.notes = result.path.with_suffix(".txt")
+        result.notes.write_text(text, encoding="utf-8")
+    return result
+
+
 def default_clip_options() -> ExportOptions:
     """Vertical 1080x1920 MP4 at 30 fps with the blurred-background layout."""
     return ExportOptions(format="mp4", fps=30, layout=VerticalLayout("blur"), quality=85)
@@ -151,8 +274,13 @@ def make_clips(
     name: str = "clip_{rank:02d}",
     on_progress: Callable[[int, int, Highlight], None] | None = None,
     section: Callable[[Highlight], "tuple[str | os.PathLike[str], float]"] | None = None,
+    credit: str | None = None,
+    credit_position: str = "top-left",
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
+
+    ``credit`` is a short line burned into a corner of every clip for its whole length, such as
+    the name of the original channel.
 
     Normally every clip is cut from ``video``. With ``section`` each highlight has its own
     footage instead - ``section(h)`` returns ``(file, stream time at the file's start)`` - so
@@ -197,8 +325,11 @@ def make_clips(
 
             clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
         sub_path = None
-        if clip_cues:
-            sub_path = write_ass(clip_cues, out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke)
+        if clip_cues or credit:
+            sub_path = write_ass(
+                clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
+                credit=credit, credit_position=credit_position, duration=h.end - h.start,
+            )
             opts = replace(opts, subtitles=sub_path)
 
         clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)

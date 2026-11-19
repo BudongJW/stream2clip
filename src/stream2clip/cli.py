@@ -384,6 +384,10 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--source-title", help="original stream title")
     c.add_argument("--channel", help="original channel name")
     c.add_argument("--registered", action="store_true", help="your clip channel is registered with the agency")
+    c.add_argument("--credit", metavar="TEXT", help="burn a small source line into a corner of every clip; 'auto' writes the original channel's name (from --info or --channel)")
+    c.add_argument("--credit-position", default="top-left", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="corner of the --credit line (default top-left)")
+    p.add_argument("--compile", dest="compile_to", nargs="?", const="", metavar="FILE", help="also join the clips, in stream order, into one video with a chapter list (default name: compilation.mp4 in the output folder)")
+    p.add_argument("--fade", type=float, default=0.0, metavar="SECONDS", help="--compile: fade to black between the clips (default 0: hard cuts)")
 
 
 def _make_clips(args: argparse.Namespace, highlights) -> int:
@@ -439,12 +443,21 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         glossary = Glossary.load(args.glossary) if args.glossary else None
     source = _source(args)
     profile = get_profile(args.agency) if (args.agency or source) else None
+    credit = (args.credit or "").strip()
+    if credit.lower() == "auto":
+        from .i18n import tr
+
+        channel = (source.channel if source else "") or (args.channel or "")
+        if not channel:
+            raise ValueError("--credit auto needs the name of the original channel: give --info or --channel")
+        credit = tr("원본: {0}").format(channel)
     results = make_clips(
         video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
         section=(lambda h: sections[h.rank]) if sections is not None else None,
         karaoke=not args.no_karaoke, source=source, profile=profile, registered=True if args.registered else None,
         subtitle_style=subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size),
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
+        credit=credit or None, credit_position=args.credit_position,
         on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
     )
     for r in results:
@@ -455,7 +468,35 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         for issue in results[0].issues:
             print(f"  {issue}")
     print(f"index {Path(args.output) / 'clips.json'}")
+    if args.compile_to is not None and results:
+        from .pipeline import compile_folder
+
+        _report_compilation(compile_folder(args.output, args.compile_to or None, fade=args.fade))
     return 1 if any(i.level == "error" for i in problems) and args.strict else 0
+
+
+def _report_compilation(made) -> None:
+    print(f"joined {made.path}  ({len(made.parts)} clips, {_clock(made.duration)})")
+    if made.notes is not None:
+        print(f"notes  {made.notes}")
+
+
+def cmd_compile(args: argparse.Namespace) -> int:
+    from .pipeline import compile_clips, compile_folder
+
+    options = {"fade": args.fade, "quality": args.quality, "fps": args.fps, "size": args.size}
+    first = Path(args.clips[0])
+    if len(args.clips) == 1 and (first.is_dir() or first.suffix.lower() == ".json"):
+        ranks = {int(r) for r in args.ranks.split(",") if r.strip()} if args.ranks else None
+        made = compile_folder(first, args.output, order=args.order, ranks=ranks, **options)
+    else:
+        if args.ranks or args.order != "time":
+            raise ValueError("--ranks and --order go with a clips folder; clip files are joined in the order given")
+        if not args.output:
+            raise ValueError("Joining clip files needs a name for the result: -o compilation.mp4")
+        made = compile_clips(args.clips, args.output, **options)
+    _report_compilation(made)
+    return 0
 
 
 def _find_avatar(video: str, *, aspect: float, model: str | None, samples: int):
@@ -502,6 +543,57 @@ def cmd_clips(args: argparse.Namespace) -> int:
     return _make_clips(args, highlights)
 
 
+def _handoff(highlights, *, video: str | None, fps: float | None, title: str | None, order: str, edl: str | None, markers: str | None, timestamps: str | None) -> list[str]:
+    """Write the files an editing program (or a comment box) takes; returns what was written, as lines to print."""
+    from . import handoff
+    from .sources import is_url
+
+    lines = []
+    local = video if video and not is_url(video) else None
+    if edl or markers:
+        audio = True
+        if local:
+            from .export import probe
+
+            facts = probe(local)
+            audio = facts.has_audio
+            fps = fps or facts.fps
+        if not fps:
+            raise ValueError("A timecode counts frames: give the video file, or its frame rate with --fps")
+        name = title or (Path(local).stem if local else "stream2clip")
+        if edl:
+            handoff.write_text(handoff.edl(highlights, fps=fps, title=name, clip_name=Path(local).name if local else "", audio=audio, order=order), edl)
+            lines.append(f"edl    {edl}  ({len(highlights)} cuts, {fps:g} fps)")
+        if markers:
+            handoff.write_text(handoff.marker_edl(highlights, fps=fps, title=name), markers)
+            lines.append(f"marker {markers}  ({len(highlights)} markers, {fps:g} fps)")
+    if timestamps:
+        target = Path(timestamps)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(handoff.timestamps(highlights, order=order), encoding="utf-8")
+        lines.append(f"times  {timestamps}")
+    return lines
+
+
+def cmd_timeline(args: argparse.Namespace) -> int:
+    from . import handoff
+    from .highlights import load_highlights
+
+    highlights = load_highlights(args.highlights)
+    if args.ranks:
+        wanted = {int(r) for r in args.ranks.split(",") if r.strip()}
+        highlights = [h for h in highlights if h.rank in wanted]
+    if not highlights:
+        print("no highlights to hand over")
+        return 0
+    lines = _handoff(highlights, video=args.video, fps=args.fps, title=args.title, order=args.order, edl=args.edl, markers=args.markers, timestamps=args.timestamps)
+    for line in lines:
+        print(line)
+    if not lines:  # nothing to write: the timestamp list, to copy from the terminal
+        print(handoff.timestamps(highlights, order=args.order), end="")
+    return 0
+
+
 def _prepare_from_url(args: argparse.Namespace, out: Path) -> None:
     """``auto <URL>``: fetch what highlight detection needs (chat replay, info) - the video comes later, in parts."""
     from .sources import fetch_replay, load_info, ytdlp_command
@@ -537,6 +629,14 @@ def cmd_auto(args: argparse.Namespace) -> int:
         result = _detect(args, args.video)
     _snap(args, result.highlights)
     result.save(out / "highlights.json")
+    if result.highlights:
+        # For whoever goes on in an editing program: the same moments as a cut list and a timestamp list.
+        whole = not is_url(args.video)
+        for line in _handoff(
+            result.highlights, video=args.video, fps=None, title=None, order="time",
+            edl=str(out / "highlights.edl") if whole else None, markers=None, timestamps=str(out / "timestamps.txt"),
+        ):
+            print(line)
     return _make_clips(args, result.highlights)
 
 
@@ -901,6 +1001,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", help="write highlights JSON")
     _add_highlight_args(p)
     p.set_defaults(func=cmd_highlights)
+
+    p = sub.add_parser("compile", help="join finished clips into one video with a chapter list")
+    p.add_argument("clips", nargs="+", help="a folder with clips.json (from `clips` or `auto`), or the clip files in playing order")
+    p.add_argument("-o", "--output", help="the video to write: .mp4, .webm or .mov (default for a folder: compilation.<type of the clips> in it)")
+    p.add_argument("--order", choices=["time", "rank"], default="time", help="a folder's clips as they happened in the stream (default) or best first")
+    p.add_argument("--ranks", help="a folder: only these highlight ranks, e.g. 1,2,5")
+    p.add_argument("--fade", type=float, default=0.0, metavar="SECONDS", help="fade to black between the clips (default 0: hard cuts)")
+    p.add_argument("--size", type=_size, help="picture WxH (default: that of the first clip; clips of another shape get bars)")
+    p.add_argument("--fps", type=float, help="frame rate (default: that of the first clip)")
+    p.add_argument("--quality", type=int, default=85)
+    p.set_defaults(func=cmd_compile)
+
+    p = sub.add_parser("timeline", help="hand the highlights to an editing program: cut list (EDL), timeline markers, timestamp list")
+    p.add_argument("highlights", help="highlights JSON from `stream2clip highlights -o`")
+    p.add_argument("--video", help="the stream's video file: its name and frame rate go into the EDL")
+    p.add_argument("--fps", type=float, help="frame rate for the timecodes (default: read from --video)")
+    p.add_argument("--edl", metavar="FILE", help="write a CMX3600 cut list: the highlights as cuts of the video, one after the other (DaVinci Resolve, Premiere Pro, Vegas ...)")
+    p.add_argument("--markers", metavar="FILE", help="write the highlights as timeline markers for a timeline holding the whole stream (DaVinci Resolve: Import, Timeline Markers from EDL)")
+    p.add_argument("--timestamps", metavar="FILE", help="write '0:07:02 text' lines, for a comment or a description (printed when no file is asked for)")
+    p.add_argument("--order", choices=["time", "rank"], default="time", help="order of the cuts and lines: as they happened (default) or best first")
+    p.add_argument("--ranks", help="only these highlight ranks, e.g. 1,2,5")
+    p.add_argument("--title", help="title written into the EDL (default: the video's name)")
+    p.set_defaults(func=cmd_timeline)
 
     p = sub.add_parser("clips", help="export highlights as vertical clips with subtitles and descriptions")
     p.add_argument("video", help="VOD file, or the stream's address: then only the highlights' footage is downloaded")

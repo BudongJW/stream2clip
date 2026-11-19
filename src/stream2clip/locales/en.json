@@ -403,5 +403,18 @@
  "필수 구성요소 없음: {0}": "Required and missing: {0}",
  "해결 방법": "How to get it",
  "{0} 응답": "{0} answers",
- "{0} 응답 없음": "{0} does not answer"
+ "{0} 응답 없음": "{0} does not answer",
+ "원본: {0}": "Source: {0}",
+ "편집용 내보내기": "Export for editing",
+ "체크한 구간을 편집 프로그램용 컷 목록(EDL), 타임라인 마커, 타임스탬프 목록으로 저장": "Saves the ticked sections as a cut list (EDL), timeline markers and a timestamp list for an editing program",
+ "(선택) 예: 원본: 채널 이름": "(optional) e.g. Source: channel name",
+ "클립 왼쪽 위에 작게 넣을 문구. 비우면 넣지 않음": "A small line in the top left corner of each clip. Left empty, nothing is added",
+ "모음 영상": "Compilation",
+ "내보낸 클립을 방송 순서대로 이어 붙인 영상과 챕터 목록을 함께 저장 (MP4, WebM)": "Also saves one video of the exported clips in stream order, with a chapter list (MP4, WebM)",
+ "출처 표기": "Source credit",
+ "모음 영상 만드는 중": "Making the compilation",
+ ", 모음 영상 {0}": ", compilation {0}",
+ "파일 {0}개 입력됨. 하이라이트 찾기를 눌러 분석": "{0} files taken. Press Find highlights to analyse",
+ "타임스탬프 목록 저장됨: {0}. 클립보드에도 복사. 컷 목록(EDL)은 영상 파일이 있어야 저장": "Timestamp list saved: {0}. Also copied to the clipboard. A cut list (EDL) needs the video file",
+ "편집용 파일 저장됨: {0} ({1}). 타임스탬프 목록은 클립보드에도 복사": "Files for editing saved: {0} ({1}). The timestamp list is also on the clipboard"
 }
