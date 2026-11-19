@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 取扱説明書</h1>
   <dl>
-    <dt>対象バージョン</dt><dd>v0.6</dd>
+    <dt>対象バージョン</dt><dd>v0.7</dd>
     <dt>対象</dt><dd>Windows用インストーラー、実行ファイルおよびPythonパッケージの利用者</dd>
     <dt>配布元</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -263,6 +263,7 @@
         <tbody>
           <tr><th scope="row">字幕ファイル</th><td>SRT、WebVTTに対応。YouTubeの自動字幕も使用可能</td></tr>
           <tr><th scope="row">カラオケ</th><td>発話中の単語に合わせて色を変更。単語ごとの時刻情報がある字幕に適用</td></tr>
+          <tr><th scope="row">スタイル</th><td>見た目4種(標準、ボックス、ピンク強調、小さめ)と位置3種(下、中央、上)を選択。フォントは字幕の言語に合わせて自動選択</td></tr>
           <tr><th scope="row">文の区切りに合わせる</th><td>字幕ファイルがある場合、区間の開始と終了を字幕行の境界へ移動。移動の上限は3秒。ハイライト検索の実行時に適用</td></tr>
           <tr><th scope="row">文字起こし</th><td>字幕がない場合に音声から字幕を作成(Whisper)。Pythonパッケージで提供</td></tr>
           <tr><th scope="row">翻訳</th><td>翻訳一覧の<strong>翻訳プログラムのファイルを選ぶ</strong>で <code>translators\openai_compatible.py</code> を選択すると、OpenAI互換のアドレス(ローカルのOllamaなど)で翻訳</td></tr>

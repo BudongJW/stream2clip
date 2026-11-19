@@ -45,6 +45,8 @@
 | `test_clips.py` | 레이아웃 4종 렌더링, 필터 경로 이스케이프, SRT, VTT, ASS, 자막의 표시 시간, 가이드라인 점검, 클립 파이프라인 |
 | `test_detect.py` | 얼굴 검출 전처리(letterbox), 후처리(YOLO 출력 해석, NMS), 동일 위치에 유지되는 얼굴 선택, 박스 형태, 모델 체크섬, `avatar`, `--avatar auto` |
 | `test_cli.py` | CLI 명령(`auto` 전체 절차, `check` 포함) |
+| `test_subtitle_style.py` | 자막: 문자 구성 판별, 설치된 폰트에 따른 선택(목록 조회 실패 포함), 원문 병기 줄별 폰트, 표시 폭 계산, 일본어 문절 분할, 균등 줄바꿈, 긴 자막 축소, 스타일 프리셋과 위치(ASS 스타일 값, 실제 렌더링의 자막 위치), `clips`의 자막 옵션 |
+| `test_vrm.py` | VRM 1.0, 0.x 메타 판독(합성한 GLB 파일), 0.x 라이선스 이름의 환산, VRM이 아닌 파일 거부, 수익화 및 법인 사용 대조, `check --vrm` |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지, 이름 고정, 원문 병기 자막, 묶음 전송, Holodex 초안, `--translate` |
 | `test_translator_loading.py` | 번역기를 파일, 모듈에서 불러오기(함수, 클래스, 객체, Windows 드라이브 경로), 잘못된 지정에 대한 안내, 예제 번역기(가짜 응답: 목록 추출, 줄 수 불일치 시 1줄씩 재요청), `--translator file.py` |
 | `test_audio_signals.py` | 웃음소리 신호(크고 끊어지는 소리), 가산 신호가 다른 하이라이트를 줄이지 않는지 여부, 노래 구간 검출(합성 음성, 노래), 노래 표시 및 제외 |

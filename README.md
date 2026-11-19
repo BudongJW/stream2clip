@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.6.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.7.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-396-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-416-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -69,6 +69,7 @@
 
 | &numsp;버&NoBreak;전&numsp; | 주요 변경 |
 |:---:|---|
+| v0.7 | 자막 개선(언어별 폰트 자동 선택, 문절 단위 줄바꿈, 스타일 프리셋과 위치), VRM 아바타 권리 검사 |
 | v0.6 | 문장 경계 맞춤, 스트리머 표시 구간(`!clip` 등), pip 레이아웃과 별도 아바타 영상 합성, Twitch 라이브 채팅 |
 | v0.5 | 라이브 모드(방송 중 채팅 급증 시 OBS 리플레이 자동 저장), 하이라이트 창의 방송 주소 입력, 언어 선택이 있는 Windows 설치 프로그램, 홈페이지 및 사용 설명서(한국어, 영어, 일본어) |
 | v0.4 | 방송 주소만으로 클립 제작(하이라이트 구간만 다운로드), 화면 언어 3종, 앱의 번역, 업로드, OBS 리플레이(F10), 파일 하나로 번역기 연결, 여러 방송 평가(`evaluate`) |
@@ -104,8 +105,8 @@
 |:---:|---|
 | 하이라이트 자동 검출 | 채팅 급증, 고유 채터, 반응 어휘(草, ｗｗ, ㅋㅋ, KEKW, 888), 슈퍼챗, 음량, 많이 다시 본 구간을 방송별 기준선과 비교하여 점수화. 채팅 지연 보정, 인접 구간 병합, 검출 근거 제공. 스트리머가 채팅에 남긴 표시 명령(`!clip` 등)의 시점은 항상 포함 |
 | 9:16 세로 클립 | 레이아웃 5종: center, fit, blur(블러 배경), stack(아바타 위, 게임 아래), pip(게임 화면 구석에 아바타). `--avatar auto`로 아바타 위치 자동 검출, 별도 아바타 영상(그린스크린, 알파) 합성 |
-| 카라오케 자막 | 단어 단위로 강조되는 자막. SRT, YouTube 자동 자막 VTT, Whisper 지원. 번역기 연결 시 번역 자막 및 원문 병기. 말이 끊기지 않도록 클립의 시작과 끝을 자막 줄의 경계로 이동 |
-| 가이드라인 점검 | hololive, にじさんじ, ぶいすぽっ!, あおぎり高校 프로필 제공. 원본 URL과 제목을 최상단에 둔 설명란 생성, 멤버십, 아카이브 공개, 채널 등록, AI 표기 사전 점검 |
+| 카라오케 자막 | 단어 단위로 강조되는 자막. SRT, YouTube 자동 자막 VTT, Whisper 지원. 번역기 연결 시 번역 자막 및 원문 병기. 말이 끊기지 않도록 클립의 시작과 끝을 자막 줄의 경계로 이동. 언어별 폰트 자동 선택, 문절 단위 줄바꿈, 스타일 4종과 위치 선택 |
+| 가이드라인 점검 | hololive, にじさんじ, ぶいすぽっ!, あおぎり高校 프로필 제공. 원본 URL과 제목을 최상단에 둔 설명란 생성, 멤버십, 아카이브 공개, 채널 등록, AI 표기 사전 점검. VRM 아바타 파일의 사용 조건(영리 사용, 크레딧 표기) 검사 |
 | 라이브 모드 | 방송 중 채팅 급증 시 OBS 리플레이 버퍼를 저장하여 해당 장면을 클립으로 자동 저장. YouTube, Twitch 채팅 직접 수신 |
 | YouTube 업로드 | 제작한 클립과 설명란을 YouTube에 업로드. 공개 범위 기본값은 비공개 |
 
@@ -276,6 +277,31 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avat
 | 라이브 모드 | 표시 명령 입력 시 준비 시간과 임계값에 관계없이 즉시 저장 |
 
 - 표시 명령은 입력자와 관계없이 채팅 급증 계산에서 제외
+
+### 자막 모양
+
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 폰트 | 자막의 언어에 맞는 설치된 폰트를 자동 선택. 일본어는 Noto Sans JP, Yu Gothic, Meiryo 순, 한국어는 Noto Sans KR, Malgun Gothic 순. `--font FAMILY`로 직접 지정 |
+| 원문 병기 | 원문 줄과 번역 줄에 각 언어의 폰트 적용. 일본어 한자가 한국어 자형으로 표시되지 않음 |
+| 줄바꿈 | 전각 18자 기준으로 최대 3줄. 일본어는 문절 경계(조사 뒤, 문장 부호 뒤)에서, 한국어와 영어는 띄어쓰기에서 나눔. 영문자는 전각의 약 절반 폭으로 계산 |
+| 긴 자막 | 3줄로도 화면 폭을 넘는 경우 해당 자막만 축소 표시(최소 55%) |
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 값 | 동작 |
+|:---:|---|---|
+| `--subtitle-style` | `default` | 흰 글자, 노란 강조, 어두운 외곽선 |
+| | `box` | 반투명 어두운 상자 위에 표시. 복잡한 게임 화면용 |
+| | `pink` | 강조 색을 라이브 핑크로 변경 |
+| | `small` | 작은 크기, 얇은 외곽선, 보통 굵기 |
+| `--subtitle-position` | `bottom`, `middle`, `top` | 자막 위치. 기본값 `bottom`. 게임 자체의 대사 창이 아래에 있는 경우 `top` 사용 |
+| `--font-size` | 픽셀 | 폭 1080px 화면 기준 글자 크기. 기본값 64 |
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --subtitle-style box --subtitle-position top -o clips
+```
+
+- 앱: 하이라이트 창의 **스타일** 줄에서 모양과 위치 선택
+- 라이브러리: `subtitle_style("box", position="top")` 또는 `SubtitleStyle(...)`을 `make_clips(subtitle_style=...)`에 전달
 
 ### 자막 번역
 
@@ -465,6 +491,27 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | `aogiri` | 2026-02 개정 |
 | `generic` | 기획사 프로필이 없는 경우의 공통 점검 |
 
+### VRM 아바타 권리 검사
+
+VRM 모델 파일에 기록된 사용 조건을 읽어 계획한 사용과 대조
+
+```bash
+stream2clip check --vrm model.vrm --monetized
+```
+
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 표시 내용 | 모델명과 제작자, 아바타 사용 허용 범위, 영리 사용 범위, 크레딧 표기 여부, 개변과 재배포, 폭력 및 성적 표현 허용 여부, 라이선스 주소 |
+| 지원 형식 | VRM 1.0(`VRMC_vrm`), VRM 0.x(`VRM`). 0.x의 라이선스 이름(`CC_BY_NC` 등)은 1.0의 항목으로 환산 |
+| `--monetized` | 수익이 발생하는 채널에서의 사용. 비영리 전용 모델이면 오류 |
+| `--corporation` | 법인이 운영하는 채널에서의 사용. 개인 사용만 허용된 모델이면 오류 |
+| 경고 | 제작자 본인 전용, 별도 허락 필요, 크레딧 표기 필요, 조건 미기재 |
+| 종료 코드 | 오류가 있으면 1 |
+
+- 기획사 프로필과 함께 사용 가능: `check --vrm model.vrm --info vod/info.json --agency hololive`
+- 파일의 JSON 부분만 읽으며 3D 라이브러리 불필요
+- 파일의 메타는 모델 제작자가 입력한 값. 판매 페이지에 별도 약관이 있을 수 있으므로 함께 확인 필요
+
 > [!CAUTION]
 > 기획사 프로필은 [레퍼런스 조사](reports/버튜버%20영상%20작업%20프로젝트%20레퍼런스.md) 시점의 점검 목록이며 법적 판단이 아님. 가이드라인은 개정될 수 있고 탤런트별 추가 규칙이 있으므로 업로드 전 원문 확인 필요. 한국 기획사(스텔라이브, 이세계아이돌 등)는 공식 원문 미확보로 프로필을 제공하지 않으며 `generic` 사용
 
@@ -502,7 +549,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 396개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 416개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -576,8 +623,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.6.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.6.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
+| `dist/stream2clip-0.7.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.7.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -628,6 +675,7 @@ stream2clip gui
 | 목록의 체크 | 내보낼 구간 선택 |
 | 레이아웃 **stack**, **pip**, **자동 찾기** | 얼굴 검출로 아바타 박스 입력 |
 | **문장 경계 맞춤** | 자막 파일이 있는 경우 구간의 시작과 끝을 자막 줄의 경계로 이동(최대 3초) |
+| **스타일** | 자막 모양(기본, 상자, 분홍 강조, 작게)과 위치(아래쪽, 가운데, 위쪽) 선택 |
 | **웃음소리 (실험)**, **노래 구간** | 웃음소리 유형의 소리에 점수 가산, 노래와 겹치는 하이라이트 표시 또는 제외 |
 | **번역**, **용어집**, **원문 병기** | 자막 번역기(플러그인 또는 `.py` 파일) 선택, 이름 고정, 원문과 2줄 표시 |
 | **업로드** | 선택한 클립을 YouTube 업로드 창으로 전달. 기본값 비공개 |
@@ -660,7 +708,7 @@ stream2clip gui
 | `avatar` | stack 레이아웃용 아바타 박스 제안 |
 | `singing` | 오디오로 노래 구간 검출 |
 | `glossary` | 자막 번역용 이름 용어집 초안 생성 및 점검 |
-| `check` | 기획사 가이드라인 기준 업로드 전 점검 |
+| `check` | 기획사 가이드라인 기준 업로드 전 점검, VRM 아바타의 사용 조건 검사 |
 | `evaluate` | 시청자 댓글 타임스탬프 기준 검출 성능 평가 |
 | `replay` | OBS 리플레이 버퍼 저장 및 클립 변환 |
 | `live` | 라이브 채팅 감시, 급증 시 OBS 리플레이를 클립으로 저장 |
@@ -835,8 +883,9 @@ src/stream2clip/
 ├── live.py        라이브 모드: 실시간 급증 검출, 채팅 따라 읽기 (파일, yt-dlp, Twitch), 리플레이 클립 변환
 ├── layouts.py     9:16 레이아웃 (center, fit, blur, stack, pip), 별도 아바타 영상 합성
 ├── detect.py      애니메 얼굴 검출, stack 레이아웃 아바타 박스 제안
-├── subtitles.py   SRT/VTT/JSON을 카라오케 ASS로 변환, faster-whisper 연결
+├── subtitles.py   SRT/VTT/JSON을 카라오케 ASS로 변환, 언어별 폰트, 줄바꿈, 스타일 프리셋, faster-whisper 연결
 ├── compliance.py  기획사 가이드라인 프로필, 설명란, 업로드 전 점검
+├── vrm.py         VRM 모델의 사용 조건 판독, 사용 계획 대조
 ├── pipeline.py    하이라이트에서 완성 클립 일괄 생성
 ├── capture/       캡처 백엔드 (mss, numpy 배열, 플러그인) + 커서 합성
 ├── editor/        주석 모델, 렌더러, 되돌리기, JSON 직렬화
@@ -932,7 +981,7 @@ src/stream2clip/
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 29건</b></summary>
+<summary><b>버전별 완료 항목 32건</b></summary>
 
 <br>
 
@@ -967,6 +1016,9 @@ src/stream2clip/
 | v0.6 | 스트리머 표시 구간: 스트리머, 모더레이터의 `!clip` 등 명령 시점을 항상 클립으로 포함 |
 | v0.6 | pip 레이아웃, 별도 아바타 영상(그린스크린, 알파) 합성 |
 | v0.6 | Twitch 라이브 채팅으로 라이브 모드 사용 |
+| v0.7 | 자막 폰트의 언어별 자동 선택, 문절 단위 줄바꿈, 긴 자막의 자동 축소 |
+| v0.7 | 자막 스타일 프리셋(`default`, `box`, `pink`, `small`)과 위치 선택 |
+| v0.7 | VRM 아바타 권리 검사(`check --vrm`) |
 
 </details>
 
@@ -1009,7 +1061,7 @@ src/stream2clip/
 | 녹화 커서 | 화살표 모양 1종만 합성하며 화면 배율에 따라 크기만 조정. 실제 커서 모양(손가락, I빔 등)은 미반영 |
 | GIF 투명도 | 1비트. 부드러운 가장자리가 필요한 경우 WebP, WebM, MOV 사용 |
 | 화면 언어 | 하이라이트 근거, 가이드라인 점검 문구, 설명란 양식, 명령줄 출력은 한국어만 제공. 일본어, 영어 번역은 원어민 검수 미실시 |
-| 라이브 모드 | 채팅 직접 수신은 YouTube, Twitch 지원. 기본 임계값에서의 클립 절단 위치와 실제 장면의 일치 여부는 종료된 방송의 채팅으로만 측정. Twitch 채팅과 OBS를 함께 사용한 저장은 미검증 |
+| 라이브 모드 | 채팅 직접 수신은 YouTube, Twitch 지원. 기본 임계값에서의 클립 절단 위치와 실제 장면의 일치 여부는 종료된 방송의 채팅으로만 측정 |
 | YouTube 업로드 | 실제 업로드 미검증. 요청 본문과 진행 처리는 가짜 API로 테스트 |
 | Windows 실행 파일 | 코드 서명 미적용. Smart App Control 사용 환경에서 실행이 차단될 수 있음 |
 
