@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.10.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.11.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-456-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-482-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -69,6 +69,7 @@
 
 | &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 주요 변경 |
 |:---:|---|
+| v0.11 | 편집 프로그램용 내보내기(EDL 컷 목록, 타임라인 마커, 타임스탬프), 모음 영상(`compile`), 출처 표기(`--credit`), 파일 끌어다 놓기 |
 | v0.10 | ffmpeg 한 번에 설치(설치 프로그램의 내려받기 작업, 앱 시작 화면의 버튼), 구성요소 점검 명령 `setup` |
 | v0.9 | 하이라이트 창의 아바타 영상 입력, 업로드 예약 게시, 자막 속 반응 표현 신호(실험) |
 | v0.8 | CHZZK, SOOP 라이브 채팅 직접 수신, 하이라이트 근거와 점검 문구의 일본어 및 영어 지원 |
@@ -112,6 +113,8 @@
 | 가이드라인 점검 | hololive, にじさんじ, ぶいすぽっ!, あおぎり高校 프로필 제공. 원본 URL과 제목을 최상단에 둔 설명란 생성, 멤버십, 아카이브 공개, 채널 등록, AI 표기 사전 점검. VRM 아바타 파일의 사용 조건(영리 사용, 크레딧 표기) 검사 |
 | 라이브 모드 | 방송 중 채팅 급증 시 OBS 리플레이 버퍼를 저장하여 해당 장면을 클립으로 자동 저장. YouTube, Twitch, CHZZK, SOOP 채팅 직접 수신 |
 | YouTube 업로드 | 제작한 클립과 설명란을 YouTube에 업로드. 공개 범위 기본값은 비공개 |
+| 모음 영상, 출처 표기 | 클립을 이어 붙인 모음 영상과 챕터 목록 제작, 클립 구석에 원본 채널 표기 |
+| 편집 프로그램 연계 | 하이라이트를 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내어 DaVinci Resolve, Premiere Pro 등에서 이어서 편집 |
 
 ### 이식
 
@@ -343,6 +346,67 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VID
 stream2clip glossary names.csv --holodex Hololive --api-key YOUR_KEY
 ```
 
+### 출처 표기
+
+클립 구석에 원본 채널을 작게 표시. 클립 전체 길이 동안 유지되며 자막과 함께 영상에 입혀짐
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --info vod/info.json --credit auto -o clips
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
+|:---:|---|
+| `--credit auto` | `원본: 채널 이름` 표시. 채널 이름은 `--info` 또는 `--channel`에서 가져오며 문구는 화면 언어를 따름 |
+| `--credit "문구"` | 지정한 문구 표시 |
+| `--credit-position` | `top-left`(기본값), `top-right`, `bottom-left`, `bottom-right`. 세로 클립의 아래쪽은 Shorts 버튼 영역을 피해 배치 |
+
+- 앱: 하이라이트 창의 **출처 표기** 칸에 문구 입력
+- 화면의 표기는 설명란의 출처 표기를 대신하지 않음. 설명란(`clip_01.txt`)은 종전과 같이 생성
+
+### 모음 영상
+
+제작한 클립을 방송 순서대로 이어 붙인 영상과 챕터 목록 제작
+
+```bash
+stream2clip auto video.mp4 --chat video.live_chat.json --info info.json --layout none --compile --fade 0.3 -o clips
+```
+
+```bash
+stream2clip compile clips --order rank --ranks 1,2,5 -o best.mp4
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 입력 | `clips.json`이 있는 폴더 또는 클립 파일 목록. 폴더는 방송 순서(`--order time`) 또는 순위 순서(`--order rank`), 파일 목록은 지정한 순서 |
+| 화면 | 첫 클립의 크기와 프레임 속도 사용. 모양이 다른 클립은 여백을 두어 맞춤. `--size`, `--fps`로 지정 가능 |
+| 전환 | 기본값은 바로 이어 붙임. `--fade 초`로 클립 사이 암전 |
+| 소리 | 소리가 없는 클립은 무음으로 채움 |
+| 출력 형식 | MP4, WebM, MOV |
+| `compilation.txt` | 원본 방송의 제목과 주소, 구간별 챕터(`0:00 근거`), 구간별 원본 위치 링크. YouTube 설명란에 붙이면 챕터로 표시(첫 줄 0:00, 3개 이상, 각 10초 이상인 경우) |
+
+- 앱: 하이라이트 창의 **모음 영상** 선택 후 **클립 내보내기**
+- 가로 모음 영상은 `--layout none`으로 제작한 클립 사용
+- 챕터 문구는 검출 근거의 첫 항목. 게시 전 직접 수정 필요
+
+### 편집 프로그램용 내보내기
+
+찾은 하이라이트를 편집 프로그램에서 이어서 작업할 수 있도록 컷 목록과 타임스탬프 목록으로 저장
+
+```bash
+stream2clip timeline highlights.json --video vod/video.mp4 --edl cuts.edl --markers markers.edl --timestamps times.txt
+```
+
+| &numsp;&numsp;&numsp;&numsp;출&NoBreak;력&numsp;&numsp;&numsp;&numsp; | 내용 | 사용처 |
+|:---:|---|---|
+| `--edl` | CMX3600 컷 목록. 하이라이트를 방송 영상의 컷으로 차례대로 배치 | DaVinci Resolve, Premiere Pro, Vegas 등에서 타임라인으로 가져오기 |
+| `--markers` | 타임라인 마커 목록. 방송 전체를 올린 타임라인에 하이라이트 위치와 길이 표시 | DaVinci Resolve의 타임라인 마커 가져오기 |
+| `--timestamps` | `0:07:02 근거` 형식의 목록. 파일을 지정하지 않으면 화면에 출력 | 댓글, 설명란 |
+
+- 타임코드는 프레임 단위이므로 영상 파일(`--video`) 또는 프레임 속도(`--fps`) 필요. 29.97, 59.94fps는 30, 60 기준의 논드롭 타임코드로 기록
+- `--order rank`로 순위 순서, `--ranks 1,2,5`로 일부만 내보내기
+- `auto`는 `highlights.edl`(영상 파일 입력 시)과 `timestamps.txt`를 함께 저장
+- 앱: 하이라이트 창의 **편집용 내보내기**. 체크한 구간을 저장 폴더에 저장하고 타임스탬프 목록을 클립보드에 복사
+
 ### 노래 구간 검출
 
 노래 방송(歌枠)의 노래 구간을 오디오만으로 검출. 음악 저작권 또는 가이드라인에 따라 노래 구간을 제외해야 하는 경우 사용
@@ -482,6 +546,8 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | `clip_01.txt` | 원본 제목과 타임스탬프 링크를 최상단에 둔 설명란 |
 | `clips.json` | 구간, 점수, 근거, 가이드라인 점검 결과 |
 | `highlights.json`, `timeline.png` | 하이라이트 목록과 타임라인 그래프(`auto`) |
+| `highlights.edl`, `timestamps.txt` | 편집 프로그램용 컷 목록(영상 파일 입력 시), 타임스탬프 목록(`auto`, `timeline`) |
+| `compilation.mp4`, `compilation.txt` | 클립을 이어 붙인 모음 영상, 챕터 목록과 원본 표기(`--compile`, `compile`) |
 
 ### 검출 방식 및 평가
 
@@ -563,7 +629,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 456개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 482개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -720,8 +786,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.10.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.10.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
+| `dist/stream2clip-0.11.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.11.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -776,6 +842,9 @@ stream2clip gui
 | **스타일** | 자막 모양(기본, 상자, 분홍 강조, 작게)과 위치(아래쪽, 가운데, 위쪽) 선택 |
 | **웃음소리 (실험)**, **노래 구간** | 웃음소리 유형의 소리에 점수 가산, 노래와 겹치는 하이라이트 표시 또는 제외 |
 | **번역**, **용어집**, **원문 병기** | 자막 번역기(플러그인 또는 `.py` 파일) 선택, 이름 고정, 원문과 2줄 표시 |
+| **출처 표기**, **모음 영상** | 클립 구석에 넣을 문구 입력, 내보낸 클립을 이어 붙인 영상과 챕터 목록 함께 저장 |
+| **편집용 내보내기** | 체크한 구간을 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 저장. 타임스탬프 목록은 클립보드에도 복사 |
+| 파일 끌어다 놓기 | 영상, 채팅, 정보, 자막 파일 또는 방송 주소를 창에 놓으면 해당 칸에 입력. 런처에 이미지를 놓으면 편집기 실행 |
 | **업로드** | 선택한 클립을 YouTube 업로드 창으로 전달. 기본값 비공개 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
@@ -813,6 +882,8 @@ stream2clip gui
 | `upload` | 클립을 YouTube에 업로드. 기본값 비공개 |
 | `language` | 앱 시작 시 적용되는 화면 언어 표시 |
 | `setup` | 기능별 필요 구성요소의 유무와 해결 방법 표시. `--ffmpeg`로 ffmpeg 내려받기 |
+| `compile` | 제작한 클립을 이어 붙인 모음 영상과 챕터 목록 제작 |
+| `timeline` | 하이라이트를 편집 프로그램용 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내기 |
 
 전체 옵션: `stream2clip <명령> --help`
 
@@ -986,6 +1057,7 @@ src/stream2clip/
 ├── compliance.py  기획사 가이드라인 프로필, 설명란, 업로드 전 점검
 ├── vrm.py         VRM 모델의 사용 조건 판독, 사용 계획 대조
 ├── tools.py       ffmpeg 내려받기(고정 빌드, SHA-256 확인), 구성요소 점검
+├── handoff.py     편집 프로그램용 내보내기: EDL 컷 목록, 타임라인 마커, 타임스탬프 목록
 ├── pipeline.py    하이라이트에서 완성 클립 일괄 생성
 ├── capture/       캡처 백엔드 (mss, numpy 배열, 플러그인) + 커서 합성
 ├── editor/        주석 모델, 렌더러, 되돌리기, JSON 직렬화
@@ -1076,11 +1148,14 @@ src/stream2clip/
 | 가이드라인 | 한국 기획사 프로필. 공식 원문이 확인된 곳부터 추가(스텔라이브, 이세계아이돌은 원문 미확보) |
 | 아바타 레이어 | Spout2, NDI 알파 레이어 녹화, VMC 및 VTube Studio 파라미터 기록 후 재렌더 |
 | 실서비스 검증 | 실제 YouTube 업로드, Holodex API 키 사용 검증 |
+| 편집 연계 | 무음 구간 제거(말이 없는 부분을 줄인 클립), 편집 프로그램에서의 EDL 가져오기 실측, FCPXML 내보내기 |
+| 초보자 지원 | 앱의 구성요소 점검 창, 새 버전 알림 |
+| 검출 신호 | SOOP 구독 및 팔로우 알림, Streamer.bot 이벤트, 사용자가 연결하는 판정 플러그인(LLM 등) |
 
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 37건</b></summary>
+<summary><b>버전별 완료 항목 43건</b></summary>
 
 <br>
 
@@ -1124,6 +1199,10 @@ src/stream2clip/
 | v0.9 | YouTube 업로드 예약 게시(`--publish-at`, 업로드 창의 예약 게시) |
 | v0.9 | 자막 속 반응 표현 신호(`--speech`, 실험): 채팅이 없는 방송용 |
 | v0.10 | ffmpeg 한 번에 설치: 설치 프로그램의 내려받기 작업, 앱 시작 화면의 내려받기 버튼 |
+| v0.11 | 편집 프로그램용 내보내기(`timeline`): EDL 컷 목록, 타임라인 마커, 타임스탬프 목록 |
+| v0.11 | 모음 영상(`compile`, `--compile`): 클립을 이어 붙인 영상과 챕터 목록 |
+| v0.11 | 출처 표기(`--credit`): 클립 구석에 원본 채널 표시 |
+| v0.11 | 파일 끌어다 놓기: 하이라이트 창과 런처 |
 | v0.10 | 구성요소 점검 명령(`setup`): 기능별 필요 구성요소의 유무와 해결 방법 |
 
 </details>
@@ -1160,7 +1239,7 @@ src/stream2clip/
 | Linux (X11) | Xvfb에서 전체 절차 테스트 |
 | Wayland | 화면 캡쳐(mss)는 X11, XWayland에서만 동작 |
 
-| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 제약 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 제약 |
 |:---:|---|
 | 다중 모니터 | 배율이 다른 모니터 구성에서는 논리 좌표와 물리 좌표를 가상 화면 전체 비율로 환산하므로 선택 영역에 오차 발생 가능 |
 | 소수 배율 | 125%, 150% 등에서는 선택 영역의 위치와 크기를 각각 반올림. 동일 크기로 드래그하면 위치와 무관하게 동일 픽셀 크기이며 화면 픽셀과의 차이는 최대 1px |
@@ -1171,6 +1250,8 @@ src/stream2clip/
 | YouTube 업로드 | 실제 업로드 미검증. 요청 본문과 진행 처리는 가짜 API로 테스트 |
 | Windows 실행 파일 | 코드 서명 미적용. Smart App Control 사용 환경에서 실행이 차단될 수 있음 |
 | ffmpeg 내려받기 | Windows만 제공하며 인터넷 연결 필요. macOS, Linux는 패키지 관리자 사용 |
+| 편집 프로그램용 내보내기 | EDL은 독립된 판독기(OpenTimelineIO)로 확인. DaVinci Resolve, Premiere Pro에서의 실제 가져오기는 미검증. 마커 목록은 DaVinci Resolve 형식만 제공 |
+| 모음 영상 | 클립을 다시 인코딩하여 이어 붙임. 챕터 문구는 검출 근거이므로 게시 전 수정 필요 |
 
 기능별 실환경 검증 결과와 미검증 범위: [docs/VERIFICATION.md](docs/VERIFICATION.md)
 

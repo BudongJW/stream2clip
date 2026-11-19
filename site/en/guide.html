@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.10</dd>
+    <dt>Version</dt><dd>v0.11</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -204,7 +204,7 @@
     <h2 id="clips">Highlight clips</h2>
     <p>Detection, adjustment of spans and export are done in <strong>Find highlights</strong> in the launcher.</p>
     <figure>
-      <img src="../assets/shots/en/highlights_window.png" alt="Highlights window: input files at the top, timeline and list of spans in the middle, export settings on the right" width="1350" height="964" loading="lazy">
+      <img src="../assets/shots/en/highlights_window.png" alt="Highlights window: input files at the top, timeline and list of spans in the middle, export settings on the right" width="1410" height="1108" loading="lazy">
       <figcaption>Highlights window. Pink bars are detected spans, the yellow frame is the selected span</figcaption>
     </figure>
     <h3>Input</h3>
@@ -235,6 +235,18 @@
       <li>Select the spans to export and choose the layout and format</li>
       <li>Run <strong>Export clips</strong>. The save folder receives the clips, subtitle files (<code>.ass</code>) and description texts (<code>.txt</code>)</li>
     </ol>
+    <p>Video, chat, info and subtitle files can be dropped onto the window.</p>
+    <h3>Compilation and editing programs</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Item</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Source credit</th><td>The text is shown small in the top left corner of each clip. Example: Source: channel name</td></tr>
+          <tr><th scope="row">Compilation</th><td>When ticked, the exported clips are also joined in stream order into <code>compilation.mp4</code>, with the chapter list <code>compilation.txt</code></td></tr>
+          <tr><th scope="row">Export for editing</th><td>Saves the ticked spans as a cut list <code>highlights.edl</code>, timeline markers <code>markers.edl</code> and a timestamp list <code>timestamps.txt</code>, to go on in DaVinci Resolve, Premiere Pro and others</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3>Layouts</h3>
     <div class="tablewrap">
       <table>

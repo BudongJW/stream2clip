@@ -25,6 +25,7 @@ __all__ = [
     "SubtitleStyle",
     "SUBTITLE_STYLES",
     "SUBTITLE_POSITIONS",
+    "CREDIT_POSITIONS",
     "subtitle_style",
     "FONT_CANDIDATES",
     "installed_fonts",
@@ -464,7 +465,23 @@ def _cue_line(cue: Cue, style: SubtitleStyle, karaoke: bool, base_font: str | No
     return (f"{{\\1c{_ass_inline_color(style.color)}}}" + body) if karaoke else body
 
 
-def to_ass(cues: Iterable[Cue], *, play_res: tuple[int, int] = (1080, 1920), style: SubtitleStyle | None = None, karaoke: bool = True, title: str = "stream2clip") -> str:
+#: Corners a source credit can sit in -> ASS alignment (numpad layout).
+CREDIT_POSITIONS: dict[str, int] = {"top-left": 7, "top-right": 9, "bottom-left": 1, "bottom-right": 3}
+
+
+def to_ass(
+    cues: Iterable[Cue],
+    *,
+    play_res: tuple[int, int] = (1080, 1920),
+    style: SubtitleStyle | None = None,
+    karaoke: bool = True,
+    title: str = "stream2clip",
+    credit: str | None = None,
+    credit_position: str = "top-left",
+    duration: float | None = None,
+) -> str:
+    """Cues as an ASS script. ``credit`` is a small line shown in a corner for the whole clip
+    ("Source: channel name"); it needs ``duration``, the clip's length, when there are no cues to tell it."""
     st = style or SubtitleStyle()
     cues = sorted(cues, key=lambda c: c.start)
     font = pick_font(script_of("".join(_cue_text(c) for c in cues))) if st.font == "auto" else st.font
@@ -499,6 +516,23 @@ def to_ass(cues: Iterable[Cue], *, play_res: tuple[int, int] = (1080, 1920), sty
         for c in cues
         if c.end > c.start and (c.text.strip() or c.words)
     ]
+    credit = " ".join((credit or "").split())
+    if credit:
+        if credit_position not in CREDIT_POSITIONS:
+            raise ValueError(f"Unknown credit position {credit_position!r}: use one of {', '.join(CREDIT_POSITIONS)}")
+        until = duration if duration else max((c.end for c in cues), default=0.0)
+        if until <= 0:
+            raise ValueError("A credit needs the length of the clip")
+        credit_font = pick_font(script_of(credit)) if st.font == "auto" else st.font
+        # Small and out of the way; on a portrait canvas the bottom corners stay above the Shorts / TikTok buttons.
+        low = credit_position.startswith("bottom")
+        margin_cv = round(H * (0.2 if low and H >= W else 0.05))
+        header.insert(
+            header.index("[Events]") - 1,
+            f"Style: Credit,{credit_font},{max(8, round(36 * k))},{_ass_color('#FFFFFF')},{_ass_color('#FFFFFF')},{_ass_color(st.outline)},&H64000000,"
+            f"-1,0,0,0,100,100,0,0,1,{round(2 * k, 1):g},0,{CREDIT_POSITIONS[credit_position]},{round(40 * k)},{round(40 * k)},{margin_cv},1",
+        )
+        events.insert(0, f"Dialogue: 1,{_ass_time(0)},{_ass_time(until)},Credit,,0,0,0,,{_escape(credit)}")
     return "\n".join(header + events) + "\n"
 
 

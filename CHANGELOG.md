@@ -1,5 +1,23 @@
 # 변경 내역
 
+## v0.11.0: 2026-11-19
+
+### 편집 연계
+- 편집 프로그램용 내보내기(`timeline` 명령, 하이라이트 창의 **편집용 내보내기**): 하이라이트를 CMX3600 EDL 컷 목록, DaVinci Resolve 타임라인 마커 목록, 타임스탬프 목록으로 저장. DaVinci Resolve, Premiere Pro 등에서 방송 영상의 컷으로 가져와 이어서 편집
+- `auto`가 `highlights.edl`(영상 파일 입력 시)과 `timestamps.txt`를 함께 저장
+- 모음 영상(`compile` 명령, `clips`와 `auto`의 `--compile`, 하이라이트 창의 **모음 영상**): 제작한 클립을 방송 순서 또는 순위 순서로 이어 붙인 영상 제작. 모양이 다른 클립은 여백을 두어 맞추고 소리가 없는 클립은 무음으로 채움. `--fade`로 클립 사이 암전
+- 모음 영상의 `compilation.txt`: 원본 방송 표기, 구간별 챕터, 구간별 원본 위치 링크
+- 출처 표기(`--credit`, `--credit-position`, 하이라이트 창의 **출처 표기**): 클립 구석에 원본 채널을 작게 표시. `--credit auto`는 방송 정보의 채널 이름 사용. 자막이 없는 클립에도 적용
+- 코어: `handoff.py`(`edl`, `marker_edl`, `timestamps`, `timecode`), `pipeline.compile_clips`, `compile_folder`, `ffmpeg.build_concat_command`, `subtitles.to_ass(credit=...)`
+
+### 앱
+- 파일 끌어다 놓기: 하이라이트 창에 영상, 채팅, 정보, 자막 파일 또는 방송 주소를 놓으면 해당 칸에 입력. 런처에 이미지를 놓으면 편집기 실행, 방송 자료를 놓으면 하이라이트 창으로 전달
+
+### 확인 내용
+- 실제 방송 1개(85분, 채팅 약 4만 4천 건)로 전체 절차 실행: 클립 4개, 출처 자동 표기(한글과 일본어가 섞인 채널 이름), 4분 6초 모음 영상과 챕터 목록, EDL, 타임스탬프 목록 생성
+- EDL을 독립된 판독기(OpenTimelineIO의 CMX3600 판독기)로 되읽어 컷 위치와 길이, 컷 사이 간격 없음 확인(24, 29.97, 30, 59.94, 60fps)
+- 미검증: DaVinci Resolve, Premiere Pro에서의 실제 가져오기
+
 ## v0.10.0: 2026-11-19
 
 ### 설치

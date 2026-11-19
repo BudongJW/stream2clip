@@ -168,6 +168,7 @@ class LauncherWindow(QMainWindow):
         self._idle_status = tr("{0}, 저장: {1}").format(self._hotkey_note, self.settings.save_dir)
         self.status.setText(self._idle_status)
         self.resize(760, 780)
+        self.setAcceptDrops(True)  # an image opens in the editor, stream files go to the highlights window
         self.check_ffmpeg()
 
     # ------------------------------------------------------------------ ffmpeg
@@ -721,6 +722,31 @@ class LauncherWindow(QMainWindow):
             QMessageBox.warning(self, tr("캡쳐 실패"), str(exc))
             return
         self._open_editor(Document(image))
+
+    def take_files(self, items) -> list[str]:
+        """Dropped files: images open in the editor; a video, chat, info or subtitle file (or an address) goes to the highlights window."""
+        from .highlights import kind_of
+
+        kinds = [(kind_of(item), item) for item in items]
+        placed = []
+        for kind, item in kinds:
+            if kind == "image":
+                self.open_path(item)
+                placed.append(kind)
+        rest = [item for kind, item in kinds if kind and kind != "image"]
+        if rest:
+            placed += self.open_highlights().take_files(rest)
+        return placed
+
+    def dragEnterEvent(self, event) -> None:  # noqa: N802
+        if event.mimeData().hasUrls() or event.mimeData().hasText():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:  # noqa: N802
+        from .highlights import dropped_items
+
+        if self.take_files(dropped_items(event.mimeData())):
+            event.acceptProposedAction()
 
     def open_image(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, tr("이미지 열기"), str(Path.home()), "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)")

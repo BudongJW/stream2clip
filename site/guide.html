@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 사용 설명서</h1>
   <dl>
-    <dt>적용 버전</dt><dd>v0.10</dd>
+    <dt>적용 버전</dt><dd>v0.11</dd>
     <dt>대상</dt><dd>Windows 설치 프로그램, 실행 파일 및 파이썬 패키지 사용자</dd>
     <dt>배포처</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -204,7 +204,7 @@
     <h2 id="clips">하이라이트 클립 제작</h2>
     <p>런처의 <strong>하이라이트 찾기</strong>에서 검출, 구간 조정, 내보내기를 수행.</p>
     <figure>
-      <img src="assets/shots/highlights_window.png" alt="하이라이트 창: 상단 입력 자료, 중앙 타임라인과 구간 목록, 우측 내보내기 설정" width="1350" height="964" loading="lazy">
+      <img src="assets/shots/highlights_window.png" alt="하이라이트 창: 상단 입력 자료, 중앙 타임라인과 구간 목록, 우측 내보내기 설정" width="1350" height="1108" loading="lazy">
       <figcaption>하이라이트 창. 분홍 막대는 검출 구간, 노란 테두리는 선택한 구간</figcaption>
     </figure>
     <h3>입력 자료</h3>
@@ -235,6 +235,18 @@
       <li>내보낼 구간 선택 후 레이아웃과 형식 지정</li>
       <li><strong>클립 내보내기</strong> 실행. 저장 폴더에 클립, 자막 파일(<code>.ass</code>), 설명란(<code>.txt</code>) 생성</li>
     </ol>
+    <p>영상, 채팅, 정보, 자막 파일은 창에 끌어다 놓아 입력 가능.</p>
+    <h3>모음 영상과 편집 프로그램 연계</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>항목</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">출처 표기</th><td>입력한 문구를 클립 왼쪽 위에 작게 표시. 예: 원본: 채널 이름</td></tr>
+          <tr><th scope="row">모음 영상</th><td>선택 시 내보낸 클립을 방송 순서대로 이어 붙인 <code>compilation.mp4</code>와 챕터 목록 <code>compilation.txt</code>를 함께 저장</td></tr>
+          <tr><th scope="row">편집용 내보내기</th><td>체크한 구간을 컷 목록 <code>highlights.edl</code>, 타임라인 마커 <code>markers.edl</code>, 타임스탬프 목록 <code>timestamps.txt</code>로 저장. DaVinci Resolve, Premiere Pro 등에서 가져와 이어서 편집</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3>레이아웃</h3>
     <div class="tablewrap">
       <table>

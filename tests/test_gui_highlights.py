@@ -356,3 +356,98 @@ def test_caption_look_chosen_in_the_window_reaches_the_clip(app, window, stream_
     again = HighlightsWindow()  # the choice is remembered
     assert again.style_combo.currentData() == "box" and again.position_combo.currentData() == "top"
     again.close()
+
+
+# ----------------------------------------------------------------------------- dropped files, hand-off, compilation
+
+
+def test_dropped_files_go_into_their_boxes(app, window, tmp_path):
+    from PySide6.QtCore import QMimeData, QUrl
+
+    from stream2clip.gui.highlights import dropped_items, kind_of
+
+    kinds = {"vod.MP4": "video", "a.mkv": "video", "https://www.youtube.com/watch?v=abc": "video", "x.info.json": "info", "x.live_chat.json": "chat",
+             "chat.csv": "chat", "c.chat.jsonl": "chat", "subs.ja.vtt": "subtitles", "s.srt": "subtitles", "shot.png": "image", "notes.txt": "", "": ""}
+    assert {name: kind_of(name) for name in kinds} == kinds
+
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(tmp_path / "vod.mp4")), QUrl("https://www.youtube.com/watch?v=abc")])
+    assert dropped_items(mime) == [str(tmp_path / "vod.mp4").replace("\\", "/"), "https://www.youtube.com/watch?v=abc"]
+    text = QMimeData()
+    text.setText(" https://www.twitch.tv/videos/1 ")
+    assert dropped_items(text) == ["https://www.twitch.tv/videos/1"]
+    text.setText("just some words")
+    assert dropped_items(text) == []
+
+    window.subs_combo.setCurrentIndex(window.subs_combo.findData("none"))
+    placed = window.take_files([str(tmp_path / "vod.mp4"), str(tmp_path / "vod.live_chat.json"), str(tmp_path / "vod.info.json"), str(tmp_path / "vod.ja.vtt"), str(tmp_path / "readme.txt"), str(tmp_path / "shot.png")])
+    assert placed == ["video", "chat", "info", "subtitles"]  # what the window has no box for is left alone
+    assert window.video_edit.text().endswith("vod.mp4") and window.chat_edit.text().endswith("vod.live_chat.json")
+    assert window.info_edit.text().endswith("vod.info.json") and window.subs_edit.text().endswith("vod.ja.vtt")
+    assert window.subs_combo.currentData() == "file" and "파일 4개 입력됨" in window.status.text()
+    assert window.acceptDrops() and window.take_files([]) == []
+    window.take_files(["https://www.youtube.com/watch?v=abc"])
+    assert window.video_edit.text() == "https://www.youtube.com/watch?v=abc"
+
+
+def test_launcher_sends_dropped_files_where_they_belong(app, tmp_path):
+    from PIL import Image
+
+    from stream2clip.gui.launcher import LauncherWindow
+
+    image = tmp_path / "shot.png"
+    Image.new("RGB", (64, 48), "#335577").save(image)
+    launcher = LauncherWindow()
+    assert launcher.acceptDrops()
+    assert launcher.take_files([str(image), str(tmp_path / "vod.mp4"), str(tmp_path / "chat.csv"), str(tmp_path / "notes.txt")]) == ["image", "video", "chat"]
+    assert len(launcher.editors) == 1
+    assert launcher.highlights_window.video_edit.text().endswith("vod.mp4") and launcher.highlights_window.chat_edit.text().endswith("chat.csv")
+    for editor in launcher.editors:
+        editor.close()
+    launcher.highlights_window.close()
+    launcher.close()
+
+
+@needs_ffmpeg
+def test_export_for_an_editing_program_then_credit_and_compilation(app, window, stream_files, tmp_path):
+    from PySide6.QtWidgets import QApplication
+
+    video, chat = stream_files
+    out = tmp_path / "clips"
+    window.set_paths(video=str(video), chat=str(chat), output=str(out))
+    window.audio_check.setChecked(False)
+    assert not window.handoff_button.isEnabled()
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert window.handoff_button.isEnabled()
+
+    window.handoff_button.click()
+    assert sorted(p.name for p in window.last_handoff) == ["highlights.edl", "markers.edl", "timestamps.txt"]
+    cuts = (out / "highlights.edl").read_text(encoding="utf-8")
+    assert "* FROM CLIP NAME: vod.mp4" in cuts and "AA/V" in cuts and "TITLE: vod" in cuts
+    times = (out / "timestamps.txt").read_text(encoding="utf-8")
+    assert times.count("\n") == 1 and QApplication.clipboard().text() == times
+    assert "편집용 파일 저장됨" in window.status.text() and "highlights.edl" in window.status.text()
+
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    window.credit_edit.setText("Source: Test Channel")
+    window.compile_check.setChecked(True)
+    window.export()
+    wait(app, lambda: not window.busy)
+    assert window.last_compilation is not None and window.last_compilation.path == out / "compilation.mp4" and window.last_compilation.path.is_file()
+    assert "모음 영상 compilation.mp4" in window.status.text() and (out / "compilation.txt").is_file()
+    assert "Credit,,0,0,0,,Source: Test Channel" in (out / "clip_01.ass").read_text(encoding="utf-8")
+
+    window.remember()
+    again = HighlightsWindow()
+    assert again.credit_edit.text() == "Source: Test Channel" and again.compile_check.isChecked()
+    again.close()
+
+    # A stream address has no file to cut from: the timestamp list is all there is to hand over.
+    window.video_edit.setText("https://www.youtube.com/watch?v=abc")
+    window.output_edit.setText(str(tmp_path / "other"))
+    window.export_handoff()
+    assert [p.name for p in window.last_handoff] == ["timestamps.txt"] and "영상 파일이 있어야" in window.status.text()
+    assert not (tmp_path / "other" / "highlights.edl").exists()
+

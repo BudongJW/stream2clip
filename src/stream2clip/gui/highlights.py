@@ -16,6 +16,7 @@ import numpy as np
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QColor, QFont, QIcon, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -298,6 +299,40 @@ class TimelineWidget(QWidget):
         p.end()
 
 
+_VIDEO_TYPES = (".mp4", ".mkv", ".webm", ".mov", ".flv", ".ts", ".m4v", ".avi")
+_IMAGE_TYPES = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+
+
+def kind_of(item: str) -> str:
+    """What a dropped file (or address) is: "video", "chat", "info", "subtitles", "image" or ""."""
+    from ..sources import is_url
+
+    name = str(item).strip().lower()
+    if is_url(name):
+        return "video"
+    if name.endswith(".info.json"):
+        return "info"
+    if name.endswith(_VIDEO_TYPES):
+        return "video"
+    if name.endswith((".srt", ".vtt")):
+        return "subtitles"
+    if name.endswith((".json", ".jsonl", ".csv", ".xml")):
+        return "chat"
+    if name.endswith(_IMAGE_TYPES):
+        return "image"
+    return ""
+
+
+def dropped_items(mime) -> list[str]:
+    """Files and addresses in what was dropped (a ``QMimeData``)."""
+    from ..sources import is_url
+
+    if mime.hasUrls():
+        return [url.toLocalFile() if url.isLocalFile() else url.toString() for url in mime.urls()]
+    text = mime.text().strip() if mime.hasText() else ""
+    return [text] if text and is_url(text) else []
+
+
 class HighlightsWindow(QMainWindow):
     """Find, adjust, preview and export highlights."""
 
@@ -359,6 +394,9 @@ class HighlightsWindow(QMainWindow):
         bottom.addWidget(self.mascot_label)
         self.mood = ""
         self.set_mood("wink")
+        self.setAcceptDrops(True)  # a video, chat, info or subtitle file dropped on the window goes into its box
+        self.last_compilation = None
+        self.last_handoff: list[Path] = []
         self.status = QLabel(tr("영상과 채팅 다시보기를 고르거나 방송 주소를 넣으세요"), objectName="Muted")
         bottom.addWidget(self.status, 1)
         self.progress = QProgressBar()
@@ -374,6 +412,12 @@ class HighlightsWindow(QMainWindow):
         self.export_button.clicked.connect(self.export)
         self.export_button.setEnabled(False)
         bottom.addWidget(self.export_button)
+        self.handoff_button = QPushButton(tr("편집용 내보내기"))
+        self.handoff_button.setMinimumHeight(38)
+        self.handoff_button.setToolTip(tr("체크한 구간을 편집 프로그램용 컷 목록(EDL), 타임라인 마커, 타임스탬프 목록으로 저장"))
+        self.handoff_button.clicked.connect(self.export_handoff)
+        self.handoff_button.setEnabled(False)
+        bottom.addWidget(self.handoff_button)
         self.upload_button = QPushButton(tr("업로드"))
         self.upload_button.setMinimumHeight(38)
         self.upload_button.setToolTip(tr("고른 클립(또는 다른 영상)을 YouTube에 올립니다. 기본은 비공개입니다."))
@@ -557,13 +601,22 @@ class HighlightsWindow(QMainWindow):
         self.agency_combo.setToolTip(tr("설명란과 업로드 전 점검에 쓸 기획사 프로필 (체크리스트일 뿐 법적 판단이 아닙니다)"))
         grid.addWidget(self.agency_combo, 8, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 9, 0)
+        grid.addWidget(QLabel(tr("출처 표기")), 9, 0)
+        self.credit_edit = QLineEdit()
+        self.credit_edit.setPlaceholderText(tr("(선택) 예: 원본: 채널 이름"))
+        self.credit_edit.setToolTip(tr("클립 왼쪽 위에 작게 넣을 문구. 비우면 넣지 않음"))
+        grid.addWidget(self.credit_edit, 9, 1)
+        self.compile_check = QCheckBox(tr("모음 영상"))
+        self.compile_check.setToolTip(tr("내보낸 클립을 방송 순서대로 이어 붙인 영상과 챕터 목록을 함께 저장 (MP4, WebM)"))
+        grid.addWidget(self.compile_check, 9, 2)
+
+        grid.addWidget(QLabel(tr("저장")), 10, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 9, 1)
+        grid.addWidget(self.output_edit, 10, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 9, 2)
-        grid.setRowStretch(10, 1)
+        grid.addWidget(pick, 10, 2)
+        grid.setRowStretch(11, 1)
         self._on_layout_changed()
         return card
 
@@ -606,14 +659,14 @@ class HighlightsWindow(QMainWindow):
     # ------------------------------------------------------------------ remembered settings
     def _restore(self) -> None:
         saved = load_section("highlights")
-        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual")):
+        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
         for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
-        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.output_edit, "output")):
+        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.output_edit, "output")):
             if isinstance(saved.get(key), str) and saved[key]:
                 edit.setText(saved[key])
         if isinstance(saved.get("top"), int):
@@ -634,12 +687,72 @@ class HighlightsWindow(QMainWindow):
             "karaoke": self.karaoke_check.isChecked(), "translator": self.translator_choice(), "target": self.target_edit.text().strip(),
             "glossary": self.glossary_edit.text().strip(), "bilingual": self.bilingual_check.isChecked(),
             "format": self.format_combo.currentData(), "agency": self.agency_combo.currentData(), "output": self.output_edit.text().strip(),
+            "credit": self.credit_edit.text().strip(), "compile": self.compile_check.isChecked(),
             "last_dir": self.last_dir,
         })
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         self.remember()
         super().closeEvent(event)
+
+    # ------------------------------------------------------------------ dropped files
+    def take_files(self, items) -> list[str]:
+        """Put dropped files (or a stream address) into the boxes they belong in; returns the kinds that were placed."""
+        placed = []
+        for item in items:
+            kind = kind_of(item)
+            edit = {"video": self.video_edit, "chat": self.chat_edit, "info": self.info_edit, "subtitles": self.subs_edit}.get(kind)
+            if edit is None:
+                continue
+            edit.setText(str(item).strip())
+            placed.append(kind)
+            if kind == "subtitles":
+                self.subs_combo.setCurrentIndex(max(0, self.subs_combo.findData("file")))
+        if placed and not self.busy:
+            self.status.setText(tr("파일 {0}개 입력됨. 하이라이트 찾기를 눌러 분석").format(len(placed)))
+        return placed
+
+    def dragEnterEvent(self, event) -> None:  # noqa: N802
+        if event.mimeData().hasUrls() or event.mimeData().hasText():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:  # noqa: N802
+        if self.take_files(dropped_items(event.mimeData())):
+            event.acceptProposedAction()
+
+    # ------------------------------------------------------------------ for an editing program
+    def export_handoff(self) -> None:
+        """Save the checked highlights as a cut list (EDL), timeline markers and a timestamp list; the list is also copied."""
+        chosen = self.checked_highlights()
+        if not chosen or self.busy:
+            return
+        from .. import handoff
+        from ..export import probe
+        from ..sources import is_url
+
+        folder = Path(self.output_edit.text().strip() or str(default_clip_dir()))
+        video = self.video_edit.text().strip()
+        written = ["timestamps.txt"]
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            text = handoff.timestamps(chosen)
+            (folder / "timestamps.txt").write_text(text, encoding="utf-8")
+            if video and not is_url(video) and Path(video).is_file():
+                facts = probe(video)
+                if facts.fps:
+                    name = Path(video)
+                    handoff.write_text(handoff.edl(chosen, fps=facts.fps, title=name.stem, clip_name=name.name, audio=facts.has_audio), folder / "highlights.edl")
+                    handoff.write_text(handoff.marker_edl(chosen, fps=facts.fps, title=name.stem), folder / "markers.edl")
+                    written += ["highlights.edl", "markers.edl"]
+        except (OSError, ValueError, RuntimeError) as exc:
+            self._on_failed(str(exc))
+            return
+        QApplication.clipboard().setText(text)
+        self.last_handoff = [folder / name for name in written]
+        if len(written) == 1:
+            self.status.setText(tr("타임스탬프 목록 저장됨: {0}. 클립보드에도 복사. 컷 목록(EDL)은 영상 파일이 있어야 저장").format(folder))
+        else:
+            self.status.setText(tr("편집용 파일 저장됨: {0} ({1}). 타임스탬프 목록은 클립보드에도 복사").format(folder, ", ".join(written)))
 
     def _pick_output(self) -> None:
         path = QFileDialog.getExistingDirectory(self, tr("저장 폴더"), self.output_edit.text())
@@ -715,6 +828,7 @@ class HighlightsWindow(QMainWindow):
         self.analyse_button.setEnabled(not busy)
         self.avatar_button.setEnabled(not busy and self.layout_combo.currentData() in AVATAR_LAYOUTS)
         self.export_button.setEnabled(not busy and bool(self.checked_highlights()))
+        self.handoff_button.setEnabled(not busy and bool(self.checked_highlights()))
         if message is not None:
             self.status.setText(message)
 
@@ -975,6 +1089,9 @@ class HighlightsWindow(QMainWindow):
         target = self.target_edit.text().strip() or "ko"
         glossary_path = self.glossary_edit.text().strip()
         bilingual = self.bilingual_check.isChecked()
+        credit = self.credit_edit.text().strip() or None
+        joined = self.compile_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm")
+        self.last_compilation = None
         if translator_spec and not subs_path and model is None:
             self._on_failed(tr("번역하려면 자막이 필요합니다. 자막 파일을 고르거나 받아쓰기를 켜세요."))
             return
@@ -1008,10 +1125,15 @@ class HighlightsWindow(QMainWindow):
             results = make_clips(
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
-                subtitle_style=subtitle_style(look, position=place),
+                subtitle_style=subtitle_style(look, position=place), credit=credit,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )
+            if joined and results:
+                from ..pipeline import compile_folder
+
+                self._progress.emit(steps, steps, tr("모음 영상 만드는 중"))
+                self.last_compilation = compile_folder(out_dir)
             self._exported.emit(("clips", results))
 
         self._run(work)
@@ -1037,6 +1159,8 @@ class HighlightsWindow(QMainWindow):
         self.progress.setValue(len(value))
         warnings = sum(1 for r in value for i in r.issues if i.level in ("error", "warning"))
         note = tr(", 가이드라인 확인 필요 {0}건 (clips.json)").format(warnings) if warnings else ""
+        if getattr(self, "last_compilation", None) is not None:
+            note += tr(", 모음 영상 {0}").format(self.last_compilation.path.name)
         where = value[0].path.parent if value else self.output_edit.text()
         self._set_busy(False, tr("클립 {0}개 저장됨: {1}{2}").format(len(value), where, note))
         self.set_mood("cut")
