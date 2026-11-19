@@ -51,6 +51,7 @@ def find_highlights(
     info: str | os.PathLike[str] | None = None,
     audio: bool = False,
     laughter: bool = False,
+    speech: str | os.PathLike[str] | None = None,
     config: HighlightConfig | None = None,
     source: dict | None = None,
     on_stage: Callable[[str], None] | None = None,
@@ -59,6 +60,7 @@ def find_highlights(
 
     This is the first half of ``stream2clip auto``; ``on_stage`` is told which step
     starts ("chat", "audio", "detect") so a UI can show what it is waiting for.
+    ``speech`` is a subtitle file whose reaction lines are scored too (experimental).
     """
     from .audio import audio_levels, laughter_levels
     from .chat import load_chat
@@ -82,12 +84,18 @@ def find_highlights(
         if laughter:
             stage("laughter")
             bursts = laughter_levels(video, window=cfg.window)
-    if not messages and levels is None and not heatmap:
+    said = None
+    if speech:  # experimental: reaction words in the subtitles, for a stream without chat
+        from .highlights import speech_levels
+        from .subtitles import load_subtitles
+
+        said = speech_levels(load_subtitles(speech), window=cfg.window, delay=cfg.chat_delay)
+    if not messages and levels is None and not heatmap and said is None:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
     return detect_highlights(
         messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap,
-        laughter=bursts, laughter_window=cfg.window, config=cfg, source=source or {},
+        laughter=bursts, laughter_window=cfg.window, speech=said, speech_window=cfg.window, config=cfg, source=source or {},
     )
 
 

@@ -474,7 +474,8 @@ class HighlightsWindow(QMainWindow):
 
         grid.addWidget(QLabel(tr("아바타")), 1, 0)
         self.avatar_edit = QLineEdit()
-        self.avatar_edit.setPlaceholderText(tr("x,y,w,h (stack, pip 레이아웃)"))
+        self.avatar_edit.setPlaceholderText(tr("x,y,w,h"))
+        self.avatar_edit.setToolTip(tr("stack, pip 레이아웃에서 방송 화면 속 아바타의 위치와 크기 (픽셀)"))
         self.avatar_edit.editingFinished.connect(self.refresh_preview)
         grid.addWidget(self.avatar_edit, 1, 1)
         self.avatar_button = QPushButton(tr("자동 찾기"))
@@ -482,39 +483,49 @@ class HighlightsWindow(QMainWindow):
         self.avatar_button.clicked.connect(self.find_avatar)
         grid.addWidget(self.avatar_button, 1, 2)
 
-        grid.addWidget(QLabel(tr("자막")), 2, 0)
+        grid.addWidget(QLabel(tr("아바타 영상")), 2, 0)
+        self.avatar_video_edit = QLineEdit()
+        self.avatar_video_edit.setPlaceholderText(tr("(선택) 아바타만 녹화한 영상"))
+        self.avatar_video_edit.setToolTip(tr("방송과 같은 시간에 아바타만 따로 녹화한 영상입니다. 초록 배경(#00FF00)은 지우고, 투명 배경 영상은 그대로 씁니다.\n넣으면 아바타 위치 대신 이 영상이 stack, pip 레이아웃의 아바타가 됩니다."))
+        self.avatar_video_edit.editingFinished.connect(self.refresh_preview)
+        grid.addWidget(self.avatar_video_edit, 2, 1)
+        self.avatar_video_button = QPushButton(tr("찾기"))
+        self.avatar_video_button.clicked.connect(self._pick_avatar_video)
+        grid.addWidget(self.avatar_video_button, 2, 2)
+
+        grid.addWidget(QLabel(tr("자막")), 3, 0)
         self.subs_combo = QComboBox()
         self.subs_combo.addItem(tr("자막 파일 사용 (있으면)"), "file")
         self.subs_combo.addItem(tr("없음"), "none")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper small)"), "small")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper medium)"), "medium")
-        grid.addWidget(self.subs_combo, 2, 1, 1, 2)
-        grid.addWidget(QLabel(tr("언어")), 3, 0)
+        grid.addWidget(self.subs_combo, 3, 1, 1, 2)
+        grid.addWidget(QLabel(tr("언어")), 4, 0)
         self.language_edit = QLineEdit("ja")
         self.language_edit.setToolTip(tr("자막 원문 언어 (ja, ko, en 등). 받아쓰기와 번역에 사용"))
-        grid.addWidget(self.language_edit, 3, 1)
+        grid.addWidget(self.language_edit, 4, 1)
         self.karaoke_check = QCheckBox(tr("카라오케"), checked=True)
         self.karaoke_check.setToolTip(tr("말하는 단어에 맞춰 색이 바뀝니다 (번역한 자막에는 적용되지 않습니다)"))
-        grid.addWidget(self.karaoke_check, 3, 2)
+        grid.addWidget(self.karaoke_check, 4, 2)
 
-        grid.addWidget(QLabel(tr("스타일")), 4, 0)
+        grid.addWidget(QLabel(tr("스타일")), 5, 0)
         self.style_combo = QComboBox()
         for key, label in _SUBTITLE_STYLES:
             self.style_combo.addItem(label, key)
         self.style_combo.setToolTip(tr("자막의 모양. 상자는 복잡한 게임 화면 위에서도 읽기 쉽습니다."))
-        grid.addWidget(self.style_combo, 4, 1)
+        grid.addWidget(self.style_combo, 5, 1)
         self.position_combo = QComboBox()
         for key, label in _SUBTITLE_POSITIONS:
             self.position_combo.addItem(label, key)
         self.position_combo.setToolTip(tr("자막의 위치. 게임 자체의 대사 창이 아래에 있으면 위쪽을 고르세요."))
-        grid.addWidget(self.position_combo, 4, 2)
+        grid.addWidget(self.position_combo, 5, 2)
 
-        grid.addWidget(QLabel(tr("번역")), 5, 0)
+        grid.addWidget(QLabel(tr("번역")), 6, 0)
         self.translator_combo = QComboBox()
         self.translator_combo.setToolTip(tr("번역 서비스는 내장돼 있지 않습니다. 설치한 번역기 플러그인을 고르거나,\ntranslate(texts, target, source) 함수가 있는 .py 파일을 고르세요 (examples/translators 참고)."))
         self._fill_translators()
         self.translator_combo.activated.connect(self._on_translator_picked)
-        grid.addWidget(self.translator_combo, 5, 1)
+        grid.addWidget(self.translator_combo, 6, 1)
         translate_row = QHBoxLayout()
         translate_row.setSpacing(6)
         self.target_edit = QLineEdit("ko")
@@ -524,35 +535,35 @@ class HighlightsWindow(QMainWindow):
         self.bilingual_check = QCheckBox(tr("원문 병기"))
         self.bilingual_check.setToolTip(tr("원문 줄 아래에 번역을 함께 넣습니다"))
         translate_row.addWidget(self.bilingual_check)
-        grid.addLayout(translate_row, 5, 2)
+        grid.addLayout(translate_row, 6, 2)
 
-        grid.addWidget(QLabel(tr("용어집")), 6, 0)
+        grid.addWidget(QLabel(tr("용어집")), 7, 0)
         self.glossary_edit = QLineEdit()
         self.glossary_edit.setPlaceholderText(tr("(선택) 이름 고정 CSV, JSON"))
         self.glossary_edit.setToolTip(tr("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다."))
-        grid.addWidget(self.glossary_edit, 6, 1)
+        grid.addWidget(self.glossary_edit, 7, 1)
         pick_glossary = QPushButton(tr("찾기"))
         pick_glossary.clicked.connect(lambda: self._browse(self.glossary_edit, "Glossary (*.csv *.json);;All files (*)"))
-        grid.addWidget(pick_glossary, 6, 2)
+        grid.addWidget(pick_glossary, 7, 2)
 
-        grid.addWidget(QLabel(tr("형식")), 7, 0)
+        grid.addWidget(QLabel(tr("형식")), 8, 0)
         self.format_combo = QComboBox()
         for fmt in ("mp4", "webm", "webp", "gif"):
             self.format_combo.addItem(fmt.upper(), fmt)
-        grid.addWidget(self.format_combo, 7, 1)
+        grid.addWidget(self.format_combo, 8, 1)
         self.agency_combo = QComboBox()
         for key in _AGENCIES:
             self.agency_combo.addItem(key or tr("가이드라인 없음"), key)
         self.agency_combo.setToolTip(tr("설명란과 업로드 전 점검에 쓸 기획사 프로필 (체크리스트일 뿐 법적 판단이 아닙니다)"))
-        grid.addWidget(self.agency_combo, 7, 2)
+        grid.addWidget(self.agency_combo, 8, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 8, 0)
+        grid.addWidget(QLabel(tr("저장")), 9, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 8, 1)
+        grid.addWidget(self.output_edit, 9, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 8, 2)
-        grid.setRowStretch(9, 1)
+        grid.addWidget(pick, 9, 2)
+        grid.setRowStretch(10, 1)
         self._on_layout_changed()
         return card
 
@@ -602,7 +613,7 @@ class HighlightsWindow(QMainWindow):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
-        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.output_edit, "output")):
+        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.output_edit, "output")):
             if isinstance(saved.get(key), str) and saved[key]:
                 edit.setText(saved[key])
         if isinstance(saved.get("top"), int):
@@ -619,7 +630,7 @@ class HighlightsWindow(QMainWindow):
             "audio": self.audio_check.isChecked(), "laughter": self.laughter_check.isChecked(), "snap": self.snap_check.isChecked(), "singing": self.singing_combo.currentData(),
             "top": self.top_spin.value(), "threshold": round(self.threshold_spin.value(), 2),
             "layout": self.layout_combo.currentData(), "subtitles": self.subs_combo.currentData(), "language": self.language_edit.text().strip(),
-            "subtitle_style": self.style_combo.currentData(), "subtitle_position": self.position_combo.currentData(),
+            "subtitle_style": self.style_combo.currentData(), "subtitle_position": self.position_combo.currentData(), "avatar_video": self.avatar_video_edit.text().strip(),
             "karaoke": self.karaoke_check.isChecked(), "translator": self.translator_choice(), "target": self.target_edit.text().strip(),
             "glossary": self.glossary_edit.text().strip(), "bilingual": self.bilingual_check.isChecked(),
             "format": self.format_combo.currentData(), "agency": self.agency_combo.currentData(), "output": self.output_edit.text().strip(),
@@ -732,11 +743,22 @@ class HighlightsWindow(QMainWindow):
         avatar = None
         if kind in AVATAR_LAYOUTS:
             text = self.avatar_edit.text().strip()
+            video = self.avatar_video_edit.text().strip()
+            if video:  # the avatar's own recording: no box in the stream is needed
+                from ..export import has_alpha
+
+                if not Path(video).is_file():
+                    raise ValueError(tr("아바타 영상 파일을 찾을 수 없습니다: {0}").format(video))
+                return VerticalLayout(kind, avatar=Region.parse(text) if text else None, avatar_source=video, avatar_key=None if has_alpha(video) else "#00FF00")
             if not text:
-                raise ValueError(tr("이 레이아웃은 아바타 위치가 필요합니다. 자동 찾기 버튼을 누르거나 x,y,w,h를 입력하세요."))
+                raise ValueError(tr("이 레이아웃은 아바타 위치 또는 아바타 영상이 필요합니다. 자동 찾기 버튼을 누르거나 x,y,w,h를 입력하세요."))
             avatar = Region.parse(text)
         assert kind in LAYOUTS
         return VerticalLayout(kind, avatar=avatar)
+
+    def _pick_avatar_video(self) -> None:
+        self._browse(self.avatar_video_edit, "Video (*.mp4 *.mkv *.webm *.mov);;All files (*)")
+        self.refresh_preview()
 
     def checked_highlights(self) -> list[Highlight]:
         return [self.timeline.highlights[i] for i in range(self.list.count()) if self.list.item(i).checkState() == Qt.CheckState.Checked]
@@ -839,6 +861,8 @@ class HighlightsWindow(QMainWindow):
     def _on_layout_changed(self) -> None:
         stack = self.layout_combo.currentData() in AVATAR_LAYOUTS
         self.avatar_edit.setEnabled(stack)
+        self.avatar_video_edit.setEnabled(stack)
+        self.avatar_video_button.setEnabled(stack)
         self.avatar_button.setEnabled(stack and not self.busy)
         if self.result is not None:
             self.refresh_preview()

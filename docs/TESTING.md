@@ -49,6 +49,7 @@
 | `test_vrm.py` | VRM 1.0, 0.x 메타 판독(합성한 GLB 파일), 0.x 라이선스 이름의 환산, VRM이 아닌 파일 거부, 수익화 및 법인 사용 대조, `check --vrm` |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지, 이름 고정, 원문 병기 자막, 묶음 전송, Holodex 초안, `--translate` |
 | `test_translator_loading.py` | 번역기를 파일, 모듈에서 불러오기(함수, 클래스, 객체, Windows 드라이브 경로), 잘못된 지정에 대한 안내, 예제 번역기(가짜 응답: 목록 추출, 줄 수 불일치 시 1줄씩 재요청), `--translator file.py` |
+| `test_avatar_schedule.py` | 투명 배경 아바타 영상의 인식(MOV, WebM)과 합성, 알파 WebM의 디코더 지정, 하이라이트 창의 아바타 영상 입력, 예약 게시 시각 해석과 요청 본문, `upload --publish-at`, 업로드 창의 예약 게시 |
 | `test_audio_signals.py` | 웃음소리 신호(크고 끊어지는 소리), 가산 신호가 다른 하이라이트를 줄이지 않는지 여부, 노래 구간 검출(합성 음성, 노래), 노래 표시 및 제외 |
 | `test_evaluation.py` | 댓글의 타임스탬프 읽기(시각이 아닌 숫자 제외), 인접 표시 묶기, 댓글 수 집계, precision, recall, 무작위 기대값 계산, 설정값별 비교, `evaluate`, `fetch --comments` |
 | `test_sections.py` | 주소로 시작하기: 하이라이트 구간만 다운로드(여유 시간, 수신한 파일 재사용), 구간 파일 기준 자막과 설명란의 방송 시각 유지, CHZZK 구간에서만 ffmpeg 확장자 검사 해제, `clips <주소>`, `auto <주소>`, 방송별 폴더 이름, 정보와 채팅만 수신(재사용, CHZZK 및 SOOP 정보 거부) |

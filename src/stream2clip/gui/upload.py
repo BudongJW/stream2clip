@@ -11,10 +11,11 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QDateTime, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDateTimeEdit,
     QDialog,
     QFileDialog,
     QGridLayout,
@@ -101,14 +102,27 @@ class UploadDialog(QDialog):
         row.addWidget(self.shorts_check)
         grid.addLayout(row, 4, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("OAuth 파일")), 5, 0)
+        grid.addWidget(QLabel(tr("예약")), 5, 0)
+        schedule = QHBoxLayout()
+        self.schedule_check = QCheckBox(tr("예약 게시"))
+        self.schedule_check.setToolTip(tr("비공개로 올린 뒤 정한 시각에 YouTube가 공개로 바꿉니다."))
+        schedule.addWidget(self.schedule_check)
+        self.schedule_edit = QDateTimeEdit(QDateTime.currentDateTime().addSecs(3600))
+        self.schedule_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.schedule_edit.setCalendarPopup(True)
+        self.schedule_edit.setEnabled(False)
+        schedule.addWidget(self.schedule_edit, 1)
+        self.schedule_check.toggled.connect(self._on_schedule_toggled)
+        grid.addLayout(schedule, 5, 1, 1, 2)
+
+        grid.addWidget(QLabel(tr("OAuth 파일")), 6, 0)
         self.secrets_edit = QLineEdit(str(saved.get("client_secrets", "")))
         self.secrets_edit.setPlaceholderText(tr("Google Cloud에서 받은 client_secret.json (본인 프로젝트)"))
         self.secrets_edit.setToolTip(tr("YouTube Data API를 켠 본인 Google Cloud 프로젝트의 데스크톱 앱 유형 OAuth 클라이언트 파일입니다.\n처음 한 번 브라우저에서 동의하면 같은 폴더에 token.json이 저장됩니다."))
-        grid.addWidget(self.secrets_edit, 5, 1)
+        grid.addWidget(self.secrets_edit, 6, 1)
         pick_secrets = QPushButton(tr("찾기"))
         pick_secrets.clicked.connect(lambda: self._browse(self.secrets_edit, "JSON (*.json);;All files (*)"))
-        grid.addWidget(pick_secrets, 5, 2)
+        grid.addWidget(pick_secrets, 6, 2)
 
         self.preview_box = QPlainTextEdit(readOnly=True)
         self.preview_box.setPlaceholderText(tr("보낼 내용 보기 버튼을 누르면 YouTube에 보낼 내용이 여기에 표시됩니다. 업로드는 실행되지 않습니다."))
@@ -147,14 +161,22 @@ class UploadDialog(QDialog):
         if path:
             edit.setText(path)
 
+    def _on_schedule_toggled(self, on: bool) -> None:
+        """A scheduled video is uploaded private: YouTube publishes it at the time chosen."""
+        self.schedule_edit.setEnabled(on)
+        if on:
+            self.privacy_combo.setCurrentIndex(self.privacy_combo.findData("private"))
+        self.privacy_combo.setEnabled(not on)
+
     def resource(self) -> dict[str, Any]:
         """The ``videos.insert`` body the form describes; raises ``ValueError`` if YouTube would refuse it."""
         from ..upload import video_resource
 
         tags = [t for t in self.tags_edit.text().split(",") if t.strip()]
+        when = self.schedule_edit.dateTime().toPython() if self.schedule_check.isChecked() else None
         return video_resource(
             self.title_edit.text(), self.description_edit.toPlainText(), tags=tags,
-            privacy=self.privacy_combo.currentData(), shorts=self.shorts_check.isChecked(),
+            privacy=self.privacy_combo.currentData(), shorts=self.shorts_check.isChecked(), publish_at=when,
         )
 
     def problems(self) -> list[str]:

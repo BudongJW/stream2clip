@@ -52,6 +52,7 @@ __all__ = [
     "reaction_label",
     "reactions_reason",
     "snap_to_cues",
+    "speech_levels",
     "load_highlights",
     "robust_z",
     "render_timeline",
@@ -119,7 +120,7 @@ def paid_reason(count: int) -> str:
 def marker_reason(words: Iterable[str]) -> str:
     return tr("스트리머 표시 ({0})").format(", ".join(dict.fromkeys(words)))
 
-SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap", "laughter")
+SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap", "laughter", "speech")
 #: Chat commands that mark "clip what just happened" (Twitch ``!clip`` bots, timestamp bots, the marks of Bilibili streamers).
 DEFAULT_MARKERS = ("!clip", "!클립", "!切り抜き", "!ts", "!mark")
 #: Experimental signals: added on top of the score instead of averaged into it.
@@ -157,7 +158,7 @@ class HighlightConfig:
     #: ... when it comes from one of these (``ChatMessage.role``); "any" accepts every chatter.
     marker_roles: tuple[str, ...] = ("owner", "moderator")
     weights: dict[str, float] = field(
-        default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15, "laughter": 0.15}
+        default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15, "laughter": 0.15, "speech": 0.30}
     )
 
     def __post_init__(self) -> None:
@@ -306,6 +307,26 @@ def marker_word(message: ChatMessage, words: Sequence[str], roles: Sequence[str]
     return next((word for word in words if text == word or text.startswith(word + " ")), None)
 
 
+def speech_levels(cues: Iterable[Any], *, window: float = 5.0, delay: float = 0.0) -> np.ndarray:
+    """Per window, how many subtitle lines are reactions of the streamer ("やばい", "えっ", "すごい" ...).
+
+    The experimental signal for a stream without chat: the same reaction words that are
+    counted in the chat, looked for in what the streamer says. ``delay`` moves the lines later
+    by the chat delay, so that the detector - which works on the chat's clock and shifts its
+    peaks back - places the clip where the line was spoken.
+    """
+    counted: dict[int, int] = {}
+    for cue in cues:
+        text = cue.text or "".join(word.text for word in getattr(cue, "words", ()))
+        if classify_reactions(text):
+            index = max(0, int((float(cue.start) + delay) // window))
+            counted[index] = counted.get(index, 0) + 1
+    levels = np.zeros(max(counted, default=-1) + 1)
+    for index, count in counted.items():
+        levels[index] = count
+    return levels
+
+
 def detect_highlights(
     messages: Sequence[ChatMessage] = (),
     *,
@@ -315,12 +336,15 @@ def detect_highlights(
     heatmap: Sequence[HeatmapPoint] = (),
     laughter: np.ndarray | None = None,
     laughter_window: float | None = None,
+    speech: np.ndarray | None = None,
+    speech_window: float | None = None,
     config: HighlightConfig | None = None,
     source: dict[str, Any] | None = None,
 ) -> HighlightResult:
     """Find the most exciting moments. Any subset of chat / audio / heatmap may be given.
 
-    ``laughter`` is the optional, experimental :func:`stream2clip.audio.laughter_levels` curve.
+    ``laughter`` is the optional, experimental :func:`stream2clip.audio.laughter_levels` curve,
+    ``speech`` the optional, experimental :func:`speech_levels` of the subtitles.
     """
     cfg = config or HighlightConfig()
     w = cfg.window
@@ -331,6 +355,8 @@ def detect_highlights(
         candidates.append(len(audio) * (audio_window or w))
     if heatmap:
         candidates.append(max(p.end for p in heatmap))
+    if speech is not None and len(speech) and not (duration or messages):
+        candidates.append(len(speech) * (speech_window or w))
     total = max(candidates)
     if total <= 0:
         raise ValueError("Nothing to analyse: give chat messages, audio levels, a heatmap or a duration")
@@ -346,6 +372,11 @@ def detect_highlights(
         raw["audio"] = _resample(np.asarray(audio, dtype=np.float64), audio_window or w, n, w)
     if laughter is not None and len(laughter):
         raw["laughter"] = _resample(np.asarray(laughter, dtype=np.float64), laughter_window or w, n, w)
+    if speech is not None and len(speech) and np.any(speech):
+        # The counts stop at the last reaction line: the rest of the stream is silence, not more of the same.
+        counted = np.zeros(max(len(speech), math.ceil(total / (speech_window or w))))
+        counted[: len(speech)] = np.asarray(speech, dtype=np.float64)
+        raw["speech"] = _resample(counted, speech_window or w, n, w)
     if heatmap:
         centers = (np.arange(n) + 0.5) * w
         hm_centers = np.array([(p.start + p.end) / 2 for p in heatmap])
@@ -486,6 +517,11 @@ def _explain(h: Highlight, raw: dict[str, np.ndarray], chat: dict[str, Any] | No
         stats["laughter_z"] = burst
         if burst >= 2:
             reasons.append(tr("웃음소리 같은 소리 (추정)"))
+    if "speech" in raw:
+        said = int(round(float(raw["speech"][lo:hi].sum())))
+        stats["speech_reactions"] = said
+        if said:
+            reasons.append(tr("자막 속 반응 표현 {0}회").format(said))
     if "heatmap" in raw:
         value = float(raw["heatmap"][lo:hi].max())
         stats["heatmap"] = value

@@ -16,12 +16,13 @@ Needs ``pip install "stream2clip[upload]"`` (google-api-python-client, google-au
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from .i18n import tr
 
-__all__ = ["SCOPES", "PRIVACY", "video_resource", "shorts_problems", "load_credentials", "upload_video", "video_url"]
+__all__ = ["SCOPES", "PRIVACY", "video_resource", "scheduled_time", "shorts_problems", "load_credentials", "upload_video", "video_url"]
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 PRIVACY = ("private", "unlisted", "public")
@@ -41,11 +42,16 @@ def video_resource(
     synthetic_media: bool | None = None,
     language: str | None = None,
     shorts: bool = False,
+    publish_at: "datetime | str | None" = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """The ``snippet`` / ``status`` body for ``videos.insert``; raises ``ValueError`` for what YouTube would reject.
 
     ``synthetic_media`` sets ``status.containsSyntheticMedia`` (altered or synthetic content
     disclosure). ``shorts`` adds ``#Shorts`` to the description when it is not there yet.
+    ``publish_at`` schedules the video: it is uploaded private and YouTube makes it public at
+    that time (a ``datetime``, or text like ``2026-12-24 18:00``; without a time zone it is
+    local time). YouTube only takes a schedule for a private video, and only a future one.
     """
     title = " ".join(title.split())
     if not title:
@@ -67,9 +73,26 @@ def video_resource(
     if language:
         snippet["defaultLanguage"] = language
     status: dict[str, Any] = {"privacyStatus": privacy, "selfDeclaredMadeForKids": bool(made_for_kids)}
+    if publish_at is not None and publish_at != "":
+        if privacy != "private":
+            raise ValueError("A scheduled video is uploaded private and made public by YouTube at the time given: leave the privacy at private")
+        when = scheduled_time(publish_at)
+        if when <= (now or datetime.now(timezone.utc)).astimezone(timezone.utc):
+            raise ValueError(f"The time to publish at ({when:%Y-%m-%d %H:%M} UTC) is not in the future")
+        status["publishAt"] = when.strftime("%Y-%m-%dT%H:%M:%SZ")
     if synthetic_media is not None:
         status["containsSyntheticMedia"] = bool(synthetic_media)
     return {"snippet": snippet, "status": status}
+
+
+def scheduled_time(value: "datetime | str") -> datetime:
+    """A publishing time in UTC. Text is ``YYYY-MM-DD HH:MM`` or ISO 8601; a time without a zone is the local time."""
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.strip())
+        except ValueError:
+            raise ValueError(f'Not a date and time: {value!r} (write it like "2026-12-24 18:00")') from None
+    return value.astimezone(timezone.utc)  # a naive datetime counts as local time
 
 
 def shorts_problems(width: int, height: int, duration: float | None) -> list[str]:
