@@ -131,6 +131,35 @@ def test_ytdlp_passthrough(monkeypatch, capsys):
     assert main(["yt-dlp", "--version"]) == 1 and "ingest" in capsys.readouterr().err
 
 
+def test_installer_offers_ffmpeg_when_there_is_none():
+    """The download is a task of its own: offered when ffmpeg is not found, checked against the pinned SHA-256."""
+    text = (ROOT / "packaging" / "installer.iss").read_text(encoding="utf-8-sig")
+    assert 'Name: "ffmpeg"; Description: "{cm:FfmpegTask}"; Check: FfmpegMissing' in text  # ticked unless the user unticks it
+    for code in ("ko", "ja", "en"):
+        for message in ("FfmpegTask", "FfmpegPage", "FfmpegPageNote", "FfmpegInstalling", "FfmpegFailed", "FfmpegNote"):
+            assert f"{code}.{message}=" in text
+        assert "{#FfmpegSize} MB" in next(line for line in text.splitlines() if line.startswith(f"{code}.FfmpegTask="))
+    assert "#ifndef FfmpegUrl" in text and "#error" in text  # compiled without the pinned build: stop, do not guess one
+    assert "DownloadPage.Add('{#FfmpegUrl}', '{#FfmpegFile}', '{#FfmpegSha256}')" in text
+    # the installed program unpacks it - the same command a person can run - and only when the download succeeded
+    run = next(line for line in text.splitlines() if line.startswith('Filename: "{app}\\stream2clip.exe"'))
+    assert 'setup --ffmpeg --no-obs --from ""{tmp}\\{#FfmpegFile}""' in run and "Tasks: ffmpeg" in run and "Check: FfmpegFetched" in run and "runhidden" in run
+    # the three places stream2clip itself looks in
+    missing = text.split("function FfmpegMissing")[1].split("end;")[0]
+    assert "GetEnv('PATH')" in missing and "{%USERPROFILE}\\.cache\\stream2clip\\tools\\ffmpeg.exe" in missing and "BesideThePrograms" in missing
+    assert "(CurPageID = wpFinished) and FfmpegMissing" in text  # the last page mentions ffmpeg only when it is still missing
+    assert "FinishedLabel.AdjustHeight" in text and "RunList.Top + Grown" in text  # ... in a label that grows for it, not one that cuts it off
+    # a failed download does not stop the installation
+    handler = text.split("DownloadPage.Download;")[1].split("finally")[0]
+    assert "except" in handler and "Result := False" not in handler and "SuppressibleMsgBox" in handler
+    removed = text.split("[UninstallDelete]")[1].split("[Code]")[0]
+    for name in ("ffmpeg.exe", "ffprobe.exe", "ffmpeg-LICENSE.txt"):
+        assert f'Type: files; Name: "{{%USERPROFILE}}\\.cache\\stream2clip\\tools\\{name}"' in removed
+    from stream2clip import ffmpeg, tools
+
+    assert ffmpeg.tools_dir.__doc__ and tools._LICENSE == "ffmpeg-LICENSE.txt"
+
+
 def test_installer_asks_for_the_language_and_tells_the_app(build, tmp_path, monkeypatch):
     script = (ROOT / "packaging" / "installer.iss").read_bytes()
     assert script.startswith(b"\xef\xbb\xbf")  # Inno Setup reads Korean and Japanese text correctly only with the byte order mark
@@ -142,13 +171,19 @@ def test_installer_asks_for_the_language_and_tells_the_app(build, tmp_path, monk
     from stream2clip import i18n
 
     assert rf"{{app}}\{i18n.INSTALL_FILE}'), ActiveLanguage" in text  # the language codes are the app's own: ko, ja, en
-    assert "ffmpeg.exe" not in text  # ffmpeg is not part of the installer
+    files = text.split("[Files]")[1].split("[Icons]")[0]
+    assert files.count("Source:") == 1 and "ffmpeg" not in files  # ffmpeg is not part of the installer
 
     assert build.installer_name("0.5.1", "AMD64") == "stream2clip-0.5.1-windows-x64-setup"
     folder, dist = tmp_path / "dist" / "stream2clip", tmp_path / "dist"
     folder.mkdir(parents=True)
     command = build.installer_command("ISCC.exe", folder, dist, "0.5.1", "AMD64")
     assert command[0] == "ISCC.exe" and command[-1].endswith("installer.iss") and "/DAppVersion=0.5.1" in command
+    from stream2clip.tools import FFMPEG_BUILD
+
+    # the build the installer offers to download is the one pinned in the package, nothing typed twice
+    for define in (f"/DFfmpegUrl={FFMPEG_BUILD.url}", f"/DFfmpegFile={FFMPEG_BUILD.filename}", f"/DFfmpegSha256={FFMPEG_BUILD.sha256}", f"/DFfmpegSize={FFMPEG_BUILD.megabytes}"):
+        assert define in command
     assert f"/DSourceDir={folder.resolve()}" in command and f"/DOutputDir={dist.resolve()}" in command and "/DOutputName=stream2clip-0.5.1-windows-x64-setup" in command
 
     ran = []

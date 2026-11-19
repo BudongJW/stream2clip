@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.9.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.10.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-436-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-456-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -55,7 +55,7 @@
 |:---:|---|
 | 용도 | 방송 화면 및 다시보기(VOD)의 장면 캡쳐, 편집, 움짤 녹화, 하이라이트 클립 자동 제작 |
 | 구성 | 데스크톱 앱(PySide6), 명령줄 도구, 파이썬 라이브러리 |
-| 지원 환경 | Windows, macOS, Linux. Python 3.10 이상, ffmpeg 필요 |
+| 지원 환경 | Windows, macOS, Linux. ffmpeg 필요(Windows는 설치 과정 또는 앱에서 내려받기). 파이썬 패키지는 Python 3.10 이상 |
 | 배포 형태 | Windows 설치 프로그램 및 zip([홈페이지](https://budongjw.github.io/stream2clip/)), 파이썬 패키지(소스 설치) |
 | 화면 언어 | 한국어, 日本語, English |
 | 사용 설명서 | [웹 페이지](https://budongjw.github.io/stream2clip/guide.html), [PDF](https://budongjw.github.io/stream2clip/stream2clip-guide.pdf) |
@@ -67,8 +67,9 @@
 
 ### 버전별 주요 변경
 
-| &numsp;버&NoBreak;전&numsp; | 주요 변경 |
+| &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 주요 변경 |
 |:---:|---|
+| v0.10 | ffmpeg 한 번에 설치(설치 프로그램의 내려받기 작업, 앱 시작 화면의 버튼), 구성요소 점검 명령 `setup` |
 | v0.9 | 하이라이트 창의 아바타 영상 입력, 업로드 예약 게시, 자막 속 반응 표현 신호(실험) |
 | v0.8 | CHZZK, SOOP 라이브 채팅 직접 수신, 하이라이트 근거와 점검 문구의 일본어 및 영어 지원 |
 | v0.7 | 자막 개선(언어별 폰트 자동 선택, 문절 단위 줄바꿈, 스타일 프리셋과 위치), VRM 아바타 권리 검사 |
@@ -562,7 +563,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 436개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 456개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -582,15 +583,98 @@ stream2clip check --vrm model.vrm --monetized
 
 ## 설치
 
+### 설치 방법 선택
+
+| 대상 | 방법 | 사전 준비 |
+|---|---|---|
+| 처음 사용, 파이썬 미사용 | [Windows 설치 프로그램](#windows-설치-프로그램) | 없음. ffmpeg는 설치 과정에서 내려받기 |
+| 설치 없이 사용 | [zip](#zip-사용) | 없음. ffmpeg는 앱 시작 화면에서 내려받기 |
+| 명령줄, 라이브러리, macOS, Linux | [파이썬 패키지](#파이썬-패키지) | Python 3.10 이상, ffmpeg |
+
 ### Windows 설치 프로그램
 
-- [홈페이지](https://budongjw.github.io/stream2clip/)에서 설치 프로그램 또는 zip 다운로드
-- 설치 절차와 사용 방법: [사용 설명서](https://budongjw.github.io/stream2clip/guide.html)
+설치 프로그램 하나로 앱 실행에 필요한 구성요소를 모두 준비
+
+| 순&NoBreak;서 | 화면 | 조작 |
+|:---:|---|---|
+| 1 | [홈페이지](https://budongjw.github.io/stream2clip/) | 설치 프로그램 다운로드 후 실행 |
+| 2 | 언어 선택 | 한국어, 日本語, English 중 선택. 설치 화면과 앱의 표시 언어로 적용 |
+| 3 | 설치 위치 | 확인 후 다음. 관리자 권한 불필요 |
+| 4 | 추가 작업 | **ffmpeg 내려받기** 선택 유지(115MB). ffmpeg가 없는 PC에서만 표시 |
+| 5 | 설치 | ffmpeg 내려받기와 설치 진행. 인터넷 속도에 따라 몇 분 소요 |
+| 6 | 완료 | 시작 메뉴 또는 완료 화면에서 stream2clip 실행 |
+
+- 내려받기를 해제하였거나 실패한 경우에도 설치는 완료되며, 앱 시작 화면의 **ffmpeg 내려받기** 버튼으로 다시 진행
+- 제거: Windows 설정의 설치된 앱 목록에서 제거. 내려받은 ffmpeg도 함께 삭제
+- 화면별 설명: [사용 설명서](https://budongjw.github.io/stream2clip/guide.html)
+
+### zip 사용
+
+- [홈페이지](https://budongjw.github.io/stream2clip/)에서 zip 다운로드 후 원하는 폴더에 압축 해제, `stream2clip-gui.exe` 실행
+- ffmpeg가 없는 경우 시작 화면 상단에 안내와 **ffmpeg 내려받기** 버튼 표시. 버튼을 누르면 내려받기 후 바로 사용 가능
+- 내려받은 ffmpeg는 사용자 폴더에 보관되므로 새 버전의 zip으로 교체하여도 다시 받지 않음
+
+<p align="center"><img src="docs/images/launcher_ffmpeg.png" alt="ffmpeg가 없는 PC의 시작 화면: 상단의 안내와 ffmpeg 내려받기 버튼" width="720"><br><sub>ffmpeg가 없는 PC의 시작 화면. 안내는 ffmpeg가 준비되면 사라짐</sub></p>
+
+### 구성요소
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;성&NoBreak;요&NoBreak;소&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 용도 | 설치 프로그램, zip | 파이썬 패키지 |
+|:---:|---|---|---|
+| ffmpeg, ffprobe | 녹화, 영상 변환, 클립 제작 | 설치 과정 또는 앱에서 내려받기 | 직접 설치. Windows는 `stream2clip setup --ffmpeg` |
+| yt-dlp | 방송 주소에서 영상과 채팅 받기 | 포함 | `[ingest]` |
+| 얼굴 검출 모델 | 아바타 위치 자동 검출 | 최초 사용 시 자동 내려받기(12MB) | `[detect]`, 최초 사용 시 자동 내려받기 |
+| WebSocket 클라이언트 | OBS 리플레이 버퍼, Twitch, CHZZK, SOOP 라이브 채팅 | 포함 | `[obs]` |
+| OBS Studio | 리플레이 버퍼 저장, 라이브 모드 | 해당 기능 사용 시 별도 설치. **도구**의 **WebSocket 서버 설정**에서 서버 사용 | 동일 |
+| 자막 글꼴 | 클립에 자막 입히기 | 시스템에 설치된 글꼴 사용 | 동일 |
+| faster-whisper | 자막 받아쓰기 | 미포함. 파이썬 패키지에서 제공 | `[asr]` |
+| Google API 클라이언트 | YouTube 업로드 | 미포함. 파이썬 패키지에서 제공 | `[upload]` |
+
+현재 PC의 구성요소 유무는 `setup` 명령으로 확인
+
+```bash
+stream2clip setup
+```
+
+```text
+[있음] ffmpeg: 녹화, 영상 변환, 클립 제작
+    C:\Users\사용자\.cache\stream2clip\tools\ffmpeg.exe (9.0.2-essentials_build-www.gyan.dev)
+[있음] ffprobe: 영상 길이와 해상도 확인
+    C:\Users\사용자\.cache\stream2clip\tools\ffprobe.exe (9.0.2-essentials_build-www.gyan.dev)
+[있음] yt-dlp: 방송 주소에서 영상과 채팅 받기
+    프로그램에 포함
+[자동] 얼굴 검출 모델: 아바타 위치 자동 검출
+    첫 사용 시 자동으로 내려받음 (12 MB). 미리 받으려면 stream2clip setup --model
+[없음(선택)] OBS WebSocket 서버: 리플레이 버퍼 저장, 라이브 모드
+    127.0.0.1:4455 응답 없음
+    해결 방법: OBS Studio 실행 후 도구, WebSocket 서버 설정에서 서버 사용
+
+필수 구성요소 모두 있음
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
+|:---:|---|
+| 옵션 없음 | 구성요소별 유무, 위치, 해결 방법 표시. 필수 구성요소가 없으면 종료 코드 1 |
+| `--ffmpeg` | Windows에서 ffmpeg, ffprobe 내려받기. 이미 있으면 내려받지 않음(`--force`로 다시 받기) |
+| `--from 파일.zip` | 내려받는 대신 이미 받아 둔 압축 파일 사용. 고정된 빌드의 파일만 허용 |
+| `--model` | 얼굴 검출 모델을 미리 내려받기 |
+| `--no-obs`, `--obs-port 포트` | OBS 확인 생략, 확인할 포트 지정 |
+
+### ffmpeg 내려받기
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 내려받는 빌드 | ffmpeg 9.0.2 essentials(gyan.dev). [ffmpeg.org](https://ffmpeg.org/download.html)가 안내하는 Windows용 빌드이며 `winget install Gyan.FFmpeg`와 동일한 배포처 |
+| 내려받는 곳 | 해당 빌드의 [GitHub 릴리즈](https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2). 압축 파일 115MB |
+| 무결성 확인 | 주소, 크기, SHA-256을 [`tools.py`](src/stream2clip/tools.py)에 고정. 값이 다른 파일은 사용하지 않고 삭제 |
+| 저장 위치 | 사용자 폴더의 `.cache\stream2clip\tools`. `ffmpeg.exe`, `ffprobe.exe`, 라이선스 문서만 보관. `STREAM2CLIP_TOOLS_DIR`로 변경 |
+| 탐색 순서 | `STREAM2CLIP_FFMPEG` 환경 변수, 실행 파일과 같은 폴더, 내려받은 폴더, PATH |
+| 배포 방식 | stream2clip의 설치 프로그램과 zip에는 ffmpeg 미포함. 사용자의 PC에서 배포처로부터 직접 내려받음 |
+| macOS, Linux | 내려받기 미제공. `brew install ffmpeg`, `sudo apt install ffmpeg` 등 패키지 관리자 사용 |
 
 ### 파이썬 패키지
 
 > [!IMPORTANT]
-> Python 3.10 이상과 ffmpeg 필요. ffmpeg는 PATH에 두거나 `STREAM2CLIP_FFMPEG` 환경 변수로 경로 지정
+> Python 3.10 이상과 ffmpeg 필요. ffmpeg는 PATH에 두거나 `STREAM2CLIP_FFMPEG` 환경 변수로 경로 지정. Windows는 설치 후 `stream2clip setup --ffmpeg`로 내려받기 가능
 
 ```bash
 git clone https://github.com/BudongJW/stream2clip.git
@@ -636,12 +720,12 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.9.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.9.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
+| `dist/stream2clip-0.10.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.10.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
-| `--ffmpeg auto`, `--ffmpeg 경로` | `ffmpeg.exe`, `ffprobe.exe`를 폴더에 복사. 실행 파일은 같은 폴더의 ffmpeg를 우선 사용하므로 ffmpeg가 없는 PC에서도 동작. 미지정 시 사용자가 ffmpeg를 PATH에 배치 |
+| `--ffmpeg auto`, `--ffmpeg 경로` | `ffmpeg.exe`, `ffprobe.exe`를 폴더에 복사. 실행 파일은 같은 폴더의 ffmpeg를 우선 사용하므로 ffmpeg가 없는 PC에서도 동작. 미지정 시 사용자의 PC에서 설치 프로그램 또는 앱이 내려받음 |
 | `--icon kiri` | 실행 파일 아이콘을 키리형으로 지정. 기본값은 심볼형 |
 | `--installer` | zip과 함께 설치 프로그램 생성. 관리자 권한 없이 현재 사용자에게 설치, 시작 메뉴 바로 가기 생성 |
 | `--with-asr` | 받아쓰기(`--transcribe`)용 faster-whisper 포함. 기본값은 제외이며 용량이 크게 증가 |
@@ -728,6 +812,7 @@ stream2clip gui
 | `live` | 라이브 채팅 감시, 급증 시 OBS 리플레이를 클립으로 저장 |
 | `upload` | 클립을 YouTube에 업로드. 기본값 비공개 |
 | `language` | 앱 시작 시 적용되는 화면 언어 표시 |
+| `setup` | 기능별 필요 구성요소의 유무와 해결 방법 표시. `--ffmpeg`로 ffmpeg 내려받기 |
 
 전체 옵션: `stream2clip <명령> --help`
 
@@ -900,6 +985,7 @@ src/stream2clip/
 ├── subtitles.py   SRT/VTT/JSON을 카라오케 ASS로 변환, 언어별 폰트, 줄바꿈, 스타일 프리셋, faster-whisper 연결
 ├── compliance.py  기획사 가이드라인 프로필, 설명란, 업로드 전 점검
 ├── vrm.py         VRM 모델의 사용 조건 판독, 사용 계획 대조
+├── tools.py       ffmpeg 내려받기(고정 빌드, SHA-256 확인), 구성요소 점검
 ├── pipeline.py    하이라이트에서 완성 클립 일괄 생성
 ├── capture/       캡처 백엔드 (mss, numpy 배열, 플러그인) + 커서 합성
 ├── editor/        주석 모델, 렌더러, 되돌리기, JSON 직렬화
@@ -998,7 +1084,7 @@ src/stream2clip/
 
 <br>
 
-| &numsp;버&NoBreak;전&numsp; | 항목 |
+| &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 항목 |
 |:---:|---|
 | v0.1 | 영역 및 전체 화면 캡쳐, 편집기(도구 9종, 팔레트, 스포이드, 되돌리기) |
 | v0.1 | F9 움짤 녹화: GIF, MP4, WebP, WebM, MOV, APNG |
@@ -1037,6 +1123,8 @@ src/stream2clip/
 | v0.9 | 하이라이트 창의 아바타 영상 입력, 투명 배경 아바타 영상의 자동 인식 |
 | v0.9 | YouTube 업로드 예약 게시(`--publish-at`, 업로드 창의 예약 게시) |
 | v0.9 | 자막 속 반응 표현 신호(`--speech`, 실험): 채팅이 없는 방송용 |
+| v0.10 | ffmpeg 한 번에 설치: 설치 프로그램의 내려받기 작업, 앱 시작 화면의 내려받기 버튼 |
+| v0.10 | 구성요소 점검 명령(`setup`): 기능별 필요 구성요소의 유무와 해결 방법 |
 
 </details>
 
@@ -1082,6 +1170,7 @@ src/stream2clip/
 | 라이브 모드 | 채팅 직접 수신은 YouTube, Twitch, CHZZK, SOOP 지원. CHZZK, SOOP의 성인 인증 및 비밀번호 방송은 미지원. 기본 임계값에서의 클립 절단 위치와 실제 장면의 일치 여부는 종료된 방송의 채팅으로만 측정 |
 | YouTube 업로드 | 실제 업로드 미검증. 요청 본문과 진행 처리는 가짜 API로 테스트 |
 | Windows 실행 파일 | 코드 서명 미적용. Smart App Control 사용 환경에서 실행이 차단될 수 있음 |
+| ffmpeg 내려받기 | Windows만 제공하며 인터넷 연결 필요. macOS, Linux는 패키지 관리자 사용 |
 
 기능별 실환경 검증 결과와 미검증 범위: [docs/VERIFICATION.md](docs/VERIFICATION.md)
 

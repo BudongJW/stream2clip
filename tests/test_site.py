@@ -137,7 +137,7 @@ def test_the_manual_covers_the_app_and_names_its_version(built, page, words):
     text = " ".join("".join(guide.text).split())
     major_minor = ".".join(stream2clip.__version__.split(".")[:2])
     assert f"v{major_minor}" in text, "the manual says which version it describes: update it with the release"
-    for word in ("winget install Gyan.FFmpeg", "stream2clip-gui.exe", "F8", "F9", "F10", "Smart App Control", *words):
+    for word in ("stream2clip setup --ffmpeg", "stream2clip-gui.exe", "F8", "F9", "F10", "Smart App Control", *words):
         assert word in text, word
     for planned in ("다음 버전", "예정", "next version", "coming soon", "planned"):  # the manual describes the program as it is
         assert planned not in text

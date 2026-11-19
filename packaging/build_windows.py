@@ -9,8 +9,9 @@ an installer that asks for the language (Korean, Japanese, English) on its first
 
 ``--ffmpeg auto`` copies the ffmpeg.exe / ffprobe.exe found on this machine into the
 folder, so the programs work on a PC without ffmpeg (they look next to themselves
-first). Without it the user needs ffmpeg on PATH. ``--with-asr`` also bundles
-faster-whisper for ``--transcribe``.
+first). Without it ffmpeg is fetched on the user's PC: the installer offers the download
+of the build pinned in ``stream2clip/tools.py``, and so does the app's start window.
+``--with-asr`` also bundles faster-whisper for ``--transcribe``.
 """
 
 from __future__ import annotations
@@ -126,11 +127,23 @@ def installer_name(version: str, machine: str | None = None) -> str:
     return archive_name(version, machine) + "-setup"
 
 
+def ffmpeg_build():
+    """The ffmpeg archive the installer offers to download: the one pinned in stream2clip/tools.py."""
+    if str(ROOT / "src") not in sys.path:
+        sys.path.insert(0, str(ROOT / "src"))
+    from stream2clip.tools import FFMPEG_BUILD
+
+    return FFMPEG_BUILD
+
+
 def installer_command(iscc: str, folder: Path, dist: Path, version: str, machine: str | None = None) -> list[str]:
     """Compile packaging/installer.iss: the built folder goes in, ``<name>-setup.exe`` comes out in ``dist``."""
+    ffmpeg = ffmpeg_build()
     return [
         iscc, "/Qp", f"/DAppVersion={version}", f"/DSourceDir={folder.resolve()}", f"/DOutputDir={dist.resolve()}",
-        f"/DOutputName={installer_name(version, machine)}", str(INSTALLER),
+        f"/DOutputName={installer_name(version, machine)}",
+        f"/DFfmpegUrl={ffmpeg.url}", f"/DFfmpegFile={ffmpeg.filename}", f"/DFfmpegSha256={ffmpeg.sha256}", f"/DFfmpegSize={ffmpeg.megabytes}",
+        str(INSTALLER),
     ]
 
 
