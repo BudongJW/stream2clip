@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,6 +10,10 @@ import pytest
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
 needs_ffmpeg = pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg/ffprobe not installed")
+
+
+# The tests read the interface in the language it is written in, whatever the machine is set to.
+os.environ["STREAM2CLIP_LANG"] = "ko"
 
 
 @pytest.fixture(autouse=True)

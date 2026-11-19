@@ -15,6 +15,7 @@ from ..capture import CaptureBackend
 from ..color import to_hex
 from ..frames import to_image
 from ..geometry import Region, round_half_up
+from ..i18n import tr
 from . import theme
 from .qt import pil_to_qimage, virtual_geometry
 
@@ -62,7 +63,7 @@ class ScreenSelector(QWidget):
         self._start: QPoint | None = None
         self._current = QPoint(-1, -1)
         self._hint = hint or (
-            "드래그해서 영역 선택  ·  Enter 전체 화면  ·  Esc 취소" if mode == "region" else "투명하게 만들 색을 클릭  ·  Esc 취소"
+            tr("드래그해서 영역 선택  ·  Enter 전체 화면  ·  Esc 취소") if mode == "region" else tr("투명하게 만들 색을 클릭  ·  Esc 취소")
         )
 
     # ------------------------------------------------------------------ geometry

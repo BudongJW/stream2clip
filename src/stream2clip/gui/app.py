@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 from .qt import app_icon
 from .theme import STYLE_SHEET
 
-__all__ = ["create_app", "main"]
+__all__ = ["create_app", "main", "apply_saved_language"]
 
 
 APP_ID = "BudongJW.stream2clip"
@@ -39,10 +39,24 @@ def create_app(argv: list[str] | None = None) -> QApplication:
     return app  # type: ignore[return-value]
 
 
+def apply_saved_language() -> str:
+    """Use the language chosen in the app (unless ``STREAM2CLIP_LANG`` says otherwise) - before any window module is imported."""
+    import os
+
+    from ..i18n import language, set_language
+    from .settings import load_section
+
+    saved = load_section("app").get("language")
+    if isinstance(saved, str) and not os.environ.get("STREAM2CLIP_LANG"):
+        set_language(saved)
+    return language()
+
+
 def main(files: list[str] | None = None) -> int:
     if files is None:
         files = sys.argv[1:]
     app = create_app()
+    apply_saved_language()
     from .launcher import LauncherWindow
 
     launcher = LauncherWindow()

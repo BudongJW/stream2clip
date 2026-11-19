@@ -39,7 +39,7 @@ stream2clip-gui = "stream2clip.gui.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-stream2clip = ["py.typed", "schemas/*.json", "gui/assets/*"]
+stream2clip = ["py.typed", "schemas/*.json", "gui/assets/*", "locales/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

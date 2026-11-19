@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from ..color import PALETTE, to_hex
 from ..editor import Document, Text
+from ..i18n import tr
 from . import theme
 from .canvas import TOOLS, EditorCanvas, ToolState
 from .qt import app_icon, pil_to_qimage
@@ -63,7 +64,7 @@ class EditorWindow(QMainWindow):
         self.doc = document
         self.save_dir = save_dir or default_save_dir()
         self.tools = ToolState(tool="select")
-        self.setWindowTitle("stream2clip · 편집")
+        self.setWindowTitle(tr("stream2clip · 편집"))
         self.setWindowIcon(app_icon())
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
@@ -132,12 +133,12 @@ class EditorWindow(QMainWindow):
             row1.addWidget(sw)
         row1.addSpacing(8)
 
-        palette_btn = QToolButton(text="팔레트")
-        palette_btn.setToolTip("다른 색 고르기")
+        palette_btn = QToolButton(text=tr("팔레트"))
+        palette_btn.setToolTip(tr("다른 색 고르기"))
         palette_btn.clicked.connect(self._open_palette)
         row1.addWidget(palette_btn)
-        self.picker_btn = QToolButton(text="스포이드", checkable=True)
-        self.picker_btn.setToolTip("이미지에서 색 뽑기 (I)")
+        self.picker_btn = QToolButton(text=tr("스포이드"), checkable=True)
+        self.picker_btn.setToolTip(tr("이미지에서 색 뽑기 (I)"))
         self.picker_btn.toggled.connect(self._toggle_picker)
         row1.addWidget(self.picker_btn)
         row1.addStretch(1)
@@ -150,16 +151,16 @@ class EditorWindow(QMainWindow):
         wl.setContentsMargins(10, 2, 6, 2)
         self.color_dot = _ColorDot(self.tools.color)
         wl.addWidget(self.color_dot)
-        wl.addWidget(QLabel("굵기"))
+        wl.addWidget(QLabel(tr("굵기")))
         self.width_spin = QSpinBox(minimum=1, maximum=40, value=self.tools.width)
-        self.width_spin.setToolTip("선 굵기 · 글자 크기 · 모자이크 블록 크기 ( [ / ] )")
+        self.width_spin.setToolTip(tr("선 굵기 · 글자 크기 · 모자이크 블록 크기 ( [ / ] )"))
         self.width_spin.setFixedWidth(64)
         self.width_spin.valueChanged.connect(self._set_width)
         wl.addWidget(self.width_spin)
         row2.addWidget(width_box)
 
-        self.translate_btn = QPushButton("번역 (한국어)")
-        self.translate_btn.setToolTip("이미지 속 글자를 한국어로 번역해 덮어쓰기 (OCR·번역 플러그인 필요)")
+        self.translate_btn = QPushButton(tr("번역 (한국어)"))
+        self.translate_btn.setToolTip(tr("이미지 속 글자를 한국어로 번역해 덮어쓰기 (OCR·번역 플러그인 필요)"))
         self.translate_btn.clicked.connect(self._translate)
         row2.addWidget(self.translate_btn)
         self.hint_label = QLabel(objectName="Muted")
@@ -177,18 +178,18 @@ class EditorWindow(QMainWindow):
         row.addWidget(self.status_label)
         row.addStretch(1)
         self.zoom_button = QPushButton("100%")
-        self.zoom_button.setToolTip("100% ↔ 창에 맞추기 (Ctrl + 휠로 확대/축소)")
+        self.zoom_button.setToolTip(tr("100% ↔ 창에 맞추기 (Ctrl + 휠로 확대/축소)"))
         self.zoom_button.clicked.connect(self._toggle_zoom)
-        self.undo_button = QPushButton("되돌리기")
-        self.undo_button.setToolTip("Ctrl+Z (다시 실행: Ctrl+Y)")
+        self.undo_button = QPushButton(tr("되돌리기"))
+        self.undo_button.setToolTip(tr("Ctrl+Z (다시 실행: Ctrl+Y)"))
         self.undo_button.clicked.connect(self.undo)
-        copy_button = QPushButton("복사")
-        copy_button.setToolTip("클립보드로 복사 (Ctrl+C)")
+        copy_button = QPushButton(tr("복사"))
+        copy_button.setToolTip(tr("클립보드로 복사 (Ctrl+C)"))
         copy_button.clicked.connect(self.copy_to_clipboard)
-        save_button = QPushButton("저장", objectName="Primary")
+        save_button = QPushButton(tr("저장"), objectName="Primary")
         save_button.setToolTip("Ctrl+S")
         save_button.clicked.connect(self.save_as)
-        close_button = QPushButton("닫기")
+        close_button = QPushButton(tr("닫기"))
         close_button.clicked.connect(self.close)
         for widget in (self.zoom_button, self.undo_button, copy_button, save_button, close_button):
             row.addWidget(widget)
@@ -242,7 +243,7 @@ class EditorWindow(QMainWindow):
         self.tools.width = value
 
     def _open_palette(self) -> None:
-        color = QColorDialog.getColor(QColor(self.tools.color), self, "색 고르기")
+        color = QColorDialog.getColor(QColor(self.tools.color), self, tr("색 고르기"))
         if color.isValid():
             self._set_color(color.name())
 
@@ -250,7 +251,7 @@ class EditorWindow(QMainWindow):
         self.tools.picking = on
         self.canvas.setCursor(Qt.CursorShape.PointingHandCursor if on else Qt.CursorShape.CrossCursor)
         if on:
-            self.hint_label.setText("이미지를 클릭해서 색 뽑기")
+            self.hint_label.setText(tr("이미지를 클릭해서 색 뽑기"))
 
     def _on_color_picked(self, color: str) -> None:
         self._set_color(color)
@@ -258,7 +259,7 @@ class EditorWindow(QMainWindow):
         self._select_tool(self.tools.tool)
 
     def _add_text(self, x: float, y: float) -> None:
-        text, ok = QInputDialog.getMultiLineText(self, "글자", "넣을 글자:")
+        text, ok = QInputDialog.getMultiLineText(self, tr("글자"), tr("넣을 글자:"))
         if ok and text.strip():
             self.doc.add(Text((x, y), text, color=self.tools.color, size=self.tools.text_size))
             self.canvas.refresh()
@@ -271,21 +272,21 @@ class EditorWindow(QMainWindow):
         if pipeline is None:
             QMessageBox.information(
                 self,
-                "번역 플러그인 없음",
-                "번역에는 OCR(글자 인식)과 번역기 플러그인이 필요합니다.\n\n"
+                tr("번역 플러그인 없음"),
+                tr("번역에는 OCR(글자 인식)과 번역기 플러그인이 필요합니다.\n\n"
                 "stream2clip.plugins.register_text_detector / register_translator 로 등록하거나\n"
                 "entry point(stream2clip.text_detectors, stream2clip.translators)를 제공하는 패키지를 설치하세요.\n"
-                "자세한 내용: docs/PORTING.md",
+                "자세한 내용: docs/PORTING.md"),
             )
             return
         detector, translator = pipeline
         try:
             shapes = translate_image(self.doc.render(apply_crop=False), detector, translator, target="ko")
         except Exception as exc:  # plugin errors should not kill the editor
-            QMessageBox.warning(self, "번역 실패", str(exc))
+            QMessageBox.warning(self, tr("번역 실패"), str(exc))
             return
         if not shapes:
-            QMessageBox.information(self, "번역", "인식된 글자가 없습니다.")
+            QMessageBox.information(self, tr("번역"), tr("인식된 글자가 없습니다."))
             return
         state = self.doc.state
         for shape in shapes:
@@ -315,12 +316,12 @@ class EditorWindow(QMainWindow):
 
     def copy_to_clipboard(self) -> None:
         QGuiApplication.clipboard().setImage(pil_to_qimage(self.doc.render()))
-        self.status_label.setText(self._status_text() + " · 복사됨")
+        self.status_label.setText(self._status_text() + tr(" · 복사됨"))
 
     def save_as(self) -> bool:
         self.save_dir.mkdir(parents=True, exist_ok=True)
         default = self.doc.source_path or self.save_dir / time.strftime("stream2clip_%Y%m%d_%H%M%S.png")
-        path, _ = QFileDialog.getSaveFileName(self, "저장", str(default), _SAVE_FILTERS)
+        path, _ = QFileDialog.getSaveFileName(self, tr("저장"), str(default), _SAVE_FILTERS)
         if not path:
             return False
         return self.save_to(Path(path))
@@ -335,7 +336,7 @@ class EditorWindow(QMainWindow):
                 self.doc.save(path)
                 self.doc.source_path = path
         except Exception as exc:
-            QMessageBox.warning(self, "저장 실패", str(exc))
+            QMessageBox.warning(self, tr("저장 실패"), str(exc))
             return False
         self._update_status()
         return True
@@ -343,7 +344,8 @@ class EditorWindow(QMainWindow):
     # ------------------------------------------------------------------ status
     def _status_text(self) -> str:
         w, h = self.doc.output_size
-        return f"{w} × {h} px · {'저장 안 됨' if self.doc.dirty else '저장됨'}"
+        state = tr("저장 안 됨") if self.doc.dirty else tr("저장됨")
+        return f"{w} × {h} px · {state}"
 
     def _update_status(self) -> None:
         self.status_label.setText(self._status_text())
@@ -353,8 +355,8 @@ class EditorWindow(QMainWindow):
         if self.doc.dirty and self.doc.state.items and not getattr(self, "_force_close", False):
             answer = QMessageBox.question(
                 self,
-                "닫기",
-                "저장하지 않은 편집이 있습니다. 저장할까요?",
+                tr("닫기"),
+                tr("저장하지 않은 편집이 있습니다. 저장할까요?"),
                 QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
             )
             if answer == QMessageBox.StandardButton.Cancel or (answer == QMessageBox.StandardButton.Save and not self.save_as()):
