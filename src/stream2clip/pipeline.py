@@ -171,6 +171,9 @@ def make_clips(
         if play_res is None:
             play_res = _output_size(clip_video, options)
         opts = replace(options, start=max(0.0, h.start - offset), end=h.end - offset)
+        if offset and opts.layout is not None and opts.layout.uses_avatar_video:
+            # The avatar video is on the stream's clock; this footage starts ``offset`` seconds into it.
+            opts = replace(opts, layout=replace(opts.layout, avatar_offset=opts.layout.avatar_offset + offset))
 
         clip_cues: list[Cue] | None = slice_cues(cues, h.start, h.end) if cues is not None else None
         if clip_cues is None and transcriber is not None:

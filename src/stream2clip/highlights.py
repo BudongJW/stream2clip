@@ -11,6 +11,10 @@ Method (see the reference report, section 2):
 3. Weighted sum -> moving average -> peaks above ``threshold``.
 4. Chat reacts after the moment happens: shift peaks earlier by ``chat_delay``,
    add ``lead`` / ``tail`` context, merge neighbours, clamp the clip length.
+5. A marker typed by the streamer or a moderator (``!clip`` ...) always becomes a clip,
+   whatever the score says.
+
+:func:`snap_to_cues` then moves clip edges off the middle of a spoken line.
 """
 
 from __future__ import annotations
@@ -32,12 +36,16 @@ __all__ = [
     "REACTIONS",
     "ROUTINE",
     "is_routine",
+    "DEFAULT_MARKERS",
     "HighlightConfig",
     "Highlight",
     "HighlightResult",
     "classify_reactions",
     "detect_highlights",
     "mark_singing",
+    "marker_times",
+    "marker_word",
+    "snap_to_cues",
     "load_highlights",
     "robust_z",
     "render_timeline",
@@ -79,6 +87,8 @@ ROUTINE: list[str] = [
 _ROUTINE = re.compile("|".join(ROUTINE), re.IGNORECASE)
 _LABELS = {"laugh": "웃음", "hype": "환호", "cute": "귀여움", "shock": "놀람"}
 SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap", "laughter")
+#: Chat commands that mark "clip what just happened" (Twitch ``!clip`` bots, timestamp bots, the marks of Bilibili streamers).
+DEFAULT_MARKERS = ("!clip", "!클립", "!切り抜き", "!ts", "!mark")
 #: Experimental signals: added on top of the score instead of averaged into it.
 BONUS_SIGNALS = ("laughter",)
 
@@ -109,6 +119,10 @@ class HighlightConfig:
     top: int = 10
     #: Leave greetings / goodbyes out of the chat signals (paid events still count).
     skip_greetings: bool = True
+    #: A message that is one of these words (or starts with one) marks a moment that must be clipped ...
+    markers: tuple[str, ...] = DEFAULT_MARKERS
+    #: ... when it comes from one of these (``ChatMessage.role``); "any" accepts every chatter.
+    marker_roles: tuple[str, ...] = ("owner", "moderator")
     weights: dict[str, float] = field(
         default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15, "laughter": 0.15}
     )
@@ -209,7 +223,7 @@ def _resample(values: np.ndarray, src_window: float, n: int, window: float) -> n
 # --------------------------------------------------------------------------- detection
 
 
-def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float, skip_greetings: bool = True) -> dict[str, Any]:
+def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float, skip_greetings: bool = True, commands: Sequence[str] = ()) -> dict[str, Any]:
     rate = np.zeros(n)
     reactions = np.zeros(n)
     paid = np.zeros(n)
@@ -223,6 +237,8 @@ def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float, skip_gr
             paid[i] += 1
         if skip_greetings and m.kind == "text" and is_routine(m.text):
             continue
+        if commands and marker_word(m, commands, ("any",)) is not None:
+            continue  # a command, whoever typed it: not a reaction
         rate[i] += 1
         if m.author:
             authors[i].add(m.author)
@@ -233,6 +249,28 @@ def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float, skip_gr
                 per_category[c][i] += 1
     unique = np.array([len(a) for a in authors], dtype=np.float64)
     return {"rate": rate, "unique": unique, "reactions": reactions, "paid": paid, "categories": per_category}
+
+
+def marker_times(messages: Iterable[ChatMessage], config: HighlightConfig | None = None) -> list[tuple[float, str]]:
+    """``(time, word)`` of every marker message: one of ``config.markers`` typed by one of ``config.marker_roles``."""
+    cfg = config or HighlightConfig()
+    words = tuple(word.strip().lower() for word in cfg.markers if word.strip())
+    if not words:
+        return []
+    found: list[tuple[float, str]] = []
+    for m in messages:
+        word = marker_word(m, words, cfg.marker_roles)
+        if word is not None:
+            found.append((m.time, word))
+    return found
+
+
+def marker_word(message: ChatMessage, words: Sequence[str], roles: Sequence[str] = ("owner", "moderator")) -> str | None:
+    """The one of ``words`` (lower case) this message is or starts with, if its author may leave markers."""
+    if "any" not in roles and not (message.role and message.role in roles):
+        return None
+    text = message.text.strip().lower()
+    return next((word for word in words if text == word or text.startswith(word + " ")), None)
 
 
 def detect_highlights(
@@ -266,7 +304,8 @@ def detect_highlights(
     n = max(1, math.ceil(total / w))
 
     raw: dict[str, np.ndarray] = {}
-    chat = _bucket_chat(messages, n, w, cfg.skip_greetings) if messages else None
+    commands = tuple(word.strip().lower() for word in cfg.markers if word.strip())
+    chat = _bucket_chat(messages, n, w, cfg.skip_greetings, commands) if messages else None
     if chat is not None:
         for key in ("rate", "unique", "reactions", "paid"):
             raw[key] = chat[key]
@@ -290,13 +329,25 @@ def detect_highlights(
         score = sum(signals[k] * v for k, v in weights.items()) / (core or sum(weights.values()))
     score = _smooth(np.asarray(score, dtype=np.float64), cfg.smooth)
 
-    highlights = _pick(score, cfg, total)
+    highlights = _pick(score, cfg, total, marker_times(messages, cfg))
     for h in highlights:
+        marks, words = h.stats.get("marker"), h.reasons
         h.reasons, h.stats = _explain(h, raw, chat, signals, cfg)
+        if marks:
+            h.stats["marker"] = marks
+            h.reasons.insert(0, f"스트리머 표시 ({', '.join(words)})")
     return HighlightResult(window=w, duration=total, score=score, signals=signals, highlights=highlights, source=source or {}, messages=len(messages))
 
 
-def _pick(score: np.ndarray, cfg: HighlightConfig, total: float) -> list[Highlight]:
+def _ranked(highlights: Iterable[Highlight]) -> list[Highlight]:
+    """Marked moments first, in stream order; the rest by score."""
+    items = list(highlights)
+    marked = sorted((h for h in items if h.stats.get("marker")), key=lambda h: h.start)
+    rest = sorted((h for h in items if not h.stats.get("marker")), key=lambda h: -h.score)
+    return marked + rest
+
+
+def _pick(score: np.ndarray, cfg: HighlightConfig, total: float, marks: Sequence[tuple[float, str]] = ()) -> list[Highlight]:
     w = cfg.window
     taken = np.zeros(score.size, dtype=bool)
     floor = cfg.threshold * 0.6
@@ -316,6 +367,12 @@ def _pick(score: np.ndarray, cfg: HighlightConfig, total: float) -> list[Highlig
         start = left * w - cfg.chat_delay - cfg.lead
         end = (right + 1) * w - cfg.chat_delay + cfg.tail
         found.append(Highlight(rank=0, start=start, end=end, peak=peak, score=float(score[i])))
+    # A marker is typed after the moment, like any other chat: the same delay applies. Until the
+    # reasons are written, the words wait in ``reasons`` and the count in ``stats``.
+    for when, word in marks:
+        scene = when - cfg.chat_delay
+        index = min(score.size - 1, max(0, int(when // w)))
+        found.append(Highlight(0, scene - cfg.lead, scene + cfg.tail, scene, float(score[index]), reasons=[word], stats={"marker": 1.0}))
 
     found.sort(key=lambda h: h.start)
     merged: list[Highlight] = []
@@ -323,14 +380,17 @@ def _pick(score: np.ndarray, cfg: HighlightConfig, total: float) -> list[Highlig
         if merged and h.start - merged[-1].end <= cfg.merge_gap:
             prev = merged[-1]
             best = prev if prev.score >= h.score else h
-            merged[-1] = Highlight(0, prev.start, max(prev.end, h.end), best.peak, max(prev.score, h.score))
+            count = prev.stats.get("marker", 0.0) + h.stats.get("marker", 0.0)
+            words = list(dict.fromkeys(prev.reasons + h.reasons))
+            merged[-1] = Highlight(0, prev.start, max(prev.end, h.end), best.peak, max(prev.score, h.score), reasons=words, stats={"marker": count} if count else {})
         else:
             merged.append(h)
 
     for h in merged:
         _clamp(h, cfg, total)
-    merged.sort(key=lambda h: -h.score)
-    merged = merged[: cfg.top]
+    ordered = _ranked(merged)
+    marked = [h for h in ordered if h.stats.get("marker")]
+    merged = marked + ordered[len(marked):][: cfg.top]  # what the streamer marked is kept on top of the best ``top``
     for rank, h in enumerate(merged, start=1):
         h.rank = rank
     return merged
@@ -371,7 +431,9 @@ def _explain(h: Highlight, raw: dict[str, np.ndarray], chat: dict[str, Any] | No
         if local > 0:
             per_min = local * 60 / w
             ratio_text = f"평소의 {ratio:.1f}배" if math.isfinite(ratio) and base > 1e-6 else "평소엔 거의 없음"
-            reasons.append(f"채팅 급증 {per_min:.0f}/분 ({ratio_text})")
+            # "급증" only when the chat really ran ahead of its usual pace: a moment can also score on reactions alone.
+            label = "채팅 급증" if ratio >= 1.5 else "채팅"
+            reasons.append(f"{label} {per_min:.0f}/분 ({ratio_text})")
         cats = {c: int(v[lo:hi].sum()) for c, v in chat["categories"].items()}
         total_react = int(raw["reactions"][lo:hi].sum())
         stats["reactions"] = total_react
@@ -422,10 +484,52 @@ def mark_singing(result: HighlightResult, sections: Sequence[tuple[float, float]
         if not (drop and fraction >= mostly):
             kept.append(h)
     if drop:
-        for rank, h in enumerate(sorted(kept, key=lambda h: -h.score), start=1):
+        for rank, h in enumerate(_ranked(kept), start=1):
             h.rank = rank
         result.highlights = sorted(kept, key=lambda h: h.rank)
     return result
+
+
+def snap_to_cues(highlights: Iterable[Highlight], cues: Sequence[Any], *, max_shift: float = 3.0, pad: float = 0.15, duration: float | None = None) -> int:
+    """Move clip edges that fall inside a spoken line to the edge of that line; returns how many clips changed.
+
+    ``cues`` are subtitle cues (anything with ``start`` and ``end``). A start inside a line goes
+    back to where the line begins, an end inside a line goes on to where it finishes - so the
+    clip keeps the whole sentence - unless that is more than ``max_shift`` seconds away; then
+    the edge goes the other way if that is near enough, and stays where it is otherwise.
+    ``pad`` leaves a breath of silence when the neighbouring line allows it.
+    """
+    spans = sorted((float(c.start), float(c.end)) for c in cues if float(c.end) > float(c.start))
+    if not spans:
+        return 0
+
+    def inside(t: float) -> int | None:
+        return next((i for i, (start, end) in enumerate(spans) if start + 0.05 < t < end - 0.05), None)
+
+    def before(i: int) -> float:  # just ahead of line i, not into the line before it
+        return max(spans[i - 1][1] if i else 0.0, spans[i][0] - pad)
+
+    def after(i: int) -> float:
+        return min(spans[i + 1][0] if i + 1 < len(spans) else math.inf, spans[i][1] + pad)
+
+    changed = 0
+    for h in highlights:
+        start, end = h.start, h.end
+        i = inside(start)
+        if i is not None:
+            start = next((t for t in (before(i), after(i)) if abs(t - h.start) <= max_shift), start)
+        i = inside(end)
+        if i is not None:
+            end = next((t for t in (after(i), before(i)) if abs(t - h.end) <= max_shift), end)
+        start = max(0.0, start)
+        if duration is not None:
+            end = min(duration, end)
+        if end - start < 1.0 or (start, end) == (h.start, h.end):
+            continue
+        h.start, h.end = start, end
+        h.peak = min(max(h.peak, start), end)
+        changed += 1
+    return changed
 
 
 def load_highlights(path: str | os.PathLike[str]) -> list[Highlight]:

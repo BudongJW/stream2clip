@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 사용 설명서</h1>
   <dl>
-    <dt>적용 버전</dt><dd>v0.5</dd>
+    <dt>적용 버전</dt><dd>v0.6</dd>
     <dt>대상</dt><dd>Windows 설치 프로그램, 실행 파일 및 파이썬 패키지 사용자</dd>
     <dt>배포처</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -238,6 +238,7 @@
           <tr><th scope="row">center</th><td>화면 중앙부를 세로 화면에 맞춰 확대. 좌우 영역 잘림</td></tr>
           <tr><th scope="row">fit</th><td>화면 전체가 보이도록 축소</td></tr>
           <tr><th scope="row">stack</th><td>상단 아바타, 하단 게임 화면. <strong>자동 찾기</strong>로 아바타 위치 검출</td></tr>
+          <tr><th scope="row">pip</th><td>게임 화면을 전체에 채우고 구석에 아바타 삽입. <strong>자동 찾기</strong>로 아바타 위치 검출</td></tr>
         </tbody>
       </table>
     </div>
@@ -262,6 +263,7 @@
         <tbody>
           <tr><th scope="row">자막 파일</th><td>SRT, WebVTT 지원. YouTube 자동 자막 사용 가능</td></tr>
           <tr><th scope="row">카라오케</th><td>발화 단어에 맞춰 색상 변경. 단어별 시각 정보가 있는 자막에 적용</td></tr>
+          <tr><th scope="row">문장 경계 맞춤</th><td>자막 파일이 있는 경우 구간의 시작과 끝을 자막 줄의 경계로 이동. 이동 한도 3초. 하이라이트 찾기 실행 시 적용</td></tr>
           <tr><th scope="row">받아쓰기</th><td>자막이 없는 경우 음성에서 자막 생성(Whisper). 파이썬 패키지에서 제공</td></tr>
           <tr><th scope="row">번역</th><td>번역기 목록의 <strong>번역기 파일 고르기</strong>에서 <code>translators\openai_compatible.py</code> 선택 시 OpenAI 호환 주소(로컬 Ollama 등)로 번역</td></tr>
           <tr><th scope="row">용어집</th><td>원문과 번역어 두 열로 구성한 CSV. 인명 등 고정 표기에 사용</td></tr>
@@ -298,7 +300,7 @@
     </ul>
     <h3>사용 절차</h3>
     <ol>
-      <li>런처의 라이브 모드 칸에 YouTube 라이브 방송 주소 입력</li>
+      <li>런처의 라이브 모드 칸에 YouTube 라이브 방송 주소 또는 Twitch 채널 주소 입력</li>
       <li>민감도 선택. 높음은 작은 급증에도 저장, 낮음은 큰 급증에만 저장</li>
       <li><strong>라이브 모드 시작</strong> 실행. 채팅 급증 시 저장 폴더에 <code>live_날짜_시각</code> 형식의 클립 생성</li>
       <li><strong>라이브 모드 중지</strong>로 종료</li>
@@ -308,7 +310,8 @@
       <li>5초 단위의 채팅량, 참여자 수, 반응 어휘, 후원 내역을 직전 15분과 비교</li>
       <li>시작 후 2분간은 기준 수집만 수행하며 클립 간 최소 간격은 90초</li>
       <li>급증 8초 전을 장면 시점으로 판단하여 앞 20초, 뒤 10초를 포함</li>
-      <li>지원 대상: YouTube 라이브 방송</li>
+      <li>스트리머 또는 모더레이터가 채팅에 <code>!clip</code> 입력 시 급증 여부와 무관하게 즉시 저장</li>
+      <li>지원 대상: YouTube 라이브 방송, Twitch</li>
     </ul>
     <h3>명령줄 실행</h3>
     <pre><code>stream2clip.exe live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips</code></pre>

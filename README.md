@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.5.1-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.6.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-369-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-396-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -69,6 +69,7 @@
 
 | &numsp;버&NoBreak;전&numsp; | 주요 변경 |
 |:---:|---|
+| v0.6 | 문장 경계 맞춤, 스트리머 표시 구간(`!clip` 등), pip 레이아웃과 별도 아바타 영상 합성, Twitch 라이브 채팅 |
 | v0.5 | 라이브 모드(방송 중 채팅 급증 시 OBS 리플레이 자동 저장), 하이라이트 창의 방송 주소 입력, 언어 선택이 있는 Windows 설치 프로그램, 홈페이지 및 사용 설명서(한국어, 영어, 일본어) |
 | v0.4 | 방송 주소만으로 클립 제작(하이라이트 구간만 다운로드), 화면 언어 3종, 앱의 번역, 업로드, OBS 리플레이(F10), 파일 하나로 번역기 연결, 여러 방송 평가(`evaluate`) |
 | v0.3 | 하이라이트 창, 아바타 위치 자동 검출, CHZZK 및 SOOP 채팅 수집, 자막 번역 및 이름 용어집, 노래 구간 검출, OBS 리플레이 버퍼 클립 변환, YouTube 업로드, Windows 실행 파일 |
@@ -101,11 +102,11 @@
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
-| 하이라이트 자동 검출 | 채팅 급증, 고유 채터, 반응 어휘(草, ｗｗ, ㅋㅋ, KEKW, 888), 슈퍼챗, 음량, 많이 다시 본 구간을 방송별 기준선과 비교하여 점수화. 채팅 지연 보정, 인접 구간 병합, 검출 근거 제공 |
-| 9:16 세로 클립 | 레이아웃 4종: center, fit, blur(블러 배경), stack(아바타 위, 게임 아래). `--avatar auto`로 아바타 위치 자동 검출 |
-| 카라오케 자막 | 단어 단위로 강조되는 자막. SRT, YouTube 자동 자막 VTT, Whisper 지원. 번역기 연결 시 번역 자막 및 원문 병기 |
+| 하이라이트 자동 검출 | 채팅 급증, 고유 채터, 반응 어휘(草, ｗｗ, ㅋㅋ, KEKW, 888), 슈퍼챗, 음량, 많이 다시 본 구간을 방송별 기준선과 비교하여 점수화. 채팅 지연 보정, 인접 구간 병합, 검출 근거 제공. 스트리머가 채팅에 남긴 표시 명령(`!clip` 등)의 시점은 항상 포함 |
+| 9:16 세로 클립 | 레이아웃 5종: center, fit, blur(블러 배경), stack(아바타 위, 게임 아래), pip(게임 화면 구석에 아바타). `--avatar auto`로 아바타 위치 자동 검출, 별도 아바타 영상(그린스크린, 알파) 합성 |
+| 카라오케 자막 | 단어 단위로 강조되는 자막. SRT, YouTube 자동 자막 VTT, Whisper 지원. 번역기 연결 시 번역 자막 및 원문 병기. 말이 끊기지 않도록 클립의 시작과 끝을 자막 줄의 경계로 이동 |
 | 가이드라인 점검 | hololive, にじさんじ, ぶいすぽっ!, あおぎり高校 프로필 제공. 원본 URL과 제목을 최상단에 둔 설명란 생성, 멤버십, 아카이브 공개, 채널 등록, AI 표기 사전 점검 |
-| 라이브 모드 | 방송 중 채팅 급증 시 OBS 리플레이 버퍼를 저장하여 해당 장면을 클립으로 자동 저장 |
+| 라이브 모드 | 방송 중 채팅 급증 시 OBS 리플레이 버퍼를 저장하여 해당 장면을 클립으로 자동 저장. YouTube, Twitch 채팅 직접 수신 |
 | YouTube 업로드 | 제작한 클립과 설명란을 YouTube에 업로드. 공개 범위 기본값은 비공개 |
 
 ### 이식
@@ -192,7 +193,7 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 | 입력 | 영상 및 채팅 파일 선택 또는 영상 칸에 방송 주소 입력 |
 | 구간 조정 | 타임라인에서 구간 가운데를 끌어 이동, 가장자리를 끌어 시작과 끝 조정. 휠 또는 구간 더블클릭으로 타임라인 확대 |
 | 내보내기 | 레이아웃이 적용된 미리보기 확인 후 체크한 구간만 내보내기 |
-| 부가 선택 | 웃음소리 신호, 노래 구간 표시 및 제외, 자막 번역(번역기, 용어집, 원문 병기) |
+| 부가 선택 | 문장 경계 맞춤, 웃음소리 신호, 노래 구간 표시 및 제외, 자막 번역(번역기, 용어집, 원문 병기) |
 | 업로드 | 내보낸 클립을 **업로드** 버튼으로 YouTube 업로드 창에 전달 |
 | 설정 | 선택한 설정은 다음 실행 시 복원 |
 
@@ -206,6 +207,75 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 
 <p align="center"><img src="docs/images/highlights_window.png" alt="하이라이트 창: 입력 파일, 타임라인, 구간 목록, 레이아웃 미리보기, 내보내기 설정과 진행률" width="92%"></p>
 <p align="center"><sub>하이라이트 창. 키 비주얼로 만든 30분 영상과 합성 채팅 데이터로 실행한 화면이며 노란 테두리는 선택한 구간</sub></p>
+
+### 레이아웃
+
+| &numsp;&numsp;이&NoBreak;름&numsp;&numsp; | 구성 | 아바타 지정 |
+|:---:|---|:---:|
+| `blur` | 방송 화면을 중앙에 두고 상하 여백을 흐린 배경으로 채움. 기본값 | 불필요 |
+| `center` | 화면 중앙부를 세로 화면에 맞춰 확대. 좌우 영역 잘림 | 불필요 |
+| `fit` | 화면 전체가 보이도록 축소하고 여백을 브랜드 배경색으로 채움 | 불필요 |
+| `stack` | 상단 아바타, 하단 게임 화면 | 필요 |
+| `pip` | 게임 화면을 전체에 채우고 구석에 아바타 삽입 | 필요 |
+| `none` | 원본 화면 유지 | 불필요 |
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avatar auto --corner top-left -o clips
+```
+
+아바타 지정 방법:
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;방&NoBreak;법&numsp;&numsp;&numsp;&numsp;&numsp; | 옵션 | 내용 |
+|:---:|---|---|
+| 방송 화면의 영역 | `--avatar x,y,w,h`, `--avatar auto` | 방송 화면에서 아바타가 있는 사각 영역을 잘라 사용. `auto`는 얼굴 검출로 영역 결정 |
+| 별도 아바타 영상 | `--avatar-video FILE` | 아바타만 녹화한 그린스크린 또는 알파 영상을 방송 영상 위에 합성. 사각 테두리 없이 아바타 형태 그대로 표시 |
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avatar-video vod/avatar.mp4 -o clips
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
+|:---:|---|
+| `--corner` | `pip`의 아바타 위치. `top-left`, `top-right`(기본값), `bottom-left`, `bottom-right` |
+| `--inset` | `pip`의 아바타 폭. 화면 폭 대비 비율, 기본값 0.42 |
+| `--avatar-key` | 아바타 영상에서 제거할 색. 기본값 `#00FF00`. `none` 지정 시 영상 자체의 알파 사용 |
+| `--avatar-offset` | 아바타 영상의 녹화가 방송보다 먼저 시작된 시간(초). 늦게 시작된 경우 음수 |
+| `--game` | 게임 화면 영역 `x,y,w,h`. 미지정 시 화면 전체 |
+
+- 아바타 영상은 방송 영상과 동일한 시간축으로 녹화된 것을 전제. 시작 시각이 다르면 `--avatar-offset`으로 보정
+- `stack`에 아바타 영상을 지정하면 상단 영역의 브랜드 배경색 위에 아바타 표시
+- 소리는 방송 영상의 것을 사용
+
+### 문장 경계 맞춤
+
+클립의 시작 또는 끝이 말하는 도중에 걸리면 해당 자막 줄의 경계로 이동. `--subtitles` 지정 시 기본 적용
+
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 시작 | 줄의 시작으로 앞당김. 3초를 넘게 이동해야 하면 줄의 끝으로 늦춤 |
+| 끝 | 줄의 끝까지 연장. 3초를 넘게 이동해야 하면 줄의 시작으로 당김 |
+| 이동 한도 | `--snap SECONDS`, 기본값 3. 양쪽 모두 한도를 넘으면 원래 위치 유지. `--snap 0`은 사용 안 함 |
+| 적용 시점 | 영상 다운로드와 절단 이전. `highlights.json`, `clips.json`에는 이동 후의 시각 기록 |
+| 앱 | 하이라이트 창의 **문장 경계 맞춤**. 자막 파일이 지정된 경우 검출 직후 적용되며 이후 직접 조정 가능 |
+
+- `--transcribe`로 클립별 받아쓰기만 사용하는 경우 방송 전체의 자막이 없어 적용되지 않음
+- 측정: 실제 방송 1개(85분, YouTube 자동 자막)의 하이라이트 10개에서 줄 중간에 걸린 가장자리가 12곳에서 1곳으로 감소
+
+### 스트리머 표시 구간
+
+스트리머 또는 모더레이터가 채팅에 입력한 표시 명령의 시점은 점수와 무관하게 클립으로 포함
+
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 기본 명령 | `!clip`, `!클립`, `!切り抜き`, `!ts`, `!mark`. 메시지가 명령과 같거나 명령으로 시작하는 경우 |
+| 인정 대상 | 스트리머(채널 주인), 모더레이터. `--marker-anyone` 지정 시 모든 시청자 |
+| 구간 | 일반 채팅과 동일하게 입력 8초 전을 장면 시점으로 간주하고 앞 20초, 뒤 10초 포함 |
+| 순위 | 표시 구간을 방송 순서대로 앞 순위에 배치. `--top` 개수와 별도로 유지 |
+| 옵션 | `--marker WORD`로 명령 지정(반복 가능), `--no-markers`로 사용 안 함 |
+| 역할 판독 | YouTube, Twitch, CHZZK 채팅과 chat-downloader JSON에서 판독. CSV, JSONL은 `role` 열(`owner`, `moderator`) 사용. SOOP 다시보기는 미지원 |
+| 라이브 모드 | 표시 명령 입력 시 준비 시간과 임계값에 관계없이 즉시 저장 |
+
+- 표시 명령은 입력자와 관계없이 채팅 급증 계산에서 제외
 
 ### 자막 번역
 
@@ -285,11 +355,16 @@ stream2clip replay -o moment.gif --last 15 --width 480
 stream2clip live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips
 ```
 
+```bash
+stream2clip live "https://www.twitch.tv/CHANNEL" -o clips
+```
+
 | &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
-| 앱 | 런처의 **라이브 모드** 줄에 YouTube 라이브 주소 입력, 민감도 선택(낮음 4.5, 보통 3.5, 높음 2.5) 후 **라이브 모드 시작**. 클립은 저장 폴더에 녹화 설정의 형식으로 저장 |
+| 앱 | 런처의 **라이브 모드** 줄에 YouTube 라이브 또는 Twitch 채널 주소 입력, 민감도 선택(낮음 4.5, 보통 3.5, 높음 2.5) 후 **라이브 모드 시작**. 클립은 저장 폴더에 녹화 설정의 형식으로 저장 |
 | 사전 설정 | OBS 리플레이 버퍼 사용, 최대 리플레이 시간 60초 이상. 기본값 20초에서는 장면 앞부분이 버퍼에 남지 않으며 저장 시 안내. 버퍼 미동작 시 대기 전에 안내하고 `--start-buffer`로 시작 가능 |
-| 채팅 입력 | YouTube 라이브는 주소만으로 yt-dlp가 수신. 약 10초 단위 묶음으로 수신되어 그만큼 지연. 그 외 플랫폼은 수집기가 한 줄에 JSON 하나씩(`{"text": ..., "author": ..., "time": ...}`) 추가하는 파일 지정. CHZZK, SOOP 라이브 채팅 직접 수신은 미지원 |
+| 채팅 입력 | YouTube 라이브는 주소만으로 yt-dlp가 수신. 약 10초 단위 묶음으로 수신되어 그만큼 지연. Twitch는 채널 주소만으로 채팅 서버에 익명(읽기 전용)으로 접속하여 지연 없이 수신. 그 외 플랫폼은 수집기가 한 줄에 JSON 하나씩(`{"text": ..., "author": ..., "time": ...}`) 추가하는 파일 지정. CHZZK, SOOP 라이브 채팅 직접 수신은 미지원 |
+| 표시 명령 | 스트리머 또는 모더레이터가 채팅에 `!clip` 등을 입력하면 준비 시간과 임계값에 관계없이 즉시 저장. `--no-markers`로 사용 안 함 |
 | 발동 조건 | 5초 단위로 채팅 수, 참여자 수, 반응 어휘, 후원을 직전 15분과 비교(다시보기 검출과 동일 점수). 시작 후 2분은 관찰만 수행, 클립 간 최소 간격 90초. `--threshold`(기본 3.5) 상향 시 저장 횟수 감소 |
 | 절단 위치 | 급증 8초 전을 장면 시점으로 간주하고 앞 20초, 뒤 10초를 포함한 약 35초 클립 생성. 방송 송출자는 송출 지연만큼 `--delay` 상향. 채팅 시각과 PC 시계의 일치를 전제 |
 | 사전 확인 | `--simulate`에 종료된 방송의 채팅 파일 지정 시 발동 시점 표시. `--no-obs`는 저장 없이 급증만 알림 |
@@ -358,7 +433,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | chat-downloader | xenova/chat-downloader JSON |
 | Twitch | TwitchDownloader 채팅 JSON(비트 포함) |
 | CHZZK, SOOP | `fetch`가 수신하여 정규화한 `*.chat.jsonl`. 직접 받은 CHZZK 다시보기 채팅 API 응답(JSON)과 SOOP 채팅 XML도 지원 |
-| 기타 채팅 | `time,author,text[,amount]` CSV, JSONL. `1:02:03` 형식의 시각 지원 |
+| 기타 채팅 | `time,author,text[,amount][,role]` CSV, JSONL. `1:02:03` 형식의 시각 지원 |
 | 자막 | SRT, WebVTT(YouTube 자동 자막의 단어별 시각 포함), Whisper JSON. `--transcribe`로 faster-whisper 직접 실행 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;출&NoBreak;력&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
@@ -387,7 +462,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | `hololive` | 2026-08-31 개정 |
 | `nijisanji` | 2025-05-23 개정 |
 | `vspo` | 2026-09-17 개정. 공식 가이드라인 원문 확인 후 반영 |
-| `aogiri` | [레퍼런스 조사](reports/버튜버%20영상%20작업%20프로젝트%20레퍼런스.md) 시점 기준 |
+| `aogiri` | 2026-02 개정 |
 | `generic` | 기획사 프로필이 없는 경우의 공통 점검 |
 
 > [!CAUTION]
@@ -427,7 +502,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 369개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 396개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
@@ -501,8 +576,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.5.1-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.5.1-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
+| `dist/stream2clip-0.6.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.6.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -551,7 +626,8 @@ stream2clip gui
 | 구간 가운데 끌기, 가장자리 끌기 | 구간 이동, 시작과 끝 조정(최소 5초) |
 | 휠, 구간 더블클릭 | 타임라인 확대. 빈 곳 더블클릭 시 전체 보기 |
 | 목록의 체크 | 내보낼 구간 선택 |
-| 레이아웃 **stack**, **자동 찾기** | 얼굴 검출로 아바타 박스 입력 |
+| 레이아웃 **stack**, **pip**, **자동 찾기** | 얼굴 검출로 아바타 박스 입력 |
+| **문장 경계 맞춤** | 자막 파일이 있는 경우 구간의 시작과 끝을 자막 줄의 경계로 이동(최대 3초) |
 | **웃음소리 (실험)**, **노래 구간** | 웃음소리 유형의 소리에 점수 가산, 노래와 겹치는 하이라이트 표시 또는 제외 |
 | **번역**, **용어집**, **원문 병기** | 자막 번역기(플러그인 또는 `.py` 파일) 선택, 이름 고정, 원문과 2줄 표시 |
 | **업로드** | 선택한 클립을 YouTube 업로드 창으로 전달. 기본값 비공개 |
@@ -756,8 +832,8 @@ src/stream2clip/
 ├── chat.py        채팅 다시보기를 ChatMessage로 변환 (YouTube, Twitch, chat-downloader, CSV/JSONL)
 ├── sources.py     yt-dlp: info, 채팅, VOD 구간, heatmap        audio.py  음량 곡선
 ├── highlights.py  하이라이트 검출, 타임라인 그래프
-├── live.py        라이브 모드: 실시간 급증 검출, 채팅 따라 읽기, 리플레이 클립 변환
-├── layouts.py     9:16 레이아웃 (center, fit, blur, stack)
+├── live.py        라이브 모드: 실시간 급증 검출, 채팅 따라 읽기 (파일, yt-dlp, Twitch), 리플레이 클립 변환
+├── layouts.py     9:16 레이아웃 (center, fit, blur, stack, pip), 별도 아바타 영상 합성
 ├── detect.py      애니메 얼굴 검출, stack 레이아웃 아바타 박스 제안
 ├── subtitles.py   SRT/VTT/JSON을 카라오케 ASS로 변환, faster-whisper 연결
 ├── compliance.py  기획사 가이드라인 프로필, 설명란, 업로드 전 점검
@@ -856,7 +932,7 @@ src/stream2clip/
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 25건</b></summary>
+<summary><b>버전별 완료 항목 29건</b></summary>
 
 <br>
 
@@ -887,6 +963,10 @@ src/stream2clip/
 | v0.5 | 하이라이트 창의 방송 주소 입력 |
 | v0.5 | 홈페이지 및 사용 설명서(한국어, 영어, 일본어, PDF 포함), GitHub Pages 배포 |
 | v0.5 | 언어 선택이 있는 Windows 설치 프로그램 |
+| v0.6 | 문장 경계 맞춤: 클립의 시작과 끝을 자막 줄의 경계로 이동 |
+| v0.6 | 스트리머 표시 구간: 스트리머, 모더레이터의 `!clip` 등 명령 시점을 항상 클립으로 포함 |
+| v0.6 | pip 레이아웃, 별도 아바타 영상(그린스크린, 알파) 합성 |
+| v0.6 | Twitch 라이브 채팅으로 라이브 모드 사용 |
 
 </details>
 
@@ -929,7 +1009,7 @@ src/stream2clip/
 | 녹화 커서 | 화살표 모양 1종만 합성하며 화면 배율에 따라 크기만 조정. 실제 커서 모양(손가락, I빔 등)은 미반영 |
 | GIF 투명도 | 1비트. 부드러운 가장자리가 필요한 경우 WebP, WebM, MOV 사용 |
 | 화면 언어 | 하이라이트 근거, 가이드라인 점검 문구, 설명란 양식, 명령줄 출력은 한국어만 제공. 일본어, 영어 번역은 원어민 검수 미실시 |
-| 라이브 모드 | 채팅 직접 수신은 YouTube만 지원. 기본 임계값에서의 클립 절단 위치와 실제 장면의 일치 여부는 종료된 방송의 채팅으로만 측정 |
+| 라이브 모드 | 채팅 직접 수신은 YouTube, Twitch 지원. 기본 임계값에서의 클립 절단 위치와 실제 장면의 일치 여부는 종료된 방송의 채팅으로만 측정. Twitch 채팅과 OBS를 함께 사용한 저장은 미검증 |
 | YouTube 업로드 | 실제 업로드 미검증. 요청 본문과 진행 처리는 가짜 API로 테스트 |
 | Windows 실행 파일 | 코드 서명 미적용. Smart App Control 사용 환경에서 실행이 차단될 수 있음 |
 

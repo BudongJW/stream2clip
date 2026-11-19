@@ -79,15 +79,18 @@ def grab_frames(path: str | os.PathLike[str], times: Sequence[float], *, layout:
 
     if layout is not None:
         width, height = layout.size
-        shape = ["-filter_complex", layout.graph("[0:v]", "[v]"), "-map", "[v]"]
+        shape = ["-filter_complex", layout.graph("[0:v]", "[v]", avatar_inp="[1:v]" if layout.uses_avatar_video else None), "-map", "[v]"]
     else:
         info = probe(path)
         width, height = info.width, info.height
         shape = []
     frames = []
     for t in times:
+        avatar = []
+        if layout is not None and layout.uses_avatar_video:
+            avatar = ["-ss", f"{max(0.0, t + layout.avatar_offset):.3f}", "-i", os.fspath(layout.avatar_source)]  # type: ignore[arg-type]
         cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-ss", f"{max(0.0, t):.3f}", "-i", os.fspath(path),
-               *shape, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]
+               *avatar, *shape, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]
         proc = subprocess.run(cmd, capture_output=True, check=False)
         if proc.returncode != 0:
             raise FFmpegError(cmd, proc.returncode, proc.stderr.decode("utf-8", "replace"))

@@ -271,7 +271,22 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--min-length", type=float, default=15.0)
     g.add_argument("--max-length", type=float, default=90.0)
     g.add_argument("--keep-greetings", action="store_true", help="count greetings / goodbyes too (they flood the chat when a stream starts and ends)")
+    _add_marker_args(g)
     g.add_argument("--plot", help="also draw the timeline as PNG")
+
+
+def _add_marker_args(g) -> None:
+    g.add_argument("--marker", action="append", metavar="WORD", help="chat command of the streamer or a moderator that always makes a clip; repeat for more (default: !clip !클립 !切り抜き !ts !mark)")
+    g.add_argument("--marker-anyone", action="store_true", help="take the marker from every chatter, not only the streamer and moderators")
+    g.add_argument("--no-markers", action="store_true", help="ignore marker commands")
+
+
+def _markers(args: argparse.Namespace) -> dict:
+    """``markers`` / ``marker_roles`` for HighlightConfig and LiveConfig."""
+    from .highlights import DEFAULT_MARKERS
+
+    words = () if args.no_markers else tuple(args.marker or DEFAULT_MARKERS)
+    return {"markers": words, "marker_roles": ("any",) if args.marker_anyone else ("owner", "moderator")}
 
 
 def _detect(args: argparse.Namespace, video: str | None):
@@ -281,7 +296,7 @@ def _detect(args: argparse.Namespace, video: str | None):
     if not args.chat and not args.info and not (video and args.audio):
         raise ValueError("Give --chat, --info (heatmap) or --audio with a video")
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
-                          min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings)
+                          min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings, **_markers(args))
     src = _source(args)
     result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), config=cfg,
                              source={"url": src.url, "title": src.title} if src else {})
@@ -329,8 +344,13 @@ def cmd_highlights(args: argparse.Namespace) -> int:
 
 def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("clip output")
-    g.add_argument("--layout", default="blur", choices=["blur", "center", "fit", "stack", "none"], help="9:16 layout (default blur); 'none' keeps the original framing")
-    g.add_argument("--avatar", type=_avatar, help="stack layout: avatar box x,y,w,h in source pixels, or 'auto' to find it with anime face detection")
+    g.add_argument("--layout", default="blur", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default blur): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
+    g.add_argument("--avatar", type=_avatar, help="stack / pip layout: avatar box x,y,w,h in source pixels, or 'auto' to find it with anime face detection")
+    g.add_argument("--avatar-video", metavar="FILE", help="stack / pip layout: take the avatar from its own recording (green screen or alpha) instead of a box in the stream")
+    g.add_argument("--avatar-key", default="#00FF00", metavar="COLOR", help="colour removed from --avatar-video (default #00FF00); 'none' uses the file's own transparency")
+    g.add_argument("--avatar-offset", type=float, default=0.0, metavar="SECONDS", help="--avatar-video: seconds its recording started before the stream's (negative: after)")
+    g.add_argument("--corner", default="top-right", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="pip layout: where the avatar goes (default top-right)")
+    g.add_argument("--inset", type=float, default=0.42, help="pip layout: avatar width as a fraction of the frame (default 0.42)")
     g.add_argument("--face-model", help="--avatar auto: ONNX face model file (default: downloaded once, 12 MB)")
     g.add_argument("--avatar-samples", type=int, default=12, help="--avatar auto: frames to look at (default 12)")
     g.add_argument("--max-height", type=int, default=1080, help="when the video is an address: the largest picture height to download (default 1080)")
@@ -348,6 +368,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--transcribe", metavar="MODEL", help='transcribe each clip with faster-whisper (e.g. "small", "large-v3")')
     s.add_argument("--language", help="speech language for --transcribe (ja, ko, en ...)")
     s.add_argument("--no-karaoke", action="store_true", help="plain captions instead of word-by-word highlighting")
+    s.add_argument("--snap", type=float, default=3.0, metavar="SECONDS", help="with --subtitles: move a clip edge that falls inside a spoken line to the edge of that line, by at most this much (default 3; 0 = leave the edges alone)")
     s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
     s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
@@ -388,8 +409,12 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     if args.layout != "none":
         avatar = args.avatar
         if avatar == "auto":
-            avatar = _find_avatar(sample_video, aspect=args.size[0] / (args.size[1] * args.split), model=args.face_model, samples=args.avatar_samples).region if args.layout == "stack" else None
-        layout = VerticalLayout(args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split)
+            aspect = args.size[0] / (args.size[1] * args.split) if args.layout == "stack" else 0.8  # the pip box: a little taller than wide
+            avatar = _find_avatar(sample_video, aspect=aspect, model=args.face_model, samples=args.avatar_samples).region if args.layout in ("stack", "pip") else None
+        layout = VerticalLayout(
+            args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split, corner=args.corner, inset=args.inset,
+            avatar_source=args.avatar_video, avatar_key=None if args.avatar_key.lower() == "none" else args.avatar_key, avatar_offset=args.avatar_offset,
+        )
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
     transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
@@ -446,10 +471,23 @@ def cmd_avatar(args: argparse.Namespace) -> int:
     return 0
 
 
+def _snap(args: argparse.Namespace, highlights) -> None:
+    """Move clip edges off the middle of a spoken line (before anything is downloaded or cut)."""
+    if not args.subtitles or args.snap <= 0 or not highlights:
+        return
+    from .highlights import snap_to_cues
+    from .subtitles import load_subtitles
+
+    moved = snap_to_cues(highlights, load_subtitles(args.subtitles), max_shift=args.snap)
+    print(f"snap   {moved} of {len(highlights)} clips moved to the edge of a spoken line")
+
+
 def cmd_clips(args: argparse.Namespace) -> int:
     from .highlights import load_highlights
 
-    return _make_clips(args, load_highlights(args.highlights))
+    highlights = load_highlights(args.highlights)
+    _snap(args, highlights)
+    return _make_clips(args, highlights)
 
 
 def _prepare_from_url(args: argparse.Namespace, out: Path) -> None:
@@ -485,6 +523,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
         result = _detect(args, None)
     else:
         result = _detect(args, args.video)
+    _snap(args, result.highlights)
     result.save(out / "highlights.json")
     return _make_clips(args, result.highlights)
 
@@ -508,12 +547,12 @@ def _live_config(args: argparse.Namespace):
 
     return LiveConfig(
         threshold=args.threshold, smooth=args.smooth, cooldown=args.cooldown, warmup=args.warmup, history=args.history,
-        min_messages=args.min_messages, lag=args.lag, chat_delay=args.delay, lead=args.lead, tail=args.tail,
+        min_messages=args.min_messages, lag=args.lag, chat_delay=args.delay, lead=args.lead, tail=args.tail, **_markers(args),
     )
 
 
 def cmd_live(args: argparse.Namespace) -> int:
-    from .live import FileFollower, ReplayClipper, SurgeDetector, YtDlpLiveChat, simulate, watch
+    from .live import ReplayClipper, SurgeDetector, open_chat, simulate, twitch_channel, watch
     from .sources import is_url, ytdlp_command
 
     config = _live_config(args)
@@ -542,12 +581,11 @@ def cmd_live(args: argparse.Namespace) -> int:
         print(f"obs    OBS {version}, replay buffer running", flush=True)
     out.mkdir(parents=True, exist_ok=True)
     started = time.time()
-    if is_url(args.source):
-        source = YtDlpLiveChat(args.source, out / "chat", ytdlp=ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser))
-        print(f"chat   {args.source}  (yt-dlp, about every 10 s)", flush=True)
-    else:
-        source = FileFollower(args.source)
-        print(f"chat   following {args.source}", flush=True)
+    # yt-dlp is only looked for when it is the one that reads the chat: a file or a Twitch channel works without it.
+    through_ytdlp = is_url(args.source) and not twitch_channel(args.source)
+    ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser) if through_ytdlp else None
+    source, described = open_chat(args.source, out / "chat", ytdlp=ytdlp)
+    print(f"chat   {described}", flush=True)
     detector = SurgeDetector(config, live_from=started)
     log = out / "live.jsonl"
 
@@ -837,7 +875,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_replay)
 
     p = sub.add_parser("live", help="watch a live chat and save OBS's replay buffer as a clip when it surges")
-    p.add_argument("source", help="address of a live YouTube stream, or a chat file a collector keeps appending to (JSON lines)")
+    p.add_argument("source", help="address of a live YouTube stream or of a Twitch channel, or a chat file a collector keeps appending to (JSON lines)")
     p.add_argument("-o", "--output", default="live", help="folder for the clips, the chat and live.jsonl (default: live)")
     p.add_argument("--no-obs", action="store_true", help="only report the surges (no OBS, nothing saved)")
     p.add_argument("--simulate", action="store_true", help="SOURCE is a finished chat replay: print what would have fired")
@@ -852,6 +890,7 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--history", type=float, default=900.0, help="seconds of chat that count as 'normal' (default 900)")
     d.add_argument("--min-messages", type=int, default=8, help="messages a 5 s window needs to count at all (default 8)")
     d.add_argument("--lag", type=float, default=12.0, help="how late chat may arrive, in seconds (default 12)")
+    _add_marker_args(d)
     c = p.add_argument_group("what is cut out of the replay")
     c.add_argument("--delay", type=float, default=8.0, help="seconds viewers need to react (default 8; add your stream latency if you are the streamer)")
     c.add_argument("--lead", type=float, default=20.0, help="seconds kept before the moment (default 20)")

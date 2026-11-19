@@ -1,8 +1,29 @@
 # 변경 내역
 
-## 미배포
+## v0.6.0: 2026-11-19
+
+### 클립 제작
+- 문장 경계 맞춤: 클립의 시작 또는 끝이 자막 줄의 중간에 걸리면 해당 줄의 경계로 이동. `--subtitles` 지정 시 기본 적용, 이동 한도는 `--snap SECONDS`(기본 3초, 0은 사용 안 함). 앱은 하이라이트 창의 **문장 경계 맞춤**
+- 스트리머 표시 구간: 스트리머 또는 모더레이터가 채팅에 입력한 `!clip`, `!클립`, `!切り抜き`, `!ts`, `!mark`의 시점을 점수와 무관하게 클립으로 포함하고 앞 순위에 배치. `--marker`, `--marker-anyone`, `--no-markers`
+- 채팅 메시지에 작성자 역할(스트리머, 모더레이터) 추가. YouTube, Twitch, CHZZK 채팅과 chat-downloader JSON에서 판독하며 CSV, JSONL은 `role` 열 사용
+- pip 레이아웃: 게임 화면을 전체에 채우고 구석에 아바타 삽입. `--layout pip`, `--corner`, `--inset`
+- 별도 아바타 영상 합성: 아바타만 녹화한 그린스크린 또는 알파 영상을 `stack`, `pip`의 아바타로 사용. `--avatar-video`, `--avatar-key`, `--avatar-offset`
+- 코어: `highlights.snap_to_cues`, `marker_times`, `ChatMessage.role`, `VerticalLayout(kind="pip", avatar_source=...)`, `ffmpeg.avatar_input_args`
+
+### 라이브 모드
+- Twitch 채널 주소 지원: 채팅 서버에 익명(읽기 전용)으로 접속하여 전송 즉시 수신. 명령줄(`live https://www.twitch.tv/CHANNEL`)과 런처 공통
+- 스트리머 또는 모더레이터의 표시 명령 입력 시 준비 시간, 임계값과 무관하게 즉시 저장
+- 코어: `live.TwitchLiveChat`, `parse_twitch_irc`, `twitch_channel`, `open_chat`
+
+### 확인 내용
+- 문장 경계 맞춤: 실제 방송 1개(85분, YouTube 자동 자막)의 하이라이트 10개에서 줄 중간에 걸린 가장자리가 12곳에서 1곳으로 감소
+- 역할 판독: 실제 YouTube 채팅 7개 방송, 실제 CHZZK 다시보기 1개에서 스트리머와 모더레이터 메시지 판독
+- pip 레이아웃: 실제 방송 녹화본에서 `--avatar auto`로 클립 제작(1080×1920, 24.6초 클립에 18초 소요)
+- Twitch 채팅: 실제 방송 중인 채널에서 4분간 수신하여 급증 판정까지 확인(OBS 미사용)
+- 미검증: 실제 방송에서 사용된 표시 명령, 실제 아바타 그린스크린 녹화본(합성 영상으로만 확인), Twitch 채팅과 OBS를 함께 사용한 저장
 
 ### 문서
+- README의 あおぎり高校 가이드라인 기준을 프로필과 동일하게 2026-02 개정으로 수정
 - README를 개조식으로 재작성. 줄글 설명을 표와 목록으로 정리하고 개요, 버전별 주요 변경, 명령 목록 추가
 - 세부 내용을 별도 문서로 분리: 검출 방식 및 평가(`docs/DETECTION.md`), 실환경 검증 현황(`docs/VERIFICATION.md`), 테스트(`docs/TESTING.md`)
 - `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/ARCHITECTURE.md`, `docs/PORTING.md`를 동일 어체로 정리
