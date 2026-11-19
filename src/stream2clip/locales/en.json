@@ -427,5 +427,17 @@
  "이 버전 건너뛰기": "Skip this version",
  "알림 끄기": "Stop asking",
  "새 버전 확인 중지. 설정 파일(settings.json)의 update_check 항목을 지우면 다시 확인": "Stops looking for newer versions. Removing update_check from the settings file (settings.json) turns it on again",
- "새 버전 알림 꺼짐": "No longer looking for newer versions"
+ "새 버전 알림 꺼짐": "No longer looking for newer versions",
+ "구성요소 점검": "Check components",
+ "ffmpeg, OBS 연결 등 기능별로 필요한 구성요소가 이 PC에 있는지 확인": "Looks at what each feature needs on this PC: ffmpeg, the connection to OBS and more",
+ "기능별로 필요한 구성요소와 이 PC의 상태": "What each feature needs, and whether this PC has it",
+ "새 버전 확인": "Look for a newer version",
+ "GitHub의 최신 릴리즈 번호 조회. 사용자와 PC에 관한 정보는 보내지 않음": "Asks GitHub for the latest release number. Nothing about you or this PC is sent",
+ "확인 중": "Checking",
+ "확인 실패: {0}": "The check failed: {0}",
+ "지금 내려받기 (12 MB)": "Download now (12 MB)",
+ "얼굴 검출 모델 내려받는 중": "Downloading the face detection model",
+ "새 버전 확인 중": "Looking for a newer version",
+ "새 버전 확인 실패: {0}": "Could not look for a newer version: {0}",
+ "내려받기 실패: {0}": "The download failed: {0}"
 }

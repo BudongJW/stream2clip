@@ -118,6 +118,11 @@ class LauncherWindow(QMainWindow):
         header.addStretch(1)
         tagline = QLabel(tr("화면 캡쳐, 녹화, 방송 클립 제작"), objectName="Muted")
         header.addWidget(tagline)
+        self.components_dialog = None
+        self.components_button = QPushButton(tr("구성요소 점검"))
+        self.components_button.setToolTip(tr("ffmpeg, OBS 연결 등 기능별로 필요한 구성요소가 이 PC에 있는지 확인"))
+        self.components_button.clicked.connect(self.open_components)
+        header.addWidget(self.components_button)
         outer.addLayout(header)
         self.ffmpeg_notice = self._ffmpeg_notice()
         outer.addWidget(self.ffmpeg_notice)
@@ -175,6 +180,22 @@ class LauncherWindow(QMainWindow):
         self.setAcceptDrops(True)  # an image opens in the editor, stream files go to the highlights window
         self.check_ffmpeg()
         self.check_updates()
+
+    # ------------------------------------------------------------------ components
+    def open_components(self):
+        """The window that lists what the features need on this PC; ffmpeg fetched there makes the notice here go away."""
+        from .components import ComponentsDialog
+
+        if self.components_dialog is None:
+            self.components_dialog = ComponentsDialog(self, obs_host=self.obs_host, obs_port=self.obs_port)
+            self.components_dialog.changed.connect(self.check_ffmpeg)
+        else:
+            self.components_dialog.obs = (self.obs_host, self.obs_port)  # where OBS is looked for may have been changed since
+            self.components_dialog.refresh()
+        self.components_dialog.show()
+        self.components_dialog.raise_()
+        self.components_dialog.activateWindow()
+        return self.components_dialog
 
     # ------------------------------------------------------------------ newer release
     def _update_notice(self) -> QWidget:
@@ -933,6 +954,8 @@ class LauncherWindow(QMainWindow):
         self._live_stop.set()  # the watcher lets go of yt-dlp within a moment
         if self._live_thread is not None:
             self._live_thread.join(timeout=5)
+        if self.components_dialog is not None:
+            self.components_dialog.close()
         self._ffmpeg_stop.set()  # a download in progress stops at the next block; its partial file is removed
         if self._ffmpeg_thread is not None:
             self._ffmpeg_thread.join(timeout=5)

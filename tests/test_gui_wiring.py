@@ -206,6 +206,143 @@ def test_closing_the_start_window_stops_a_download(app, monkeypatch):
     assert stopped == [True]
 
 
+# ----------------------------------------------------------------------------- components window
+
+
+def components_of(state: dict) -> list:
+    from stream2clip.tools import Component
+
+    home = str(__import__("pathlib").Path.home())
+    ffmpeg = Component("ffmpeg", "ffmpeg", "녹화, 영상 변환, 클립 제작", "ok", home + "\\tools\\ffmpeg.exe (9.0.2)") if state["ffmpeg"] else Component("ffmpeg", "ffmpeg", "녹화, 영상 변환, 클립 제작", "missing", fix="stream2clip setup --ffmpeg")
+    model = Component("model", "얼굴 검출 모델", "아바타 위치 자동 검출", "ok", home + "/.cache/model.onnx") if state["model"] else Component("model", "얼굴 검출 모델", "아바타 위치 자동 검출", "later", "첫 사용 시 자동으로 내려받음")
+    return [ffmpeg, model, Component("obs", "OBS WebSocket 서버", "리플레이 버퍼 저장", "optional", "127.0.0.1:4460 응답 없음", "OBS <Studio> 실행")]
+
+
+def test_components_window_lists_this_pc_and_fetches_what_is_missing(app, monkeypatch):
+    from stream2clip import tools
+    from stream2clip.gui.components import ComponentsDialog, short_path
+
+    home = str(__import__("pathlib").Path.home())
+    assert short_path(home + "\\a\\b.exe (1.0)") == "~\\a\\b.exe (1.0)" and short_path("C:\\tools\\ffmpeg.exe") == "C:\\tools\\ffmpeg.exe"
+
+    state = {"ffmpeg": False, "model": False, "looked": 0}
+
+    def load(self):
+        state["looked"] += 1
+        return components_of(state)
+
+    monkeypatch.setattr(ComponentsDialog, "load", load)
+    monkeypatch.setattr(tools, "can_install_ffmpeg", lambda: True)
+    dialog = ComponentsDialog(obs_port=4460)
+    assert dialog.busy and dialog.summary.text() == "확인 중"
+    wait(app, lambda: not dialog.busy)
+    assert dialog.obs == ("127.0.0.1", 4460) and [item.key for item in dialog.found] == ["ffmpeg", "model", "obs"]
+    assert {key: badge.text() for key, badge in dialog.badges.items()} == {"ffmpeg": "없음", "model": "자동", "obs": "없음(선택)"}
+    assert dialog.badges["ffmpeg"].objectName() == "StateMissing" and dialog.summary.text() == "필수 구성요소 없음: ffmpeg"
+    assert set(dialog.actions) == {"ffmpeg", "model"} and dialog.actions["ffmpeg"].text() == f"ffmpeg 내려받기 ({tools.FFMPEG_BUILD.megabytes} MB)"
+    labels = " ".join(label.text() for label in dialog.findChildren(type(dialog.summary)))
+    assert "해결 방법: stream2clip setup --ffmpeg" in labels and "OBS &lt;Studio&gt; 실행" in labels  # what a component says is shown as text, never as markup
+
+    def fails(on_progress, cancelled):
+        on_progress(10, 100)
+        raise OSError("no route to host")
+
+    dialog.install_ffmpeg = fails
+    dialog.actions["ffmpeg"].click()
+    wait(app, lambda: not dialog.busy)
+    assert dialog.summary.text() == "내려받기 실패: no route to host" and state["looked"] == 1 and dialog.actions["ffmpeg"].isEnabled()
+
+    told, notes = [], []
+    dialog.changed.connect(lambda: told.append(1))
+    dialog._note.connect(notes.append)
+
+    def works(on_progress, cancelled):
+        on_progress(57_000_000, 114_000_000)
+        state["ffmpeg"] = True
+
+    dialog.install_ffmpeg = works
+    dialog.fetch_ffmpeg()
+    assert dialog.busy and not dialog.refresh_button.isEnabled()
+    dialog.fetch_ffmpeg()  # a second press while busy does nothing
+    wait(app, lambda: state["looked"] == 2 and not dialog.busy)
+    assert told == [1] and notes == ["ffmpeg 내려받는 중: 50% (57 / 114 MB)"]
+    assert dialog.badges["ffmpeg"].text() == "있음" and "ffmpeg" not in dialog.actions and dialog.summary.text() == "필수 구성요소 모두 있음"
+    shown = " ".join(label.text() for label in dialog.findChildren(type(dialog.summary)))
+    assert home not in shown and "~" in shown  # the user's folder is written ~
+
+    fetched = []
+    dialog.download_model = lambda: (fetched.append(1), state.__setitem__("model", True))
+    dialog.actions["model"].click()
+    wait(app, lambda: state["looked"] == 3 and not dialog.busy)
+    assert fetched == [1] and dialog.badges["model"].text() == "있음" and dialog.actions == {}
+    dialog.close()
+
+
+def test_components_window_asks_about_a_newer_release_when_told(app, monkeypatch):
+    from stream2clip import __version__, updates
+    from stream2clip.gui.components import ComponentsDialog
+
+    monkeypatch.setattr(ComponentsDialog, "load", lambda self: components_of({"ffmpeg": True, "model": True}))
+    asked = []
+    monkeypatch.setattr(ComponentsDialog, "fetch_release", lambda self: asked.append(1) or updates.Release("99.0.0", updates.RELEASES_PAGE))
+    dialog = ComponentsDialog()
+    wait(app, lambda: not dialog.busy)
+    assert asked == [] and dialog.update_open.isHidden()  # nothing is asked until the button is pressed
+    dialog.update_button.click()
+    wait(app, lambda: not dialog.busy)
+    assert asked == [1] and dialog.update_label.text() == f"새 버전 99.0.0 있음 (현재 {__version__})" and not dialog.update_open.isHidden()
+    opened = []
+    dialog.open_url = opened.append
+    dialog.update_open.click()
+    assert opened == [updates.DOWNLOAD_PAGE]
+
+    dialog.fetch_release = lambda: None
+    dialog.check_update()
+    wait(app, lambda: not dialog.busy)
+    assert dialog.update_label.text() == f"최신 버전 사용 중 ({__version__})" and dialog.update_open.isHidden()
+
+    def offline():
+        raise OSError("no route to host")
+
+    dialog.fetch_release = offline
+    dialog.check_update()
+    wait(app, lambda: not dialog.busy)
+    assert dialog.update_label.text() == "새 버전 확인 실패: no route to host"
+
+    def broken(self):
+        raise RuntimeError("cannot look")
+
+    monkeypatch.setattr(ComponentsDialog, "load", broken)
+    dialog.refresh()
+    wait(app, lambda: not dialog.busy)
+    assert dialog.summary.text() == "확인 실패: cannot look" and dialog.found == []
+    dialog.close()
+
+
+def test_start_window_opens_the_components_window(app, monkeypatch):
+    from stream2clip.gui.components import ComponentsDialog
+
+    looked = []
+    monkeypatch.setattr(ComponentsDialog, "load", lambda self: looked.append(self.obs) or components_of({"ffmpeg": True, "model": True}))
+    state = {"ready": False}
+    monkeypatch.setattr(LauncherWindow, "ffmpeg_ready", lambda self: state["ready"])
+    win = LauncherWindow()
+    win.obs_port = 4470
+    assert not win.ffmpeg_notice.isHidden()
+    dialog = win.components_button.click() or win.components_dialog
+    wait(app, lambda: not dialog.busy)
+    assert looked == [("127.0.0.1", 4470)] and dialog.isVisible()
+    state["ready"] = True
+    dialog.changed.emit()  # ffmpeg was fetched in that window: the notice of this one goes away
+    assert win.ffmpeg_notice.isHidden()
+    win.obs_port = 4480
+    assert win.open_components() is dialog  # the same window, looking again with the current OBS address
+    wait(app, lambda: len(looked) == 2 and not dialog.busy)
+    assert looked[1] == ("127.0.0.1", 4480)
+    win.close()
+    assert not dialog.isVisible()
+
+
 # ----------------------------------------------------------------------------- newer release
 
 
