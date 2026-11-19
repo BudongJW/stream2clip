@@ -77,6 +77,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 - **자막 번역** (`translation.py`): `make_clips`가 클립 자막을 만든 뒤 `translate_cues`로 번역기(플러그인)에 보냅니다. 용어집은 번역 전후에 문자열을 바꾸는 단순한 방식이라 번역기 종류를 가리지 않습니다. 번역된 자막에는 단어 시각이 없습니다.
 - **노래 구간 · 웃음소리** (`audio.py`): `singing_sections`는 "소리가 끊기지 않고(음량 변화가 작고) 음을 길게 유지하는" 구간을 찾습니다. `laughter_levels`는 크고 초당 3.5~8번 끊어지는 소리에 점수를 주는 실험 신호이며, 평균에 넣지 않고 점수에 더하기만 합니다(`BONUS_SIGNALS`) — 켰을 때 다른 하이라이트가 줄어들지 않게 하기 위해서입니다.
 - **OBS** (`obs.py`): obs-websocket 5 클라이언트. `SaveReplayBuffer` 후 `ReplayBufferSaved` 이벤트(없으면 `GetLastReplayBufferReplay`)로 파일 경로를 받아 `export`로 변환합니다.
+- **라이브 모드** (`live.py`): `SurgeDetector`가 5초 구간마다 채팅 신호를 직전 15분의 구간들과 비교합니다(`highlights.robust_z`를 그대로 씀). 구간은 더 바뀔 수 없게 된 뒤에만 판정합니다 — 다음 구간의 메시지가 왔거나, 늦게 올 수 있는 시간(`lag`)이 지났을 때. yt-dlp는 라이브 채팅을 10초마다 묶어서 주므로 도착 시각이 아니라 메시지에 적힌 시각으로 셉니다. 채팅 입력은 `read()`가 새 메시지를 돌려주는 객체면 되고(`FileFollower`, `YtDlpLiveChat`), 발동 뒤의 일은 호출 가능한 객체 하나(`ReplayClipper`)라서 다른 동작으로 바꿀 수 있습니다. PySide6 · websocket · yt-dlp를 import하지 않습니다.
 - **YouTube 업로드** (`upload.py`): 요청 본문을 만드는 순수 함수(`video_resource`)와 실제 전송(`upload_video`)을 나눴습니다. 공개 범위 기본값은 비공개입니다.
 - **CHZZK · SOOP**: `fetch`는 주소가 CHZZK · SOOP이면 채팅을 yt-dlp 대신 각 플랫폼의 다시보기 API에서 받습니다(`sources.fetch_chzzk_chat` · `fetch_soop_chat`, 표준 라이브러리 `urllib`). 응답 해석은 순수 함수 `chat.parse_chzzk` · `chat.parse_soop`이고, 저장은 작성자를 해시한 정규화 JSONL 한 가지입니다. 네트워크 함수는 `get`을 바꿔 끼울 수 있어 테스트가 실제 요청을 하지 않습니다.
 - **채팅 정리**: `chat.load_chat`은 YouTube 다시보기에서 0초로 기록된 대기실 채팅을 보낸 시각(`timestampUsec` − 오프셋 = 방송 시작 시각)으로 가려 버립니다. `highlights`는 인사 · 작별(`ROUTINE`)을 채팅 신호에서 뺍니다. 둘 다 실제 아카이브에서 방송 시작 · 끝에 가짜 봉우리를 만들던 것입니다.
@@ -154,6 +155,7 @@ fetch (yt-dlp) ─► info.json · <id>.live_chat.json · <id>.ja.vtt · video.m
 | `tests/test_detect.py` | letterbox · YOLO 출력 해석 · NMS, 같은 자리에 남는 얼굴 고르기, 박스 모양, 모델 체크섬, `avatar` 명령과 `--avatar auto` |
 | `tests/test_translation.py` | 용어집, 자막 번역(시간 유지 · 두 줄 · 묶음), Holodex 초안, `--translate` |
 | `tests/test_audio_signals.py` | 웃음소리 신호, 가산 신호, 노래 구간 검출 · 표시 · 제외 |
+| `tests/test_live.py` | 실시간 급증 검출, 라이브 채팅 줄 · 파일 따라 읽기, 리플레이에서 장면 자르기, `live` 명령 |
 | `tests/test_obs_upload.py` | obs-websocket 클라이언트(가짜 서버 · 실제 소켓), 리플레이 변환, 업로드 본문 · 진행률 |
 | `tests/test_packaging.py` | 빌드 스크립트, 빌드된 실행 파일의 ffmpeg · yt-dlp 경로 |
 | `tests/test_cli.py` | CLI 명령 (`auto` · `check` 포함) |
