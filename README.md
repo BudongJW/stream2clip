@@ -11,7 +11,7 @@
 캡쳐부터 움짤 녹화까지, 한 프로그램으로
 
 <!-- 프로젝트 -->
-<a href="#️-로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.3.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#️-로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.4.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#️-알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -52,6 +52,8 @@
 **stream2clip**은 방송 화면과 다시보기(VOD)에서 장면을 **캡쳐**하고, **바로 편집**하고, **GIF · MP4 · WebP 움짤로 녹화**하는 도구입니다. 그린스크린을 지운 **투명 배경 녹화**도 됩니다. 데스크톱 앱(PySide6)으로 쓸 수 있고, GUI 없이 **다른 오픈소스 영상 프로젝트에 그대로 이식**할 수 있도록 코어를 작은 파이썬 라이브러리로 분리했습니다.
 
 > [!NOTE]
+> **v0.4** — **주소 하나로 클립까지**(하이라이트 구간의 영상만 내려받음), 앱 화면 **한국어 · 일본어 · 영어**, 앱에서 **번역 · 업로드 · OBS 리플레이**(F10), **번역기를 파일 하나로 연결**, 여러 방송으로 검출을 재는 **`evaluate`** 가 들어갔습니다. 실제 OBS · CHZZK · YouTube로 확인하며 찾은 문제도 고쳤습니다.
+>
 > **v0.3** — 앱에 **하이라이트 창**이 생겼고, **아바타 위치 자동 찾기**, **CHZZK · SOOP 채팅 수집**, **자막 번역 + 이름 용어집**, **노래 구간 검출**, **OBS 리플레이 버퍼 → 클립**, **YouTube 업로드**, **Windows 실행 파일**이 들어갔습니다. 바뀐 내용은 [CHANGELOG.md](CHANGELOG.md)에 있습니다.
 >
 > **v0.2** — 캡쳐 · 편집 · 움짤 녹화(v0.1)에 더해 **방송 → 클립 자동화**가 들어갔습니다. 채팅 · 음량 · "많이 다시 본 구간"으로 하이라이트를 찾고, 9:16 레이아웃 · 카라오케 자막 · 원본 표기 설명란까지 붙여 클립을 한 번에 뽑습니다. 다음 단계는 [로드맵](#️-로드맵)에 있습니다.
@@ -514,7 +516,7 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱 (콘솔 창 없음) |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 — `fetch` · `auto` · `avatar` 등 전부 |
-| `dist/stream2clip-0.3.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.4.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
 
 | 옵션 | 동작 |
 |---|---|
@@ -850,12 +852,12 @@ src/stream2clip/
 - [x] 🖥️ GUI 하이라이트 창 — 타임라인 · 구간 드래그 조정 · 레이아웃 미리보기 · 내보내기 진행률
 - [x] 📦 Windows 실행 파일 — PyInstaller로 GUI + 명령줄을 한 폴더 · zip으로 (`packaging/build_windows.py`)
 - [x] 🇰🇷 CHZZK · SOOP 다시보기 채팅 수집 — `fetch`에 주소만 주면 정규화해서 저장
-- [x] ✂️ 주소만으로 클립까지 — `auto <주소>` · `clips <주소>`가 하이라이트 구간의 영상만 내려받음 (CHZZK 구간 다운로드 수정 포함)
+- [x] ✂️ 주소만으로 클립까지 — `auto <주소>` · `clips <주소>`가 하이라이트 구간의 영상만 내려받음 (CHZZK 구간 다운로드 수정 포함) <sup>v0.4</sup>
 - [ ] 🖥️ 앱의 하이라이트 창에서 주소로 시작하기 (지금은 명령줄만)
-- [x] 📊 여러 방송 평가 — `evaluate`: 시청자 댓글 타임스탬프와 비교해 precision · recall · 무작위 대비 배수
-- [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항)
+- [x] 📊 여러 방송 평가 — `evaluate`: 시청자 댓글 타임스탬프와 비교해 precision · recall · 무작위 대비 배수 <sup>v0.4</sup>
+- [x] ⌨️ F10으로 OBS 리플레이 저장 (선택 사항) <sup>v0.4</sup>
 - [ ] 📡 라이브 모드 — 방송 중 채팅 급증을 보고 리플레이를 자동 저장
-- [x] 🌏 앱 화면 일본어 · 영어 — 런처 · 하이라이트 창 · 업로드 창 · 편집기 · 녹화 화면의 문구 230개
+- [x] 🌏 앱 화면 일본어 · 영어 — 런처 · 하이라이트 창 · 업로드 창 · 편집기 · 녹화 화면의 문구 230개 <sup>v0.4</sup>
 - [ ] 🌏 하이라이트 근거 · 가이드라인 점검 · 명령줄 출력의 일본어 · 영어 (지금은 한국어), 원어민 검수
 - [ ] 🇰🇷 한국 기획사 가이드라인 프로필 — 공식 원문을 확인한 곳부터 (스텔라이브 · 이세계아이돌은 원문 미확보)
 - [x] 🌐 자막 번역 + 이름 용어집 — 번역기 플러그인으로 번역, 용어집으로 이름 고정, 원문 + 번역 두 줄 자막, Holodex 이름 초안 <sup>v0.3</sup>
@@ -863,9 +865,9 @@ src/stream2clip/
 - [ ] 🧍 아바타 레이어 — Spout2/NDI 알파 레이어 녹화, VMC · VTube Studio 파라미터 기록 후 재렌더
 - [x] 🔁 OBS 리플레이 버퍼 연동 — `stream2clip replay`로 저장 → 바로 움짤 변환 <sup>v0.3</sup>
 - [x] ⬆️ YouTube 업로드 — `stream2clip upload`, 기본 비공개 · Shorts 점검 <sup>v0.3</sup>
-- [x] 🖥️ 앱에서 번역 · 노래 구간 · 웃음소리 · 업로드 · OBS 리플레이 쓰기, 설정 기억
-- [x] 🔌 번역기를 파일 하나로 연결 (`--translator file.py`) + OpenAI 호환 예제 — 로컬 Ollama로 확인
-- [x] 🧪 실제 OBS로 리플레이 버퍼 확인 (OBS 33.0.1)
+- [x] 🖥️ 앱에서 번역 · 노래 구간 · 웃음소리 · 업로드 · OBS 리플레이 쓰기, 설정 기억 <sup>v0.4</sup>
+- [x] 🔌 번역기를 파일 하나로 연결 (`--translator file.py`) + OpenAI 호환 예제 — 로컬 Ollama로 확인 <sup>v0.4</sup>
+- [x] 🧪 실제 OBS로 리플레이 버퍼 확인 (OBS 33.0.1) <sup>v0.4</sup>
 - [ ] 🧪 실제 서비스 검증 — 실제 YouTube 업로드, Holodex 키로 확인
 
 <br>
