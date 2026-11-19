@@ -1,7 +1,8 @@
 name: Package (Windows)
 
 # Builds the Windows programs with PyInstaller and runs them on a machine that has
-# neither Python nor ffmpeg on PATH. Runs when packaging changes, on version tags
+# neither Python nor ffmpeg on PATH. Then builds the installer (Inno Setup), installs it
+# silently in each language and checks that the installed program starts in that language. Runs when packaging changes, on version tags
 # and on demand; the zip (programs only, no ffmpeg) is kept as a workflow artifact.
 on:
   workflow_dispatch:
@@ -92,9 +93,64 @@ jobs:
           Stop-Process -Id $gui.Id -Force
           Write-Host "all programs ran"
           exit 0  # the expected exit code 1 of the avatar check above must not become the step's result
+      - name: Installer (the zip is made first, so ffmpeg from the check above is in neither)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Remove-Item "dist\stream2clip\ffmpeg.exe", "dist\stream2clip\ffprobe.exe" -ErrorAction SilentlyContinue
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and -not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\Languages" | Select-Object -ExpandProperty Name
+          python packaging/build_windows.py --installer-only
+          $setup = Get-ChildItem "dist\*-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "no installer was written" }
+          Write-Host "installer: $($setup.Name) $([math]::Round($setup.Length / 1MB)) MB"
+          $env:STREAM2CLIP_LANG = $null
+
+          foreach ($lang in "ko", "ja", "en") {
+            $target = "$env:RUNNER_TEMP\installed-$lang"
+            $run = Start-Process $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LANG=$lang", "/DIR=$target", "/LOG=$env:RUNNER_TEMP\setup-$lang.log" -Wait -PassThru
+            if ($run.ExitCode -ne 0) { Get-Content "$env:RUNNER_TEMP\setup-$lang.log" -Tail 30; throw "the installer failed for $lang with exit code $($run.ExitCode)" }
+            foreach ($file in "stream2clip-gui.exe", "stream2clip.exe", "language.txt", "unins000.exe") {
+              if (-not (Test-Path "$target\$file")) { throw "$file is missing after installing ($lang)" }
+            }
+            $chosen = (& "$target\stream2clip.exe" language).Trim()
+            Write-Host "installed with /LANG=$lang -> the app starts in '$chosen'"
+            if ($chosen -ne $lang) { throw "installed with $lang, but the app starts in '$chosen'" }
+            $remove = Start-Process "$target\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+            if ($remove.ExitCode -ne 0) { throw "the uninstaller failed with exit code $($remove.ExitCode)" }
+            Start-Sleep -Seconds 2
+            if (Test-Path "$target\stream2clip.exe") { throw "the uninstaller left the programs behind ($lang)" }
+          }
+          Write-Host "the installer works in all three languages"
+      # A picture of the installer's first page, to look at: the language list as a person sees it.
+      - name: Picture of the installer's language page
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $setup = Get-ChildItem "dist\*-setup.exe" | Select-Object -First 1
+          $shown = Start-Process $setup.FullName -PassThru
+          Start-Sleep -Seconds 6
+          $area = [System.Windows.Forms.SystemInformation]::VirtualScreen
+          $picture = New-Object System.Drawing.Bitmap $area.Width, $area.Height
+          [System.Drawing.Graphics]::FromImage($picture).CopyFromScreen($area.Left, $area.Top, 0, 0, $picture.Size)
+          New-Item -ItemType Directory -Force "dist\pictures" | Out-Null
+          $picture.Save("dist\pictures\installer-language.png")
+          Get-Process | Where-Object { $_.Path -like "*setup*" -or $_.ProcessName -like "*.tmp" -or $_.Id -eq $shown.Id } | Stop-Process -Force -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v7
+        if: always()
+        continue-on-error: true
+        with:
+          name: installer-pictures
+          path: dist/pictures/*.png
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         if: github.event_name != 'pull_request'
         with:
           name: stream2clip-windows
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
           if-no-files-found: error

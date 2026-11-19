@@ -64,7 +64,7 @@ class EditorWindow(QMainWindow):
         self.doc = document
         self.save_dir = save_dir or default_save_dir()
         self.tools = ToolState(tool="select")
-        self.setWindowTitle(tr("stream2clip · 편집"))
+        self.setWindowTitle(tr("stream2clip 편집"))
         self.setWindowIcon(app_icon())
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
@@ -113,7 +113,7 @@ class EditorWindow(QMainWindow):
         self.tool_buttons: dict[str, QToolButton] = {}
         for tool_id, label, key, hint in TOOLS:
             btn = QToolButton(text=label, checkable=True)
-            btn.setToolTip(f"{label} ({key}) — {hint}")
+            btn.setToolTip(f"{label} ({key}): {hint}")
             btn.clicked.connect(lambda _=False, t=tool_id: self._select_tool(t))
             self.tool_group.addButton(btn)
             self.tool_buttons[tool_id] = btn
@@ -153,14 +153,14 @@ class EditorWindow(QMainWindow):
         wl.addWidget(self.color_dot)
         wl.addWidget(QLabel(tr("굵기")))
         self.width_spin = QSpinBox(minimum=1, maximum=40, value=self.tools.width)
-        self.width_spin.setToolTip(tr("선 굵기 · 글자 크기 · 모자이크 블록 크기 ( [ / ] )"))
+        self.width_spin.setToolTip(tr("선 굵기, 글자 크기, 모자이크 블록 크기 ( [ / ] )"))
         self.width_spin.setFixedWidth(64)
         self.width_spin.valueChanged.connect(self._set_width)
         wl.addWidget(self.width_spin)
         row2.addWidget(width_box)
 
         self.translate_btn = QPushButton(tr("번역 (한국어)"))
-        self.translate_btn.setToolTip(tr("이미지 속 글자를 한국어로 번역해 덮어쓰기 (OCR·번역 플러그인 필요)"))
+        self.translate_btn.setToolTip(tr("이미지 속 글자를 한국어로 번역해 덮어쓰기 (OCR, 번역 플러그인 필요)"))
         self.translate_btn.clicked.connect(self._translate)
         row2.addWidget(self.translate_btn)
         self.hint_label = QLabel(objectName="Muted")
@@ -178,7 +178,7 @@ class EditorWindow(QMainWindow):
         row.addWidget(self.status_label)
         row.addStretch(1)
         self.zoom_button = QPushButton("100%")
-        self.zoom_button.setToolTip(tr("100% ↔ 창에 맞추기 (Ctrl + 휠로 확대/축소)"))
+        self.zoom_button.setToolTip(tr("100% 또는 창에 맞추기 (Ctrl + 휠로 확대/축소)"))
         self.zoom_button.clicked.connect(self._toggle_zoom)
         self.undo_button = QPushButton(tr("되돌리기"))
         self.undo_button.setToolTip(tr("Ctrl+Z (다시 실행: Ctrl+Y)"))
@@ -316,7 +316,7 @@ class EditorWindow(QMainWindow):
 
     def copy_to_clipboard(self) -> None:
         QGuiApplication.clipboard().setImage(pil_to_qimage(self.doc.render()))
-        self.status_label.setText(self._status_text() + tr(" · 복사됨"))
+        self.status_label.setText(self._status_text() + tr(", 복사됨"))
 
     def save_as(self) -> bool:
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -345,7 +345,7 @@ class EditorWindow(QMainWindow):
     def _status_text(self) -> str:
         w, h = self.doc.output_size
         state = tr("저장 안 됨") if self.doc.dirty else tr("저장됨")
-        return f"{w} × {h} px · {state}"
+        return f"{w} × {h} px, {state}"
 
     def _update_status(self) -> None:
         self.status_label.setText(self._status_text())

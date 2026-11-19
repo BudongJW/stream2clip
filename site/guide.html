@@ -12,6 +12,7 @@
 <meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
 <link rel="alternate" hreflang="ko" href="https://budongjw.github.io/stream2clip/guide.html">
 <link rel="alternate" hreflang="en" href="https://budongjw.github.io/stream2clip/en/guide.html">
+<link rel="alternate" hreflang="ja" href="https://budongjw.github.io/stream2clip/ja/guide.html">
 <link rel="icon" href="assets/favicon.ico" sizes="48x48">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -34,7 +35,14 @@
       <a href="./#features">주요 기능</a>
       <a href="guide.html" aria-current="page">사용 설명서</a>
       <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
-      <a href="en/guide.html" lang="en" hreflang="en">English</a>
+      <details class="lang">
+        <summary aria-label="언어 선택"><span class="flag">🇰🇷</span> 한국어</summary>
+        <ul>
+          <li><a href="guide.html" lang="ko" aria-current="true"><span class="flag">🇰🇷</span> 한국어</a></li>
+          <li><a href="en/guide.html" lang="en" hreflang="en"><span class="flag">🇺🇸</span> English</a></li>
+          <li><a href="ja/guide.html" lang="ja" hreflang="ja"><span class="flag">🇯🇵</span> 日本語</a></li>
+        </ul>
+      </details>
     </nav>
   </div>
 </header>
@@ -43,7 +51,7 @@
   <h1>stream2clip 사용 설명서</h1>
   <dl>
     <dt>적용 버전</dt><dd>v0.5</dd>
-    <dt>대상</dt><dd>Windows 실행 파일 및 파이썬 패키지 사용자</dd>
+    <dt>대상</dt><dd>Windows 설치 프로그램, 실행 파일 및 파이썬 패키지 사용자</dd>
     <dt>배포처</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
 </div>
@@ -69,15 +77,21 @@
 
   <article id="main">
     <h2 id="install">설치</h2>
-    <h3>Windows 실행 파일</h3>
+    <h3>Windows 설치 프로그램</h3>
     <ol>
-      <li><a href="https://github.com/BudongJW/stream2clip/releases/latest">릴리즈 페이지</a>에서 Windows용 zip 파일 다운로드</li>
-      <li>원하는 폴더에 압축 해제. 별도 설치 프로그램 없음</li>
+      <li><a href="https://github.com/BudongJW/stream2clip/releases/latest">릴리즈 페이지</a>에서 Windows용 설치 프로그램(<code>setup.exe</code>) 다운로드 후 실행</li>
+      <li>첫 화면에서 언어 선택: 한국어, 日本語, English. 선택한 언어가 설치 화면과 앱의 표시 언어로 적용</li>
+      <li>설치 위치 확인 후 설치. 관리자 권한 불필요</li>
       <li>ffmpeg 설치. 설치 후 터미널 재시작 필요
         <pre><code>winget install Gyan.FFmpeg</code></pre>
-        <code>ffmpeg.exe</code>와 <code>ffprobe.exe</code>를 실행 파일과 같은 폴더에 두는 방법도 가능</li>
-      <li><code>stream2clip-gui.exe</code> 실행</li>
+        <code>ffmpeg.exe</code>와 <code>ffprobe.exe</code>를 설치 폴더에 두는 방법도 가능</li>
+      <li>시작 메뉴에서 stream2clip 실행</li>
     </ol>
+    <ul>
+      <li>설치 없이 사용: zip 파일 다운로드 후 원하는 폴더에 압축 해제, <code>stream2clip-gui.exe</code> 실행</li>
+      <li>앱의 표시 언어는 설치 후에도 런처 하단에서 변경 가능</li>
+      <li>제거: Windows 설정의 설치된 앱 목록에서 stream2clip 제거</li>
+    </ul>
     <div class="note">
       <h4>참고</h4>
       <ul>
@@ -108,7 +122,7 @@
 
     <h2 id="basics">기본 사용법</h2>
     <figure>
-      <img src="assets/shots/launcher.png" alt="런처 화면: 캡쳐, 화면 녹화, 클립 제작 영역" width="1030" height="1020" loading="lazy">
+      <img src="assets/shots/launcher.png" alt="런처 화면: 캡쳐, 화면 녹화, 클립 제작 영역" width="979" height="1031" loading="lazy">
       <figcaption>런처 화면. 상단부터 캡쳐, 화면 녹화, 클립 제작 영역</figcaption>
     </figure>
     <div class="tablewrap">
@@ -135,7 +149,7 @@
       <li><strong>이미지 열어 편집</strong>: PNG, JPG, WebP 파일 편집</li>
     </ul>
     <figure>
-      <img src="assets/shots/editor.png" alt="편집기 화면: 도구 모음, 색상 팔레트, 굵기, 되돌리기, 복사, 저장" width="1180" height="760" loading="lazy">
+      <img src="assets/shots/editor.png" alt="편집기 화면: 도구 모음, 색상 팔레트, 굵기, 되돌리기, 복사, 저장" width="1475" height="950" loading="lazy">
       <figcaption>편집기 화면</figcaption>
     </figure>
     <div class="tablewrap">
@@ -184,7 +198,7 @@
     <h2 id="clips">하이라이트 클립 제작</h2>
     <p>런처의 <strong>하이라이트 찾기</strong>에서 검출, 구간 조정, 내보내기를 수행.</p>
     <figure>
-      <img src="assets/shots/highlights_window.png" alt="하이라이트 창: 상단 입력 자료, 중앙 타임라인과 구간 목록, 우측 내보내기 설정" width="1350" height="956" loading="lazy">
+      <img src="assets/shots/highlights_window.png" alt="하이라이트 창: 상단 입력 자료, 중앙 타임라인과 구간 목록, 우측 내보내기 설정" width="1350" height="964" loading="lazy">
       <figcaption>하이라이트 창. 분홍 막대는 검출 구간, 노란 테두리는 선택한 구간</figcaption>
     </figure>
     <h3>입력 자료</h3>
@@ -374,5 +388,6 @@
     <p>stream2clip 사용 설명서. github.com/BudongJW/stream2clip</p>
   </div>
 </footer>
+<script src="js/site.js" defer></script>
 </body>
 </html>

@@ -20,15 +20,15 @@ __all__ = ["TOOLS", "ToolState", "EditorCanvas"]
 
 #: (id, label, shortcut, hint)
 TOOLS: list[tuple[str, str, str, str]] = [
-    ("select", tr("선택"), "V", tr("클릭해서 선택 · 드래그로 이동 · Delete로 삭제")),
+    ("select", tr("선택"), "V", tr("클릭해서 선택, 드래그로 이동, Delete로 삭제")),
     ("pen", tr("펜"), "P", tr("드래그해서 자유롭게 그리기")),
     ("highlighter", tr("형광펜"), "H", tr("드래그해서 반투명하게 강조")),
     ("rect", tr("네모"), "R", tr("드래그해서 사각형 그리기")),
     ("arrow", tr("화살표"), "A", tr("시작점에서 끝점으로 드래그")),
     ("text", tr("글자"), "T", tr("클릭한 위치에 글자 넣기 (크기 = 굵기 × 3 + 12)")),
     ("mosaic", tr("모자이크"), "M", tr("드래그한 영역을 모자이크 (블록 = 굵기 × 2)")),
-    ("transparent", tr("투명"), "E", tr("드래그 = 영역 지우기 · 클릭 = 그 색을 투명하게")),
-    ("crop", tr("자르기"), "C", tr("남길 영역을 드래그 · 다시 드래그하면 변경")),
+    ("transparent", tr("투명"), "E", tr("드래그: 영역 지우기, 클릭: 해당 색을 투명 처리")),
+    ("crop", tr("자르기"), "C", tr("남길 영역을 드래그, 다시 드래그하면 변경")),
 ]
 
 

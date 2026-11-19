@@ -378,12 +378,12 @@ def _explain(h: Highlight, raw: dict[str, np.ndarray], chat: dict[str, Any] | No
         for name, count in cats.items():
             stats[f"react_{name}"] = count
         if total_react:
-            detail = " · ".join(f"{_LABELS[c]} {n}" for c, n in sorted(cats.items(), key=lambda kv: -kv[1]) if n)
+            detail = ", ".join(f"{_LABELS[c]} {n}" for c, n in sorted(cats.items(), key=lambda kv: -kv[1]) if n)
             reasons.append(f"반응 {total_react}개 ({detail})")
         paid = int(raw["paid"][lo:hi].sum())
         stats["paid"] = paid
         if paid:
-            reasons.append(f"슈퍼챗·후원·멤버십 {paid}건")
+            reasons.append(f"슈퍼챗, 후원, 멤버십 {paid}건")
         stats["messages"] = float(rate[lo:hi].sum())
     if "audio" in raw:
         audio = raw["audio"]
@@ -467,8 +467,8 @@ def render_timeline(result: HighlightResult, path: str | os.PathLike[str] | None
     pad_l, pad_r, top, bottom = 60, 40, 104, 70
     plot_w, plot_h = width - pad_l - pad_r, height - top - bottom
     title_font, label_font, small = load_font(26), load_font(18), load_font(15)
-    draw.text((pad_l, 20), "stream2clip · 하이라이트 타임라인", font=title_font, fill=PAPER)
-    summary = f"{len(result.highlights)}개 구간 · 길이 {_clock(result.duration)}"
+    draw.text((pad_l, 20), "stream2clip 하이라이트 타임라인", font=title_font, fill=PAPER)
+    summary = f"{len(result.highlights)}개 구간, 길이 {_clock(result.duration)}"
     draw.text((width - pad_r - draw.textlength(summary, font=label_font), 26), summary, font=label_font, fill="#8A8499")
 
     score = result.score

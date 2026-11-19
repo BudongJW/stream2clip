@@ -23,7 +23,7 @@ QWidget#Toolbar, QWidget#BottomBar {{ background: {SURFACE}; }}
 QWidget#Toolbar {{ border-bottom: 1px solid {BORDER}; }}
 QWidget#BottomBar {{ border-top: 1px solid {BORDER}; }}
 QLabel#Muted {{ color: {MUTED}; }}
-QLabel#Eyebrow {{ color: {LIVE_PINK}; font-weight: 700; letter-spacing: 2px; font-size: 11px; }}
+QLabel#Eyebrow {{ color: {PAPER}; font-weight: 700; font-size: 13px; }}
 QLabel#Title {{ font-size: 22px; font-weight: 800; }}
 QLabel#Status {{ color: {HIGHLIGHT}; font-weight: 600; }}
 QLabel#Badge {{ background: {LIVE_PINK}; color: {INK}; border-radius: 6px; padding: 1px 6px; font-size: 10px; font-weight: 800; }}

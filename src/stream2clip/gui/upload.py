@@ -54,7 +54,7 @@ class UploadDialog(QDialog):
 
     def __init__(self, video: str = "", *, title: str = "", description: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(tr("stream2clip · YouTube 업로드"))
+        self.setWindowTitle(tr("stream2clip YouTube 업로드"))
         self.setWindowIcon(app_icon())
         self.busy = False
         self.dialogs = True  # ask before a public upload, show failures in a box (tests turn this off)
@@ -82,7 +82,7 @@ class UploadDialog(QDialog):
 
         grid.addWidget(QLabel(tr("설명")), 2, 0)
         self.description_edit = QPlainTextEdit(description)
-        self.description_edit.setPlaceholderText(tr("원본 방송 주소 · 제목 등 (기획사 가이드라인이 요구하는 표기)"))
+        self.description_edit.setPlaceholderText(tr("원본 방송 주소, 제목 등 (기획사 가이드라인이 요구하는 표기)"))
         self.description_edit.setMinimumHeight(150)
         grid.addWidget(self.description_edit, 2, 1, 1, 2)
 
@@ -104,14 +104,14 @@ class UploadDialog(QDialog):
         grid.addWidget(QLabel(tr("OAuth 파일")), 5, 0)
         self.secrets_edit = QLineEdit(str(saved.get("client_secrets", "")))
         self.secrets_edit.setPlaceholderText(tr("Google Cloud에서 받은 client_secret.json (본인 프로젝트)"))
-        self.secrets_edit.setToolTip(tr("YouTube Data API를 켠 본인 Google Cloud 프로젝트의 ‘데스크톱 앱’ OAuth 클라이언트 파일입니다.\n처음 한 번 브라우저에서 동의하면 같은 폴더에 token.json이 저장됩니다."))
+        self.secrets_edit.setToolTip(tr("YouTube Data API를 켠 본인 Google Cloud 프로젝트의 데스크톱 앱 유형 OAuth 클라이언트 파일입니다.\n처음 한 번 브라우저에서 동의하면 같은 폴더에 token.json이 저장됩니다."))
         grid.addWidget(self.secrets_edit, 5, 1)
         pick_secrets = QPushButton(tr("찾기"))
         pick_secrets.clicked.connect(lambda: self._browse(self.secrets_edit, "JSON (*.json);;All files (*)"))
         grid.addWidget(pick_secrets, 5, 2)
 
         self.preview_box = QPlainTextEdit(readOnly=True)
-        self.preview_box.setPlaceholderText(tr("‘보낼 내용 보기’를 누르면 YouTube에 보낼 내용이 여기에 나옵니다. 아무것도 올라가지 않습니다."))
+        self.preview_box.setPlaceholderText(tr("보낼 내용 보기 버튼을 누르면 YouTube에 보낼 내용이 여기에 표시됩니다. 업로드는 실행되지 않습니다."))
         self.preview_box.setMaximumHeight(130)
         grid.addWidget(self.preview_box, 6, 0, 1, 3)
 
@@ -207,7 +207,7 @@ class UploadDialog(QDialog):
         self.busy = True
         self.upload_button.setEnabled(False)
         self.progress.setValue(0)
-        self.status.setText(tr("업로드 중… (처음이면 브라우저에서 Google 동의 화면이 열립니다)"))
+        self.status.setText(tr("업로드 중 (처음이면 브라우저에서 Google 동의 화면이 열립니다)"))
         uploader = self.uploader
 
         def work() -> None:

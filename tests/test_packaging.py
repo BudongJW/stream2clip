@@ -129,3 +129,44 @@ def test_ytdlp_passthrough(monkeypatch, capsys):
     assert seen["args"] == ["--version", "-o", "x"]
     monkeypatch.setitem(sys.modules, "yt_dlp", None)  # not installed
     assert main(["yt-dlp", "--version"]) == 1 and "ingest" in capsys.readouterr().err
+
+
+def test_installer_asks_for_the_language_and_tells_the_app(build, tmp_path, monkeypatch):
+    script = (ROOT / "packaging" / "installer.iss").read_bytes()
+    assert script.startswith(b"\xef\xbb\xbf")  # Inno Setup reads Korean and Japanese text correctly only with the byte order mark
+    text = script.decode("utf-8-sig")
+    assert "ShowLanguageDialog=yes" in text and "PrivilegesRequired=lowest" in text
+    for code, messages in (("ko", "Korean.isl"), ("ja", "Japanese.isl"), ("en", "Default.isl")):
+        assert f'Name: "{code}"; MessagesFile: "compiler:' in text and messages in text
+        assert f"{code}.DesktopShortcut=" in text and f"{code}.StartApp=" in text and f"{code}.FfmpegNote=" in text
+    from stream2clip import i18n
+
+    assert rf"{{app}}\{i18n.INSTALL_FILE}'), ActiveLanguage" in text  # the language codes are the app's own: ko, ja, en
+    assert "ffmpeg.exe" not in text  # ffmpeg is not part of the installer
+
+    assert build.installer_name("0.5.1", "AMD64") == "stream2clip-0.5.1-windows-x64-setup"
+    folder, dist = tmp_path / "dist" / "stream2clip", tmp_path / "dist"
+    folder.mkdir(parents=True)
+    command = build.installer_command("ISCC.exe", folder, dist, "0.5.1", "AMD64")
+    assert command[0] == "ISCC.exe" and command[-1].endswith("installer.iss") and "/DAppVersion=0.5.1" in command
+    assert f"/DSourceDir={folder.resolve()}" in command and f"/DOutputDir={dist.resolve()}" in command and "/DOutputName=stream2clip-0.5.1-windows-x64-setup" in command
+
+    ran = []
+
+    def fake_run(cmd, check):
+        ran.append(cmd)
+        (dist / f"{build.installer_name('0.5.1')}.exe").write_bytes(b"MZ")
+
+    setup = build.make_installer(folder, dist, "0.5.1", iscc="ISCC.exe", run=fake_run)
+    assert setup.name == f"{build.installer_name('0.5.1')}.exe" and ran[0][0] == "ISCC.exe"
+    with pytest.raises(FileNotFoundError, match="without writing"):
+        build.make_installer(folder, dist, "9.9.9", iscc="ISCC.exe", run=lambda cmd, check: None)
+
+    compiler = tmp_path / "ISCC.exe"
+    compiler.write_bytes(b"")
+    monkeypatch.setenv("STREAM2CLIP_ISCC", str(compiler))
+    assert build.find_iscc() == str(compiler)
+    monkeypatch.setenv("STREAM2CLIP_ISCC", str(tmp_path / "missing.exe"))
+    assert build.find_iscc() is None
+    with pytest.raises(FileNotFoundError, match="Inno Setup 6"):
+        build.make_installer(folder, dist, "0.5.1")

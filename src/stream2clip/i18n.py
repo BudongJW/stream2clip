@@ -5,7 +5,8 @@ the code reads as before and a missing translation falls back to Korean instead 
 failing. The catalogs are plain JSON files in ``stream2clip/locales``.
 
 The language is, in this order: :func:`set_language`, the ``STREAM2CLIP_LANG``
-environment variable, the system's language (Korean / Japanese, anything else gets
+environment variable, the language chosen in the Windows installer (a ``language.txt``
+next to the programs), the system's language (Korean / Japanese, anything else gets
 English). Texts placed in module-level tables are looked up when that module is
 imported, so the app decides the language before it imports its windows.
 """
@@ -18,9 +19,11 @@ import os
 import sys
 from pathlib import Path
 
-__all__ = ["LANGUAGES", "language", "set_language", "tr", "catalog", "system_language"]
+__all__ = ["LANGUAGES", "language", "set_language", "tr", "catalog", "system_language", "installed_language", "INSTALL_FILE"]
 
 LANGUAGES = {"ko": "한국어", "ja": "日本語", "en": "English"}
+#: Written by the Windows installer next to the programs: the language picked on its first page.
+INSTALL_FILE = "language.txt"
 _current: str | None = None
 _catalogs: dict[str, dict[str, str]] = {}
 
@@ -57,10 +60,25 @@ def system_language() -> str:
     return "en"
 
 
+def installed_language(folder: str | os.PathLike[str] | None = None) -> str | None:
+    """The language chosen when the programs were installed, or ``None`` (not installed that way, unreadable file).
+
+    ``folder`` is where the programs are; by default the folder of the built executable.
+    """
+    if folder is None:
+        if not getattr(sys, "frozen", False):
+            return None
+        folder = Path(sys.executable).parent
+    try:
+        return _normalize((Path(folder) / INSTALL_FILE).read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
 def language() -> str:
     global _current
     if _current is None:
-        _current = _normalize(os.environ.get("STREAM2CLIP_LANG")) or system_language()
+        _current = _normalize(os.environ.get("STREAM2CLIP_LANG")) or installed_language() or system_language()
     return _current
 
 

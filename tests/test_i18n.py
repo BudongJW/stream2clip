@@ -59,7 +59,7 @@ def test_no_korean_literal_is_left_outside_tr():
     import re
 
     hangul = re.compile("[가-힣]")
-    allowed = {"launcher.py": {"언어 · 言語 · Language", "다시 시작하면 한국어로 표시됩니다"}}
+    allowed = {"launcher.py": {"언어 / 言語 / Language", "다시 시작하면 한국어로 표시됩니다"}}
     left = []
     for path in sorted((SRC / "gui").glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -149,8 +149,8 @@ sys.stdout.flush()
 
 
 @pytest.mark.parametrize("code, expected", [
-    ("en", ["●  Record an area (F9)", "Find highlights", "stream2clip · Stream → Clips", "Export clips", "Mark songs", "English", "Choose the video and its chat replay, or paste the stream address"]),
-    ("ja", ["●  範囲を録画 (F9)", "ハイライトを探す", "stream2clip · 配信 → クリップ", "クリップを書き出す", "歌の区間を表示", "日本語", "動画とチャットリプレイを選ぶか、配信のURLを入れてください"]),
+    ("en", ["●  Record an area (F9)", "Find highlights", "stream2clip Stream clips", "Export clips", "Mark songs", "English", "Choose the video and its chat replay, or paste the stream address"]),
+    ("ja", ["●  範囲を録画 (F9)", "ハイライトを探す", "stream2clip 配信クリップ作成", "クリップを書き出す", "歌の区間を表示", "日本語", "動画とチャットリプレイを選ぶか、配信のURLを入れてください"]),
 ])
 def test_windows_come_up_in_the_chosen_language(code, expected, tmp_path):
     """In a fresh process: tables of labels are translated when their module is imported."""
@@ -164,3 +164,55 @@ def test_windows_come_up_in_the_chosen_language(code, expected, tmp_path):
     assert (lines[1] == notice) if code == "en" else (notice not in lines[1])  # nothing to announce when it is already Japanese
     saved = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
     assert saved["app"] == {"language": "ja"}
+
+
+def test_texts_carry_no_decorative_marks():
+    """Middle dots, arrows, dashes, ellipses and corner brackets are not used in what the program shows."""
+    marks = "·ㆍ・•→←↔—–…「」『』〈〉《》“”‘’※"
+    for code in ("ja", "en"):
+        catalog = json.loads((SRC / "locales" / f"{code}.json").read_text(encoding="utf-8"))
+        for key, value in catalog.items():
+            assert not any(mark in key or mark in value for mark in marks), (code, key, value)
+    left = []
+    for path in sorted(SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        docstrings = {
+            id(node.body[0].value) for node in ast.walk(tree)
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef)) and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
+        }
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings and any(mark in node.value for mark in marks):
+                left.append((path.name, node.value[:60]))
+    assert left == []
+
+
+def test_language_chosen_in_the_installer(tmp_path, monkeypatch, clean_language, capsys):
+    """The installer leaves language.txt next to the programs; it ranks below the environment and above the system."""
+    assert i18n.installed_language() is None  # not a built program: nothing to read
+    assert i18n.installed_language(tmp_path) is None
+    (tmp_path / i18n.INSTALL_FILE).write_text("ja\n", encoding="utf-8")
+    assert i18n.installed_language(tmp_path) == "ja"
+    (tmp_path / i18n.INSTALL_FILE).write_bytes(b"\xef\xbb\xbfko")  # written by another tool, with a byte order mark
+    assert i18n.installed_language(tmp_path) == "ko"
+    (tmp_path / i18n.INSTALL_FILE).write_text("klingon", encoding="utf-8")
+    assert i18n.installed_language(tmp_path) is None
+
+    (tmp_path / i18n.INSTALL_FILE).write_text("ja", encoding="utf-8")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "stream2clip.exe"))
+    monkeypatch.setattr(i18n, "system_language", lambda: "en")
+    monkeypatch.delenv("STREAM2CLIP_LANG", raising=False)
+    monkeypatch.setattr(i18n, "_current", None)
+    assert i18n.language() == "ja"
+    monkeypatch.setenv("STREAM2CLIP_LANG", "ko")
+    monkeypatch.setattr(i18n, "_current", None)
+    assert i18n.language() == "ko"
+    assert i18n.set_language("en") == "en"  # the choice made in the app itself comes first
+
+    from stream2clip.cli import main
+
+    monkeypatch.delenv("STREAM2CLIP_LANG")
+    monkeypatch.setattr(i18n, "_current", None)
+    assert main(["language", "-v"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0] == "ja" and "installer (language.txt): ja" in out and "system: en" in out

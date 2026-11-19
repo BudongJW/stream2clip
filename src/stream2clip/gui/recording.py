@@ -206,7 +206,7 @@ class RecordController(QObject):
             return
         logical = virtual_geometry()
         self._mapping = (logical, physical, screenshot.width / max(1, logical.width()), screenshot.height / max(1, logical.height()))
-        self._selector = ScreenSelector("region", screenshot=screenshot, physical=physical, hint=tr("녹화할 영역을 드래그  ·  Enter 전체 화면  ·  Esc 취소"))
+        self._selector = ScreenSelector("region", screenshot=screenshot, physical=physical, hint=tr("녹화할 영역을 드래그, Enter 전체 화면, Esc 취소"))
         # Give the compositor / X server time to repaint what was under the overlay,
         # otherwise the first frames show the dimmed selection screen.
         self._selector.regionSelected.connect(lambda region, _img, rect: QTimer.singleShot(START_DELAY_MS, lambda: self.start(region, rect)))
@@ -231,7 +231,7 @@ class RecordController(QObject):
             return
         self._frame = RecordingFrame(rect)
         self._frame.show()
-        desc = f"{settings.format.upper()} · {settings.fps:g}fps" + (tr(" · 투명") if settings.transparent and settings.format != "mp4" else "")
+        desc = f"{settings.format.upper()}, {settings.fps:g}fps" + (tr(", 투명") if settings.transparent and settings.format != "mp4" else "")
         self._bar = RecordingBar(desc)
         self._bar.stopRequested.connect(self.stop)
         self._bar.cancelRequested.connect(self.cancel)
