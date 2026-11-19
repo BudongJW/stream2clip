@@ -651,7 +651,7 @@ python packaging/build_windows.py
 - 예제 번역기는 `translators` 폴더에 포함: `stream2clip.exe clips ... --translate ko --translator translators\openai_compatible.py`
 - Chocolatey, Scoop의 `ffmpeg.exe`는 실제 프로그램을 호출하는 연결 파일이므로 `--ffmpeg auto`가 거부. 실제 파일 경로 지정 필요
 - 코드 서명 미적용(zip, 설치 프로그램 공통). SmartScreen 경고가 표시될 수 있으며 Smart App Control 사용 환경에서는 실행이 차단될 수 있음
-- 실행 파일의 동작 확인은 GitHub Actions의 Windows 러너에서 빌드 후 직접 실행하는 방식으로 수행([`package.yml`](.github/workflows/package.yml))
+- 실행 파일의 동작 확인: 릴리즈마다 GitHub Actions의 Windows 러너에서 빌드 후 직접 실행([`package.yml`](.github/workflows/package.yml)). Windows 11 실기기에서의 실행과 화면 단계별 설치 결과는 [docs/VERIFICATION.md](docs/VERIFICATION.md#설치-프로그램) 참조
 
 <br>
 
