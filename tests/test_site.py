@@ -95,13 +95,14 @@ def test_download_buttons_follow_the_latest_release(built):
 
 def test_the_manual_covers_the_app_and_names_its_version(built):
     guide = Page((built / "guide.html").read_text(encoding="utf-8"))
-    for section in ("install", "first-run", "capture", "record", "clips", "subtitles", "obs", "live", "cli", "trouble", "rules"):
+    for section in ("install", "basics", "capture", "record", "clips", "subtitles", "obs", "live", "cli", "troubleshooting", "notice"):
         assert section in guide.ids
     text = " ".join("".join(guide.text).split())
     major_minor = ".".join(stream2clip.__version__.split(".")[:2])
     assert f"v{major_minor}" in text, "the manual says which version it describes: update it with the release"
-    for word in ("winget install Gyan.FFmpeg", "stream2clip-gui.exe", "F8", "F9", "F10", "하이라이트 찾기", "리플레이 버퍼", "Smart App Control", "법적 판단이 아닙니다"):
+    for word in ("winget install Gyan.FFmpeg", "stream2clip-gui.exe", "F8", "F9", "F10", "하이라이트 찾기", "리플레이 버퍼", "라이브 모드 시작", "Smart App Control", "법적 판단이 아님"):
         assert word in text, word
+    assert "다음 버전" not in text and "예정" not in text  # the manual describes the program as it is, not what is planned
 
 
 def test_the_site_is_on_brand_and_names_nobody(built):
@@ -118,6 +119,31 @@ def test_the_site_is_on_brand_and_names_nobody(built):
         html = (built / name).read_text(encoding="utf-8")
         assert '<html lang="ko">' in html and 'name="viewport"' in html and "<title>" in html
         assert all("alt" in attrs for tag, _link, attrs in Page(html).links if tag == "img"), name
+
+
+#: Marks and habits the pages do without: the copy is plain business Korean, and the layout carries no decoration.
+UNWANTED_MARKS = "·ㆍ•‧∙→←↔⇒—–…「」『』〈〉《》【】“”‘’✨✅🚀"
+UNWANTED_PHRASES = ("됩니다", "하세요", "해요", "합니다", "입니다", "습니다", "세요.", "걸음", "쏙쏙", "손쉽게", "간편하게", "강력한")
+UNWANTED_STYLES = ("backdrop-filter", "text-transform", "@keyframes", "animation", "gradient", "transition", "letter-spacing: .", "border-left:")
+
+
+def test_copy_is_plain_and_free_of_decorative_marks(built):
+    for name in PAGES:
+        html = (built / name).read_text(encoding="utf-8")
+        page = Page(html)
+        said = "".join(page.text) + " ".join(str(value) for _tag, _link, attrs in page.links for value in attrs.values() if value)
+        said += " ".join(re.findall(r'content="([^"]*)"', html))
+        for mark in UNWANTED_MARKS:
+            assert mark not in said, f"{name}: {mark!r}"
+        visible = re.sub(r"<(script|style|pre)\b.*?</\1>", " ", html, flags=re.S)
+        assert "&lt;" not in visible and "&gt;" not in visible, name  # no angle brackets in the text either
+        for phrase in UNWANTED_PHRASES:
+            assert phrase not in said, f"{name}: {phrase!r} (write notes, not sentences)"
+    css = (built / "css" / "site.css").read_text(encoding="utf-8")
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    for style in UNWANTED_STYLES:
+        assert style not in rules, style
+    assert "position: sticky" not in rules.split(".toc")[0]  # the header scrolls away with the page
 
 
 def test_manual_pdf_is_printed_by_a_browser(site_builder, built, monkeypatch, tmp_path):

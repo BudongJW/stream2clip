@@ -500,3 +500,118 @@ def test_highlights_from_an_address(app, window, tmp_path, monkeypatch):
     window.set_paths(video=url, chat=str(mine))
     window.video_edit.setText(url + "0")
     assert window.chat_edit.text() == str(mine)  # a file the user chose is left alone
+
+
+# ----------------------------------------------------------------------------- live mode in the launcher
+class ScriptedChat:
+    """A live chat: minutes of ordinary talk are there at the start, then one burst arrives."""
+
+    def __init__(self, *, fails: str = "") -> None:
+        self.ended, self.closed, self.reads, self.fails = False, False, 0, fails
+
+    def read(self):
+        import math
+
+        from stream2clip.chat import ChatMessage
+
+        self.reads += 1
+        if self.fails:
+            raise RuntimeError(self.fails)
+        if self.reads == 1:
+            now = time.time()
+            return [ChatMessage(now - 400 + i * 2.5, "なるほど", author=f"u{i % 7}") for i in range(160)]
+        if self.reads == 3:
+            return [ChatMessage(math.nan, "草", author=f"r{i}") for i in range(40)]  # no time of their own: they count as "now"
+        return []
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def quick_live_config():
+    from stream2clip.live import LiveConfig
+
+    return LiveConfig(smooth=1, warmup=60.0, lag=0.0, chat_delay=0.0, tail=0.0, lead=3.0)
+
+
+@needs_ffmpeg
+def test_live_mode_saves_a_clip_when_the_chat_surges(app, green_screen_video, tmp_path):
+    win = LauncherWindow()
+    win.dialogs = False
+    win.settings.save_dir = tmp_path / "live"
+    win._set_format("mp4")
+    win.live_poll = 0.05
+    assert [win.live_level.itemData(i) for i in range(win.live_level.count())] == ["low", "normal", "high"] and win.live_level.currentData() == "normal"
+    assert win.live_config().threshold == 3.5
+    servers = []
+
+    def connect_obs():
+        servers.append(FakeObs(replay=str(green_screen_video)))  # the "replay buffer": a 2 s video
+        return ObsClient(connect=servers[-1].connect)
+
+    win.obs_client = connect_obs
+    chat, asked = ScriptedChat(), []
+    win.live_source = lambda url, folder: asked.append((url, folder)) or chat
+    win.start_live()
+    assert not win.live_running and "주소를 입력" in win.status.text() and asked == []  # nothing to watch yet
+
+    url = "https://www.youtube.com/watch?v=abcdef12345"
+    win.live_edit.setText(url)
+    win.live_level.setCurrentIndex(win.live_level.findData("high"))
+    assert win.live_config().threshold == 2.5
+    win.live_config = quick_live_config
+    win.toggle_live()
+    assert win.live_running and win.live_button.text() == "라이브 모드 중지" and not win.live_edit.isEnabled()
+    win.start_live()  # already running: nothing happens
+    wait(app, lambda: win.live_clips == 1, 30)
+    assert "클립 저장" in win.status.text() and "60초 이상" in win.status.text()  # the 2 s buffer is shorter than the clip that was wanted
+    assert len(list((tmp_path / "live").glob("live_*.mp4"))) == 1 and asked == [(url, tmp_path / "live" / "live_chat")]
+    assert len(servers) == 2 and all(server.closed for server in servers)  # one connection to check, one for the surge
+
+    win.toggle_live()
+    wait(app, lambda: not win.live_running)
+    assert win.status.text() == "라이브 모드 종료: 클립 1개 저장" and chat.closed
+    assert win.live_button.text() == "라이브 모드 시작" and win.live_button.isEnabled() and win.live_edit.isEnabled()
+    assert settings.load_section("live") == {"url": url, "level": "high"}
+    win.close()
+
+    again = LauncherWindow()  # the address and the sensitivity come back
+    assert again.live_edit.text() == url and again.live_level.currentData() == "high"
+    again.close()
+
+
+def test_live_mode_says_what_is_wrong_before_it_waits(app, tmp_path):
+    win = LauncherWindow()
+    win.dialogs = False
+    win.settings.save_dir = tmp_path
+    win.live_poll = 0.05
+    win.live_config = quick_live_config
+    win.live_edit.setText("https://www.youtube.com/watch?v=abcdef12345")
+    sources = []
+    win.live_source = lambda url, folder: sources.append(ScriptedChat()) or sources[-1]
+
+    def refuse():
+        raise ObsError("Cannot reach OBS at ws://127.0.0.1:4455.")
+
+    win.obs_client = refuse
+    win.start_live()
+    wait(app, lambda: not win.live_running)
+    assert "라이브 모드 실패" in win.status.text() and "Cannot reach OBS" in win.status.text() and sources == []
+    assert win.live_button.text() == "라이브 모드 시작" and win.live_edit.isEnabled()
+
+    win.obs_client = lambda: ObsClient(connect=FakeObs(active=False).connect)  # OBS is there, its replay buffer is not running
+    win.start_live()
+    wait(app, lambda: not win.live_running)
+    assert "리플레이 버퍼가 실행 중이 아닙니다" in win.status.text() and sources == []
+
+    win.obs_client = lambda: ObsClient(connect=FakeObs().connect)
+    win.live_source = lambda url, folder: sources.append(ScriptedChat(fails="yt-dlp stopped without any chat (is the stream live?)")) or sources[-1]
+    win.start_live()
+    wait(app, lambda: not win.live_running)
+    assert "is the stream live" in win.status.text() and sources[-1].closed
+
+    win.live_source = lambda url, folder: sources.append(ScriptedChat()) or sources[-1]
+    win.start_live()
+    wait(app, lambda: "실행 중" in win.status.text())
+    win.close()  # closing the window stops the watcher and lets go of the chat
+    assert sources[-1].closed

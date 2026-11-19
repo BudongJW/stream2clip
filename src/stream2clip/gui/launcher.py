@@ -1,4 +1,4 @@
-"""Main window: capture buttons, recording settings and global hotkeys (F8 / F9)."""
+"""Main window: capture buttons, recording settings, global hotkeys (F8 / F9), OBS replay and live mode."""
 
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ from .settings import load_section, save_section
 __all__ = ["LauncherWindow", "ObsDialog"]
 
 _FORMATS = [("gif", "GIF", tr("어디서나 재생")), ("mp4", "MP4", tr("가벼운 용량")), ("webp", "WebP", tr("선명한 화질")), ("webm", "WebM", tr("투명 영상"))]
+_LIVE_LEVELS = [("low", tr("낮음"), 4.5), ("normal", tr("보통"), 3.5), ("high", tr("높음"), 2.5)]  # key, label, threshold
 _WIDTHS = [(tr("원본 크기"), None), ("1280px", 1280), ("960px", 960), ("720px", 720), ("480px", 480), ("320px", 320)]
 
 
@@ -78,6 +79,7 @@ class ObsDialog(QDialog):
 class LauncherWindow(QMainWindow):
     _replay_done = Signal(str)
     _replay_failed = Signal(str)
+    _live_note = Signal(str, str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -87,6 +89,11 @@ class LauncherWindow(QMainWindow):
         self.settings = RecordSettings()
         self.obs_host, self.obs_port, self.obs_password = "127.0.0.1", 4455, ""
         self.replay_busy = False
+        self.live_running = False
+        self.live_clips = 0
+        self.live_poll = 1.0  # seconds between two looks at the chat
+        self._live_stop = threading.Event()
+        self._live_thread: threading.Thread | None = None
         self.dialogs = True  # show failures in a message box too (tests turn this off)
 
         root = QWidget(objectName="Root")
@@ -131,6 +138,7 @@ class LauncherWindow(QMainWindow):
         self._restore()
         self._replay_done.connect(self._on_replay_done)
         self._replay_failed.connect(self._on_replay_failed)
+        self._live_note.connect(self._on_live)
 
         self.controller = RecordController(lambda: self.settings, self)
         self.controller.stateChanged.connect(self._on_record_state)
@@ -209,6 +217,27 @@ class LauncherWindow(QMainWindow):
         self.replay_button.clicked.connect(self.save_replay)
         replay.addWidget(self.replay_button)
         rows.addLayout(replay)
+
+        live = QHBoxLayout()
+        live.setSpacing(8)
+        label = QLabel(tr("라이브 모드"))
+        label.setStyleSheet("font-weight:800;")
+        live.addWidget(label)
+        self.live_edit = QLineEdit()
+        self.live_edit.setPlaceholderText(tr("YouTube 라이브 방송 주소"))
+        self.live_edit.setToolTip(tr("방송 중 채팅이 급증하면 OBS 리플레이 버퍼를 저장하고 해당 장면을 클립으로 만듭니다.\nOBS 리플레이 버퍼의 최대 시간을 60초 이상으로 설정하세요."))
+        live.addWidget(self.live_edit, 1)
+        live.addWidget(QLabel(tr("민감도")))
+        self.live_level = QComboBox()
+        for key, name, _threshold in _LIVE_LEVELS:
+            self.live_level.addItem(name, key)
+        self.live_level.setCurrentIndex(1)
+        self.live_level.setToolTip(tr("높을수록 작은 채팅 급증에도 저장합니다."))
+        live.addWidget(self.live_level)
+        self.live_button = QPushButton(tr("라이브 모드 시작"))
+        self.live_button.clicked.connect(self.toggle_live)
+        live.addWidget(self.live_button)
+        rows.addLayout(live)
         return card
 
     # ------------------------------------------------------------------ OBS replay
@@ -272,6 +301,113 @@ class LauncherWindow(QMainWindow):
         self.status.setText(tr("리플레이 실패: {0}").format(message.splitlines()[0][:110]))
         if self.dialogs and self.isVisible():
             QMessageBox.warning(self, tr("OBS 리플레이"), message)
+
+    # ------------------------------------------------------------------ live mode
+    def live_config(self):
+        """The detector settings for the chosen sensitivity (tests replace this)."""
+        from ..live import LiveConfig
+
+        thresholds = {key: threshold for key, _name, threshold in _LIVE_LEVELS}
+        return LiveConfig(threshold=thresholds.get(self.live_level.currentData(), 3.5))
+
+    def live_source(self, url: str, folder: Path):
+        """Where the chat comes from: yt-dlp recording the live chat into ``folder`` (tests replace this)."""
+        from ..live import YtDlpLiveChat
+
+        return YtDlpLiveChat(url, folder)
+
+    def toggle_live(self) -> None:
+        if self.live_running:
+            self.stop_live()
+        else:
+            self.start_live()
+
+    def start_live(self) -> None:
+        """Watch the chat of a live stream; every surge saves OBS's replay buffer as a clip in the save folder."""
+        from ..sources import is_url
+
+        if self.live_running:
+            return
+        url = self.live_edit.text().strip()
+        if not is_url(url):
+            self._on_live("failed", tr("YouTube 라이브 방송 주소를 입력하세요."))
+            return
+        config = self.live_config()
+        out = self.settings.save_dir
+        options = ExportOptions(format=self.settings.format, fps=self.settings.fps, width=self.settings.width)
+        poll = self.live_poll
+        self.live_running = True
+        self.live_clips = 0
+        self._live_stop.clear()
+        self.live_button.setText(tr("라이브 모드 중지"))
+        self.live_edit.setEnabled(False)
+        self.live_level.setEnabled(False)
+        self.status.setText(tr("라이브 모드 준비 중: OBS 연결 확인"))
+        self.remember()
+
+        def work() -> None:
+            from ..live import ReplayClipper, SurgeDetector, watch
+
+            source = None
+            try:
+                clipper = ReplayClipper(out, self.obs_client, options=options, config=config)
+                clipper.check()  # OBS missing or the buffer stopped is said now, not at the first surge
+                source = self.live_source(url, out / "live_chat")
+                detector = SurgeDetector(config, live_from=time.time())
+                self._live_note.emit("status", "")
+
+                def fired(trigger) -> None:
+                    try:
+                        saved = clipper(trigger)
+                    except Exception as exc:  # OBS closed meanwhile, disk full: keep watching
+                        self._live_note.emit("warning", str(exc))
+                        return
+                    self._live_note.emit("short" if saved.note else "clip", str(saved.clip))
+
+                watch(source, detector, fired, poll=poll, should_stop=self._live_stop.is_set)
+                self._live_note.emit("stopped", "")
+            except Exception as exc:  # shown in the status line and a dialog
+                message = str(exc)
+                if "replay buffer is not running" in message.lower():  # the commonest case, said in the user's language
+                    message = tr("OBS 리플레이 버퍼가 실행 중이 아닙니다. OBS에서 리플레이 버퍼를 시작한 후 다시 실행하세요.")
+                self._live_note.emit("failed", message)
+            finally:
+                if source is not None:
+                    source.close()
+
+        self._live_thread = threading.Thread(target=work, name="stream2clip-live", daemon=True)
+        self._live_thread.start()
+
+    def stop_live(self) -> None:
+        if self.live_running:
+            self._live_stop.set()
+            self.live_button.setEnabled(False)  # until the loop has let go of the chat
+            self.status.setText(tr("라이브 모드 종료 중"))
+
+    def _on_live(self, kind: str, text: str) -> None:
+        now = time.strftime("%H:%M:%S")
+        if kind == "status":
+            self.status.setText(tr("라이브 모드 실행 중: 채팅 급증 시 리플레이를 저장합니다"))
+        elif kind in ("clip", "short"):
+            self.live_clips += 1
+            message = tr("라이브 모드: 클립 저장 {0} ({1})").format(text, now)
+            if kind == "short":  # the replay buffer was shorter than the clip
+                message += tr(" / OBS 최대 리플레이 시간을 60초 이상으로 늘리세요")
+            self.status.setText(message)
+        elif kind == "warning":
+            self.status.setText(tr("라이브 모드: 저장 실패 ({0})").format(text.splitlines()[0][:100]))
+        else:  # "failed" before or during the watch, "stopped" at the end
+            self.live_running = False
+            self.live_button.setText(tr("라이브 모드 시작"))
+            self.live_button.setEnabled(True)
+            self.live_edit.setEnabled(True)
+            self.live_level.setEnabled(True)
+            if kind == "stopped":
+                self.status.setText(tr("라이브 모드 종료: 클립 {0}개 저장").format(self.live_clips))
+            else:
+                self.status.setText(tr("라이브 모드 실패: {0}").format(text.splitlines()[0][:110]))
+                if self.dialogs and self.isVisible():
+                    QMessageBox.warning(self, tr("라이브 모드"), text)
 
     def open_highlights(self):
         from .highlights import HighlightsWindow
@@ -399,6 +535,12 @@ class LauncherWindow(QMainWindow):
             self.replay_last.setValue(obs["last"])
         if isinstance(obs.get("hotkey"), bool):
             self.replay_hotkey_check.setChecked(obs["hotkey"])
+        live = load_section("live")
+        if isinstance(live.get("url"), str):
+            self.live_edit.setText(live["url"])
+        index = self.live_level.findData(live.get("level")) if isinstance(live.get("level"), str) else -1
+        if index >= 0:
+            self.live_level.setCurrentIndex(index)
 
     def _set_language(self, index: int) -> None:
         """Remember the language; windows that are already open keep theirs, so it applies from the next start."""
@@ -416,6 +558,7 @@ class LauncherWindow(QMainWindow):
             "similarity": self.similarity.value(), "save_dir": str(self.settings.save_dir),
         })
         save_section("obs", {"host": self.obs_host, "port": self.obs_port, "last": self.replay_last.value(), "hotkey": self.replay_hotkey_check.isChecked()})  # never the password
+        save_section("live", {"url": self.live_edit.text().strip(), "level": self.live_level.currentData()})
 
     def _set_format(self, key: str) -> None:
         self.settings.format = key
@@ -555,6 +698,9 @@ class LauncherWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if self.controller.state == "recording":
             self.controller.cancel()
+        self._live_stop.set()  # the watcher lets go of yt-dlp within a moment
+        if self._live_thread is not None:
+            self._live_thread.join(timeout=5)
         self.hotkeys.unregister()
         self.remember()
         super().closeEvent(event)
