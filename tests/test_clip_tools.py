@@ -343,6 +343,17 @@ def test_clips_command_takes_an_avatar_video(game_and_avatar, tmp_path, capsys):
 # --------------------------------------------------------------------------- Twitch chat
 
 
+def test_live_command_names_a_marker_as_such(tmp_path, capsys):
+    log = tmp_path / "chat.jsonl"
+    now = __import__("time").time()
+    # the marker, and a later message that closes its 5 s window
+    lines = [{"text": "!clip", "author": "s", "role": "owner", "time": now + 1}, {"text": "hello", "author": "v", "time": now + 7}]
+    log.write_text("".join(json.dumps(line) + chr(10) for line in lines), encoding="utf-8")
+    assert main(["live", str(log), "--no-obs", "--duration", "2", "--tail", "0", "-o", str(tmp_path / "out")]) == 0
+    out = capsys.readouterr().out
+    assert "marker" in out and "스트리머 표시 (!clip)" in out and "surge 0.0" not in out
+
+
 def test_twitch_channel_addresses():
     assert twitch_channel("https://www.twitch.tv/Some_Name") == "some_name"
     assert twitch_channel("twitch.tv/abc/") == "abc" and twitch_channel("https://m.twitch.tv/abc?sr=a") == "abc"
