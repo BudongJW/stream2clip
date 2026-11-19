@@ -90,6 +90,10 @@ def find_highlights(
         from .subtitles import load_subtitles
 
         said = speech_levels(load_subtitles(speech), window=cfg.window, delay=cfg.chat_delay)
+        if not said.any():
+            said = None  # no reaction line in these subtitles: the signal has nothing to say
+            if not messages and levels is None and not heatmap:
+                raise ValueError(f"No reaction words (やばい, えっ, すごい, wow ...) were found in {os.fspath(speech)}: with nothing else to analyse, there is no highlight to find")
     if not messages and levels is None and not heatmap and said is None:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
