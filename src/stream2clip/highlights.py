@@ -30,6 +30,7 @@ from typing import Any, Iterable, Sequence
 import numpy as np
 
 from .chat import ChatMessage
+from .i18n import tr
 from .sources import HeatmapPoint
 
 __all__ = [
@@ -45,6 +46,11 @@ __all__ = [
     "mark_singing",
     "marker_times",
     "marker_word",
+    "chat_reason",
+    "marker_reason",
+    "paid_reason",
+    "reaction_label",
+    "reactions_reason",
     "snap_to_cues",
     "load_highlights",
     "robust_z",
@@ -85,7 +91,34 @@ ROUTINE: list[str] = [
     r"^(?:안녕|ㅎㅇ|하이|ㅂㅂ|ㅂㅇ|바이|수고|고생)",
 ]
 _ROUTINE = re.compile("|".join(ROUTINE), re.IGNORECASE)
-_LABELS = {"laugh": "웃음", "hype": "환호", "cute": "귀여움", "shock": "놀람"}
+
+
+def reaction_label(name: str) -> str:
+    """What a reaction category is called in the reasons."""
+    return {"laugh": tr("웃음"), "hype": tr("환호"), "cute": tr("귀여움"), "shock": tr("놀람")}[name]
+
+
+def chat_reason(per_min: float, ratio: float | None) -> str:
+    """How busy the chat was; ``ratio`` to its usual pace, ``None`` when there was hardly any chat before."""
+    if ratio is None:
+        return tr("채팅 급증 {0:.0f}/분 (평소엔 거의 없음)").format(per_min)
+    # "급증" only when the chat really ran ahead of its usual pace: a moment can also score on reactions alone.
+    text = tr("채팅 급증 {0:.0f}/분 (평소의 {1:.1f}배)") if ratio >= 1.5 else tr("채팅 {0:.0f}/분 (평소의 {1:.1f}배)")
+    return text.format(per_min, ratio)
+
+
+def reactions_reason(total: int, categories: dict[str, int]) -> str:
+    detail = ", ".join(f"{reaction_label(name)} {count}" for name, count in sorted(categories.items(), key=lambda kv: -kv[1]) if count)
+    return tr("반응 {0}개 ({1})").format(total, detail)
+
+
+def paid_reason(count: int) -> str:
+    return tr("슈퍼챗, 후원, 멤버십 {0}건").format(count)
+
+
+def marker_reason(words: Iterable[str]) -> str:
+    return tr("스트리머 표시 ({0})").format(", ".join(dict.fromkeys(words)))
+
 SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap", "laughter")
 #: Chat commands that mark "clip what just happened" (Twitch ``!clip`` bots, timestamp bots, the marks of Bilibili streamers).
 DEFAULT_MARKERS = ("!clip", "!클립", "!切り抜き", "!ts", "!mark")
@@ -335,7 +368,7 @@ def detect_highlights(
         h.reasons, h.stats = _explain(h, raw, chat, signals, cfg)
         if marks:
             h.stats["marker"] = marks
-            h.reasons.insert(0, f"스트리머 표시 ({', '.join(words)})")
+            h.reasons.insert(0, marker_reason(words))
     return HighlightResult(window=w, duration=total, score=score, signals=signals, highlights=highlights, source=source or {}, messages=len(messages))
 
 
@@ -429,40 +462,35 @@ def _explain(h: Highlight, raw: dict[str, np.ndarray], chat: dict[str, Any] | No
         stats["chat_per_min"] = local * 60 / w
         stats["chat_ratio"] = ratio if math.isfinite(ratio) else 99.0
         if local > 0:
-            per_min = local * 60 / w
-            ratio_text = f"평소의 {ratio:.1f}배" if math.isfinite(ratio) and base > 1e-6 else "평소엔 거의 없음"
-            # "급증" only when the chat really ran ahead of its usual pace: a moment can also score on reactions alone.
-            label = "채팅 급증" if ratio >= 1.5 else "채팅"
-            reasons.append(f"{label} {per_min:.0f}/분 ({ratio_text})")
+            reasons.append(chat_reason(local * 60 / w, ratio if math.isfinite(ratio) and base > 1e-6 else None))
         cats = {c: int(v[lo:hi].sum()) for c, v in chat["categories"].items()}
         total_react = int(raw["reactions"][lo:hi].sum())
         stats["reactions"] = total_react
         for name, count in cats.items():
             stats[f"react_{name}"] = count
         if total_react:
-            detail = ", ".join(f"{_LABELS[c]} {n}" for c, n in sorted(cats.items(), key=lambda kv: -kv[1]) if n)
-            reasons.append(f"반응 {total_react}개 ({detail})")
+            reasons.append(reactions_reason(total_react, cats))
         paid = int(raw["paid"][lo:hi].sum())
         stats["paid"] = paid
         if paid:
-            reasons.append(f"슈퍼챗, 후원, 멤버십 {paid}건")
+            reasons.append(paid_reason(paid))
         stats["messages"] = float(rate[lo:hi].sum())
     if "audio" in raw:
         audio = raw["audio"]
         delta = float(audio[max(0, peak_i - 1) : peak_i + 2].max() - np.median(audio))
         stats["audio_db_above"] = delta
         if delta >= 3:
-            reasons.append(f"음량 +{delta:.0f} dB")
+            reasons.append(tr("음량 +{0:.0f} dB").format(delta))
     if "laughter" in raw:
         burst = float(signals["laughter"][max(0, peak_i - 2) : peak_i + 2].max())
         stats["laughter_z"] = burst
         if burst >= 2:
-            reasons.append("웃음소리 같은 소리 (추정)")
+            reasons.append(tr("웃음소리 같은 소리 (추정)"))
     if "heatmap" in raw:
         value = float(raw["heatmap"][lo:hi].max())
         stats["heatmap"] = value
         if signals["heatmap"][lo:hi].max() >= 1:
-            reasons.append(f"많이 다시 본 구간 ({value:.2f})")
+            reasons.append(tr("많이 다시 본 구간 ({0:.2f})").format(value))
     return reasons, stats
 
 
@@ -478,9 +506,10 @@ def mark_singing(result: HighlightResult, sections: Sequence[tuple[float, float]
     for h in result.highlights:
         inside = sum(max(0.0, min(h.end, end) - max(h.start, start)) for start, end in sections)
         fraction = min(1.0, inside / max(h.duration, 1e-9))
+        noted = "singing" in h.stats  # marked before: the reason is already there
         h.stats["singing"] = fraction
-        if fraction > 0 and not any("노래 구간" in reason for reason in h.reasons):
-            h.reasons.append(f"노래 구간과 {fraction:.0%} 겹침")
+        if fraction > 0 and not noted:
+            h.reasons.append(tr("노래 구간과 {0:.0%} 겹침").format(fraction))
         if not (drop and fraction >= mostly):
             kept.append(h)
     if drop:
@@ -571,8 +600,8 @@ def render_timeline(result: HighlightResult, path: str | os.PathLike[str] | None
     pad_l, pad_r, top, bottom = 60, 40, 104, 70
     plot_w, plot_h = width - pad_l - pad_r, height - top - bottom
     title_font, label_font, small = load_font(26), load_font(18), load_font(15)
-    draw.text((pad_l, 20), "stream2clip 하이라이트 타임라인", font=title_font, fill=PAPER)
-    summary = f"{len(result.highlights)}개 구간, 길이 {_clock(result.duration)}"
+    draw.text((pad_l, 20), tr("stream2clip 하이라이트 타임라인"), font=title_font, fill=PAPER)
+    summary = tr("{0}개 구간, 길이 {1}").format(len(result.highlights), _clock(result.duration))
     draw.text((width - pad_r - draw.textlength(summary, font=label_font), 26), summary, font=label_font, fill="#8A8499")
 
     score = result.score

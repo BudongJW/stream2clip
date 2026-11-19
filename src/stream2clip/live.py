@@ -11,7 +11,8 @@ stands out. ``stream2clip live`` then saves OBS's replay buffer and cuts the mom
 Chat comes from anything with a ``read()`` that returns the new messages:
 :class:`FileFollower` follows a file that some collector keeps appending to,
 :class:`YtDlpLiveChat` runs yt-dlp for a YouTube stream and follows what it writes, and
-:class:`TwitchLiveChat` reads a Twitch channel's chat directly. :func:`open_chat` picks one.
+:class:`TwitchLiveChat`, :class:`ChzzkLiveChat` and :class:`SoopLiveChat` read a channel's
+chat directly, as a viewer who is not signed in. :func:`open_chat` picks one.
 Message times are wall-clock seconds; a message without one counts as "now".
 
 A marker typed by the streamer or a moderator (``!clip`` ...) fires at once, surge or not.
@@ -32,10 +33,11 @@ from typing import Any, Callable, Iterable, Protocol, Sequence
 import numpy as np
 
 from .chat import ChatMessage, author_key, live_messages, role_of
-from .highlights import _LABELS, DEFAULT_MARKERS, REACTIONS, classify_reactions, is_routine, marker_word, robust_z
+from .highlights import DEFAULT_MARKERS, REACTIONS, chat_reason, classify_reactions, is_routine, marker_reason, marker_word, paid_reason, reactions_reason, robust_z
 
 __all__ = [
     "LiveConfig", "Trigger", "SurgeDetector", "simulate", "ChatSource", "FileFollower", "YtDlpLiveChat", "TwitchLiveChat",
+    "ChzzkLiveChat", "SoopLiveChat", "chzzk_channel", "soop_channel", "reads_chat_itself",
     "open_chat", "parse_twitch_irc", "twitch_channel", "watch", "clip_span", "ReplayClipper", "SavedClip",
 ]
 
@@ -206,8 +208,7 @@ class SurgeDetector:
             # Asked for by the streamer: no warm-up, no threshold. The score is not computed for this window.
             self._last_fired = end
             reasons, stats = self._explain(bucket)
-            words = ", ".join(dict.fromkeys(bucket.marks))
-            return Trigger(end, 0.0, [f"스트리머 표시 ({words})", *(reasons if bucket.rate else [])], {**stats, "marker": float(len(bucket.marks))})
+            return Trigger(end, 0.0, [marker_reason(bucket.marks), *(reasons if bucket.rate else [])], {**stats, "marker": float(len(bucket.marks))})
         if self.seen() < cfg.warmup or not weights:
             return None
         self._scores.append(sum(float(robust_z(np.array([*self._history[k], values[k]]))[-1]) * v for k, v in weights.items()) / sum(weights.values()))
@@ -226,18 +227,16 @@ class SurgeDetector:
         stats: dict[str, float] = {"chat_per_min": per_min, "messages": float(bucket.rate), "reactions": float(bucket.reactions), "paid": float(bucket.paid)}
         if base > 1e-6:
             stats["chat_ratio"] = bucket.rate / base
-            label = "채팅 급증" if bucket.rate / base >= 1.5 else "채팅"  # it can also fire on reactions alone
-            reasons = [f"{label} {per_min:.0f}/분 (평소의 {bucket.rate / base:.1f}배)"]
+            reasons = [chat_reason(per_min, bucket.rate / base)]
         else:
             stats["chat_ratio"] = 99.0
-            reasons = [f"채팅 급증 {per_min:.0f}/분 (평소엔 거의 없음)"]
+            reasons = [chat_reason(per_min, None)]
         for name, count in bucket.categories.items():
             stats[f"react_{name}"] = float(count)
         if bucket.reactions:
-            detail = ", ".join(f"{_LABELS[c]} {n}" for c, n in sorted(bucket.categories.items(), key=lambda kv: -kv[1]) if n)
-            reasons.append(f"반응 {bucket.reactions}개 ({detail})")
+            reasons.append(reactions_reason(bucket.reactions, bucket.categories))
         if bucket.paid:
-            reasons.append(f"슈퍼챗, 후원, 멤버십 {bucket.paid}건")
+            reasons.append(paid_reason(bucket.paid))
         return reasons, stats
 
 
@@ -517,13 +516,226 @@ class TwitchLiveChat:
         self._drop()
 
 
+_CHZZK_CHANNEL = re.compile(r"^(?:https?://)?(?:m\.)?chzzk\.naver\.com/(?:live/)?([0-9a-f]{32})/?(?:[?#].*)?$", re.IGNORECASE)
+_SOOP_CHANNEL = re.compile(r"^(?:https?://)?(?:play|ch)\.sooplive\.co\.kr/(?:station/)?([A-Za-z0-9_]{3,20})(?:/\d+)?/?(?:[?#].*)?$", re.IGNORECASE)
+CHZZK_LIVE_STATUS = "https://api.chzzk.naver.com/polling/v2/channels/{channel}/live-status"
+CHZZK_CHAT_TOKEN = "https://comm-api.game.naver.com/nng_main/v1/chats/access-token?channelId={chat}&chatType=STREAMING"
+SOOP_LIVE_API = "https://live.sooplive.co.kr/afreeca/player_live_api.php?bjid={streamer}"
+
+
+def chzzk_channel(url: str) -> str | None:
+    """``https://chzzk.naver.com/live/<channel id>`` (or without ``live/``) -> the channel id; ``None`` otherwise (a replay, another site)."""
+    match = _CHZZK_CHANNEL.match(url.strip())
+    return match.group(1).lower() if match else None
+
+
+def soop_channel(url: str) -> str | None:
+    """``https://play.sooplive.co.kr/<streamer id>`` -> the streamer id; ``None`` otherwise (a replay on vod.sooplive.co.kr, another site)."""
+    match = _SOOP_CHANNEL.match(url.strip())
+    return match.group(1) if match else None
+
+
+def _open_websocket(url: str, **options: Any) -> Any:
+    try:
+        import websocket
+    except ImportError as error:  # the same client the OBS connection uses
+        raise RuntimeError('This chat is read over a WebSocket: install the client with  pip install "stream2clip[obs]"') from error
+    return websocket.create_connection(url, timeout=15, **options)
+
+
+def _nothing_yet(error: BaseException) -> bool:
+    """A read that simply had nothing to return (the socket's short timeout), as opposed to a broken connection."""
+    return isinstance(error, (TimeoutError, BlockingIOError)) or "Timeout" in type(error).__name__
+
+
+class _SocketChat:
+    """What the WebSocket chats share: connect at the first read, read what has arrived, keep the line alive, connect again when it drops."""
+
+    keepalive = 20.0
+    name = "chat"
+
+    def __init__(self, *, connect: Callable[..., Any] | None = None, get: Callable[..., bytes] | None = None, retries: int = 3, clock: Callable[[], float] = time.time) -> None:
+        self.ended = False
+        self.retries = retries
+        self._connect = connect or _open_websocket
+        self._get = get
+        self._clock = clock
+        self._socket: Any = None
+        self._failures = 0
+        self._last_sent = 0.0
+
+    def _fetch(self, url: str, data: bytes | None = None) -> Any:
+        import json
+
+        from .sources import _http_get
+
+        return json.loads((self._get or _http_get)(url, data) if data is not None else (self._get or _http_get)(url))
+
+    def _start(self) -> Any:  # pragma: no cover - the subclasses' part
+        raise NotImplementedError
+
+    def _ping(self) -> None:  # pragma: no cover
+        raise NotImplementedError
+
+    def _messages(self, frame: Any) -> list[ChatMessage]:  # pragma: no cover
+        raise NotImplementedError
+
+    def _drop(self) -> None:
+        if self._socket is not None:
+            try:
+                self._socket.close()
+            except Exception:
+                pass
+        self._socket = None
+
+    def read(self) -> list[ChatMessage]:
+        if self.ended:
+            return []
+        if self._socket is None:
+            try:
+                self._socket = self._start()
+                self._socket.settimeout(0.05)
+                self._last_sent = self._clock()
+            except RuntimeError:
+                raise  # the channel is not live, the client is missing: trying again does not help
+            except Exception as error:
+                self._failures += 1
+                if self._failures >= self.retries:
+                    raise RuntimeError(f"Could not reach the {self.name}: {error}") from error
+                return []
+        found: list[ChatMessage] = []
+        try:
+            if self._clock() - self._last_sent >= self.keepalive:
+                self._ping()
+                self._last_sent = self._clock()
+            while True:
+                frame = self._socket.recv()
+                if frame in ("", b"", None):  # closed: connect again at the next read
+                    self._drop()
+                    break
+                self._failures = 0
+                found.extend(self._messages(frame))
+        except Exception as error:
+            if not _nothing_yet(error):
+                self._drop()
+        return found
+
+    def close(self) -> None:
+        self.ended = True
+        self._drop()
+
+
+class ChzzkLiveChat(_SocketChat):
+    """A CHZZK channel's live chat, read as a viewer who is not signed in (read only).
+
+    The channel's chat id and a read-only token come from CHZZK's public endpoints, then the
+    chat arrives over a WebSocket as it is sent. Donations count as paid messages.
+    """
+
+    name = "CHZZK chat"
+
+    def __init__(self, channel: str, **options: Any) -> None:
+        super().__init__(**options)
+        self.channel = chzzk_channel(channel) or channel.strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{32}", self.channel):
+            raise ValueError(f"Not a CHZZK channel (expected chzzk.naver.com/live/<channel id>): {channel}")
+        self.chat_id = ""
+
+    def _start(self) -> Any:
+        import json
+
+        status = self._fetch(CHZZK_LIVE_STATUS.format(channel=self.channel)).get("content") or {}
+        self.chat_id = str(status.get("chatChannelId") or "")
+        if not self.chat_id:
+            raise RuntimeError("This CHZZK channel has no chat to read now (is it live? adult-only streams need a signed-in viewer)")
+        token = (self._fetch(CHZZK_CHAT_TOKEN.format(chat=self.chat_id)).get("content") or {}).get("accessToken")
+        server = sum(ord(ch) for ch in self.chat_id) % 9 + 1
+        sock = self._connect(f"wss://kr-ss{server}.chat.naver.com/chat")
+        sock.send(json.dumps({"ver": "3", "cmd": 100, "svcid": "game", "cid": self.chat_id, "tid": 1,
+                              "bdy": {"uid": None, "devType": 2001, "accTkn": token, "auth": "READ", "libVer": "4.9.3", "osVer": "Windows/10", "devName": "stream2clip", "locale": "ko", "timezone": "Asia/Seoul"}}))
+        return sock
+
+    def _ping(self) -> None:
+        self._socket.send('{"ver":"3","cmd":0}')
+
+    def _messages(self, frame: Any) -> list[ChatMessage]:
+        import json
+
+        from .chat import chzzk_live_message
+
+        try:
+            data = json.loads(frame)
+        except (TypeError, ValueError):
+            return []
+        command = data.get("cmd")
+        if command == 0:  # the server asks whether anyone is there
+            self._socket.send('{"ver":"3","cmd":10000}')
+        if command not in (93101, 93102) or not isinstance(data.get("bdy"), list):  # chat, donations
+            return []
+        return [message for message in map(chzzk_live_message, data["bdy"]) if message is not None]
+
+
+class SoopLiveChat(_SocketChat):
+    """A SOOP channel's live chat, read as a viewer who is not signed in (read only).
+
+    Chat lines, star balloons, ad balloons and video balloons are read; the packets carry no
+    time, so a message counts as arriving "now". The streamer's own lines get the role "owner".
+    """
+
+    name = "SOOP chat"
+    keepalive = 55.0
+
+    def __init__(self, channel: str, **options: Any) -> None:
+        super().__init__(**options)
+        self.streamer = soop_channel(channel) or channel.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", self.streamer):
+            raise ValueError(f"Not a SOOP channel (expected play.sooplive.co.kr/<streamer id>): {channel}")
+
+    @staticmethod
+    def packet(service: int, body: str) -> bytes:
+        data = body.encode("utf-8")
+        return f"\x1b\t{service:04d}{len(data):06d}00".encode() + data
+
+    def _start(self) -> Any:
+        from urllib.parse import urlencode
+
+        form = urlencode({"bid": self.streamer, "type": "live", "player_type": "html5", "stream_type": "common", "quality": "HD", "mode": "landing", "from_api": "0", "pwd": "", "confirm_adult": "false"}).encode()
+        channel = self._fetch(SOOP_LIVE_API.format(streamer=self.streamer), form).get("CHANNEL") or {}
+        if channel.get("RESULT") != 1 or not channel.get("CHATNO"):
+            raise RuntimeError("This SOOP channel has no chat to read now (is it live? adult-only and password streams need a signed-in viewer)")
+        self.streamer = str(channel.get("BJID") or self.streamer)
+        sock = self._connect(f"wss://{str(channel['CHDOMAIN']).lower()}:{int(channel['CHPT']) + 1}/Websocket/{self.streamer}", subprotocols=["chat"])
+        sock.send_binary(self.packet(1, "\x0c\x0c\x0c16\x0c"))  # hello ...
+        sock.recv()
+        sock.send_binary(self.packet(2, f"\x0c{channel['CHATNO']}\x0c\x0c\x0c\x0c\x0c"))  # ... and into the room
+        return sock
+
+    def _ping(self) -> None:
+        self._socket.send_binary(self.packet(0, "\x0c"))
+
+    def _messages(self, frame: Any) -> list[ChatMessage]:
+        from .chat import soop_live_message
+
+        message = soop_live_message(frame if isinstance(frame, bytes) else str(frame).encode("utf-8"), self.streamer)
+        return [message] if message is not None else []
+
+
+def reads_chat_itself(source: str) -> bool:
+    """Whether ``source`` is a channel whose chat this module reads directly (Twitch, CHZZK, SOOP), without yt-dlp."""
+    return bool(twitch_channel(source) or chzzk_channel(source) or soop_channel(source))
+
+
 def open_chat(source: str, folder: str | os.PathLike[str], *, ytdlp: list[str] | None = None) -> "tuple[ChatSource, str]":
-    """The chat source for ``source`` and a few words on what it is: a Twitch channel, another live address (yt-dlp), or a file."""
+    """The chat source for ``source`` and a few words on what it is: a Twitch, CHZZK or SOOP channel, another live address (yt-dlp), or a file."""
     from .sources import is_url
 
     if twitch_channel(source):
         chat = TwitchLiveChat(source)
         return chat, f"twitch.tv/{chat.channel}  (Twitch chat, as it is sent)"
+    if chzzk_channel(source):
+        return ChzzkLiveChat(source), f"chzzk.naver.com/live/{chzzk_channel(source)}  (CHZZK chat, as it is sent)"
+    if soop_channel(source):
+        return SoopLiveChat(source), f"play.sooplive.co.kr/{soop_channel(source)}  (SOOP chat, as it is sent)"
     if is_url(source):
         return YtDlpLiveChat(source, folder, ytdlp=ytdlp), f"{source}  (yt-dlp, about every 10 s)"
     return FileFollower(source), f"following {source}"

@@ -19,6 +19,8 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from .i18n import tr
+
 __all__ = ["SCOPES", "PRIVACY", "video_resource", "shorts_problems", "load_credentials", "upload_video", "video_url"]
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -74,9 +76,9 @@ def shorts_problems(width: int, height: int, duration: float | None) -> list[str
     """Why YouTube would not treat a video as a Short (vertical or square, three minutes at most)."""
     problems = []
     if width > height:
-        problems.append(f"가로 영상입니다 ({width}×{height}). Shorts는 세로 또는 정사각형이어야 합니다.")
+        problems.append(tr("가로 영상입니다 ({0}×{1}). Shorts는 세로 또는 정사각형이어야 합니다.").format(width, height))
     if duration is not None and duration > 180:
-        problems.append(f"길이가 {duration:.0f}초입니다. Shorts는 3분(180초) 이하여야 합니다.")
+        problems.append(tr("길이가 {0:.0f}초입니다. Shorts는 3분(180초) 이하여야 합니다.").format(duration))
     return problems
 
 

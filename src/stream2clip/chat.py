@@ -28,7 +28,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-__all__ = ["ChatMessage", "load_chat", "live_messages", "parse_amount", "parse_chzzk", "parse_soop", "save_chat_jsonl", "author_key"]
+__all__ = ["ChatMessage", "load_chat", "live_messages", "parse_amount", "parse_chzzk", "parse_soop", "chzzk_live_message", "soop_live_message", "role_of", "save_chat_jsonl", "author_key"]
 
 
 @dataclass(frozen=True)
@@ -366,6 +366,66 @@ def parse_chzzk(data: Any) -> list[ChatMessage]:
                 )
             )
     return out
+
+
+def chzzk_live_message(item: dict[str, Any]) -> ChatMessage | None:
+    """One message of CHZZK's live chat (an entry of ``bdy`` in a chat or donation frame); ``None`` when it is hidden.
+
+    The fields are the live names of what :func:`parse_chzzk` reads from a replay: ``msg``,
+    ``msgTime`` (wall clock, ms), ``uid``, ``msgTypeCode``. The time is wall-clock seconds.
+    """
+    if item.get("msgStatusType", "NORMAL") != "NORMAL":
+        return None
+    extras = _json_object(item.get("extras"))
+    raw = str(item.get("msg") or "")
+    amount = float(extras.get("payAmount") or 0)
+    paid = item.get("msgTypeCode") == 10 or amount > 0
+    stamp = item.get("msgTime") or item.get("ctime")
+    return ChatMessage(
+        time=float(stamp) / 1000 if stamp else math.nan,
+        text=_CHZZK_EMOJI.sub(lambda g: f":{g.group(1)}:", raw),
+        author=author_key(str(item.get("uid") or "")),
+        kind="paid" if paid else "text",
+        amount=amount,
+        currency="KRW" if amount else None,
+        emotes=tuple(f":{name}:" for name in _CHZZK_EMOJI.findall(raw)),
+        role=role_of(_json_object(item.get("profile")).get("userRoleCode")),
+    )
+
+
+def soop_live_message(packet: bytes, streamer: str = "") -> ChatMessage | None:
+    """One packet of SOOP's live chat as a message; ``None`` for everything that is not chat or a donation.
+
+    A packet is ``ESC TAB``, a 4-digit service number, a 6-digit body length, 2 more digits,
+    then the fields, each ended by a form feed. Service 5 is a chat line (message, user id),
+    18 star balloons (streamer, user id, nickname, count), 87 ad balloons and 105 video
+    balloons (count further back). Packets carry no time: the reader uses "now".
+    ``streamer`` is the id of the channel's owner, whose own lines get the role "owner".
+    """
+    if len(packet) < 14 or packet[:2] != b"\x1b\t":
+        return None
+    service = packet[2:6]
+    parts = packet[14:].decode("utf-8", errors="replace").split("\x0c")
+
+    def who(value: str) -> tuple[str, str]:
+        name = _SOOP_SESSION.sub("", value)
+        return author_key(name), ("owner" if streamer and name == streamer else "")
+
+    def balloons(user: int, count: int, unit: str) -> ChatMessage | None:
+        if len(parts) <= max(user, count) or not parts[count].isdigit():
+            return None
+        return ChatMessage(math.nan, "", who(parts[user])[0], kind="paid", amount=float(parts[count]), currency=unit)
+
+    if service == b"0005" and len(parts) > 2:
+        author, role = who(parts[2])
+        return ChatMessage(math.nan, parts[1], author, role=role)
+    if service == b"0018":
+        return balloons(2, 4, "별풍선")
+    if service == b"0087":
+        return balloons(3, 10, "애드벌룬")
+    if service == b"0105":
+        return balloons(3, 5, "별풍선")
+    return None
 
 
 def parse_soop(text: str, *, offset: float = 0.0) -> list[ChatMessage]:

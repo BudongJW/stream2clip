@@ -19,7 +19,7 @@ import os
 import sys
 from pathlib import Path
 
-__all__ = ["LANGUAGES", "language", "set_language", "tr", "catalog", "system_language", "installed_language", "INSTALL_FILE"]
+__all__ = ["LANGUAGES", "language", "set_language", "tr", "mark", "shown", "catalog", "system_language", "installed_language", "INSTALL_FILE"]
 
 LANGUAGES = {"ko": "한국어", "ja": "日本語", "en": "English"}
 #: Written by the Windows installer next to the programs: the language picked on its first page.
@@ -107,3 +107,16 @@ def tr(text: str) -> str:
     if code == "ko":
         return text
     return catalog(code).get(text, text)
+
+
+def mark(text: str) -> str:
+    """A text that sits in a table and is translated where it is shown, with :func:`shown`. Returned unchanged.
+
+    The catalogs are checked against every text passed to :func:`tr` or to this function.
+    """
+    return text
+
+
+def shown(text: str) -> str:
+    """The current language's version of a text that went through :func:`mark`."""
+    return tr(text)

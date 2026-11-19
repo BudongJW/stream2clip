@@ -557,7 +557,7 @@ def _live_config(args: argparse.Namespace):
 
 
 def cmd_live(args: argparse.Namespace) -> int:
-    from .live import ReplayClipper, SurgeDetector, open_chat, simulate, twitch_channel, watch
+    from .live import ReplayClipper, SurgeDetector, open_chat, reads_chat_itself, simulate, watch
     from .sources import is_url, ytdlp_command
 
     config = _live_config(args)
@@ -587,7 +587,7 @@ def cmd_live(args: argparse.Namespace) -> int:
     out.mkdir(parents=True, exist_ok=True)
     started = time.time()
     # yt-dlp is only looked for when it is the one that reads the chat: a file or a Twitch channel works without it.
-    through_ytdlp = is_url(args.source) and not twitch_channel(args.source)
+    through_ytdlp = is_url(args.source) and not reads_chat_itself(args.source)
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser) if through_ytdlp else None
     source, described = open_chat(args.source, out / "chat", ytdlp=ytdlp)
     print(f"chat   {described}", flush=True)
@@ -750,10 +750,11 @@ def cmd_glossary(args: argparse.Namespace) -> int:
 
 def cmd_check(args: argparse.Namespace) -> int:
     from .compliance import PROFILES, check_upload, get_profile
+    from .i18n import shown, tr
 
     if args.list:
         for key, prof in PROFILES.items():
-            print(f"{key:10s} {prof.name}" + (f"  ({prof.guideline_url}, 개정 {prof.revised})" if prof.guideline_url else ""))
+            print(f"{key:10s} {shown(prof.name)}" + (f"  ({prof.guideline_url}, {tr('개정 {0}').format(prof.revised)})" if prof.guideline_url else ""))
         return 0
     source = _source(args)
     if source is None and not args.vrm:
@@ -890,7 +891,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_replay)
 
     p = sub.add_parser("live", help="watch a live chat and save OBS's replay buffer as a clip when it surges")
-    p.add_argument("source", help="address of a live YouTube stream or of a Twitch channel, or a chat file a collector keeps appending to (JSON lines)")
+    p.add_argument("source", help="address of a live YouTube stream or of a Twitch, CHZZK or SOOP channel, or a chat file a collector keeps appending to (JSON lines)")
     p.add_argument("-o", "--output", default="live", help="folder for the clips, the chat and live.jsonl (default: live)")
     p.add_argument("--no-obs", action="store_true", help="only report the surges (no OBS, nothing saved)")
     p.add_argument("--simulate", action="store_true", help="SOURCE is a finished chat replay: print what would have fired")

@@ -20,14 +20,15 @@ from pathlib import Path
 from typing import Any
 
 from .compliance import Issue
+from .i18n import mark, shown, tr
 
 __all__ = ["VrmMeta", "read_vrm_meta", "vrm_meta_from_json", "check_vrm"]
 
 _GLB_MAGIC, _JSON_CHUNK = 0x46546C67, 0x4E4F534A
 _USERS_0 = {"OnlyAuthor": "onlyAuthor", "ExplicitlyLicensedPerson": "onlySeparatelyLicensedPerson", "Everyone": "everyone"}
-_PERMISSIONS = {"onlyAuthor": "제작자 본인만", "onlySeparatelyLicensedPerson": "별도 허락을 받은 사람만", "everyone": "누구나"}
-_COMMERCIAL = {"personalNonProfit": "개인의 비영리 사용만", "personalProfit": "개인의 영리 사용까지", "corporation": "법인 사용까지"}
-_MODIFICATION = {"prohibited": "개변 금지", "allowModification": "개변 허용", "allowModificationRedistribution": "개변 및 개변본 재배포 허용"}
+_PERMISSIONS = {"onlyAuthor": mark("제작자 본인만"), "onlySeparatelyLicensedPerson": mark("별도 허락을 받은 사람만"), "everyone": mark("누구나")}
+_COMMERCIAL = {"personalNonProfit": mark("개인의 비영리 사용만"), "personalProfit": mark("개인의 영리 사용까지"), "corporation": mark("법인 사용까지")}
+_MODIFICATION = {"prohibited": mark("개변 금지"), "allowModification": mark("개변 허용"), "allowModificationRedistribution": mark("개변 및 개변본 재배포 허용")}
 
 
 @dataclass(frozen=True)
@@ -51,17 +52,26 @@ class VrmMeta:
 
     def summary(self) -> list[str]:
         """The terms in a few lines, for a person to read."""
-        def yes_no(value: bool | None) -> str:
-            return "기재 없음" if value is None else ("허용" if value else "불가")
+        unstated = tr("기재 없음")
 
-        return [
-            f"모델: {self.name or '(이름 없음)'}" + (f", 제작자 {', '.join(self.authors)}" if self.authors else "") + f" (VRM {self.spec})",
-            f"아바타 사용: {_PERMISSIONS.get(self.avatar_permission, '기재 없음')}",
-            f"영리 사용: {_COMMERCIAL.get(self.commercial_usage, '기재 없음')}",
-            f"크레딧 표기: {'기재 없음' if self.credit_required is None else ('필요' if self.credit_required else '불필요')}",
-            f"개변: {_MODIFICATION.get(self.modification, '기재 없음')}, 재배포: {yes_no(self.redistribution)}",
-            f"폭력 표현: {yes_no(self.violent)}, 성적 표현: {yes_no(self.sexual)}, 정치 및 종교: {yes_no(self.political)}, 반사회 및 혐오: {yes_no(self.antisocial)}",
-        ] + ([f"라이선스: {self.license}"] if self.license else []) + ([f"추가 조건: {self.other_license_url}"] if self.other_license_url else [])
+        def yes_no(value: bool | None) -> str:
+            return unstated if value is None else (tr("허용") if value else tr("불가"))
+
+        name = self.name or tr("(이름 없음)")
+        credit = unstated if self.credit_required is None else (tr("필요") if self.credit_required else tr("불필요"))
+        lines = [
+            tr("모델: {0}, 제작자 {1} (VRM {2})").format(name, ", ".join(self.authors), self.spec) if self.authors else tr("모델: {0} (VRM {1})").format(name, self.spec),
+            tr("아바타 사용: {0}").format(shown(_PERMISSIONS[self.avatar_permission]) if self.avatar_permission in _PERMISSIONS else unstated),
+            tr("영리 사용: {0}").format(shown(_COMMERCIAL[self.commercial_usage]) if self.commercial_usage in _COMMERCIAL else unstated),
+            tr("크레딧 표기: {0}").format(credit),
+            tr("개변: {0}, 재배포: {1}").format(shown(_MODIFICATION[self.modification]) if self.modification in _MODIFICATION else unstated, yes_no(self.redistribution)),
+            tr("폭력 표현: {0}, 성적 표현: {1}, 정치 및 종교: {2}, 반사회 및 혐오: {3}").format(yes_no(self.violent), yes_no(self.sexual), yes_no(self.political), yes_no(self.antisocial)),
+        ]
+        if self.license:
+            lines.append(tr("라이선스: {0}").format(self.license))
+        if self.other_license_url:
+            lines.append(tr("추가 조건: {0}").format(self.other_license_url))
+        return lines
 
 
 def _json_chunk(path: Path) -> dict[str, Any]:
@@ -127,22 +137,22 @@ def check_vrm(meta: VrmMeta, *, monetized: bool = False, corporation: bool = Fal
     """Findings for using the avatar in clips: ``monetized`` = the channel earns money, ``corporation`` = it is run by a company."""
     issues: list[Issue] = []
     if meta.avatar_permission == "onlyAuthor":
-        issues.append(Issue("warning", "제작자 본인만 사용할 수 있는 모델입니다. 제작자가 아니면 사용할 수 없습니다."))
+        issues.append(Issue("warning", tr("제작자 본인만 사용할 수 있는 모델입니다. 제작자가 아니면 사용할 수 없습니다.")))
     elif meta.avatar_permission == "onlySeparatelyLicensedPerson":
-        issues.append(Issue("warning", "별도 허락을 받은 사람만 사용할 수 있는 모델입니다. 허락 여부를 확인해야 합니다."))
+        issues.append(Issue("warning", tr("별도 허락을 받은 사람만 사용할 수 있는 모델입니다. 허락 여부를 확인해야 합니다.")))
     elif not meta.avatar_permission:
-        issues.append(Issue("warning", "아바타 사용 허용 범위가 파일에 기재되어 있지 않습니다. 배포처의 약관을 확인해야 합니다."))
+        issues.append(Issue("warning", tr("아바타 사용 허용 범위가 파일에 기재되어 있지 않습니다. 배포처의 약관을 확인해야 합니다.")))
     if corporation and meta.commercial_usage in ("personalNonProfit", "personalProfit"):
-        issues.append(Issue("error", f"법인이 사용할 수 없는 모델입니다 (허용 범위: {_COMMERCIAL[meta.commercial_usage]})."))
+        issues.append(Issue("error", tr("법인이 사용할 수 없는 모델입니다 (허용 범위: {0}).").format(shown(_COMMERCIAL[meta.commercial_usage]))))
     elif monetized and meta.commercial_usage == "personalNonProfit":
-        issues.append(Issue("error", "수익을 얻는 채널에서 사용할 수 없는 모델입니다 (허용 범위: 개인의 비영리 사용만)."))
+        issues.append(Issue("error", tr("수익을 얻는 채널에서 사용할 수 없는 모델입니다 (허용 범위: 개인의 비영리 사용만).")))
     elif (monetized or corporation) and not meta.commercial_usage:
-        issues.append(Issue("warning", "영리 사용 허용 여부가 파일에 기재되어 있지 않습니다. 배포처의 약관을 확인해야 합니다."))
+        issues.append(Issue("warning", tr("영리 사용 허용 여부가 파일에 기재되어 있지 않습니다. 배포처의 약관을 확인해야 합니다.")))
     if meta.credit_required:
         credit = " / ".join(part for part in (meta.name, ", ".join(meta.authors)) if part)
-        issues.append(Issue("warning", "크레딧 표기가 필요합니다" + (f": {credit}" if credit else ".")))
+        issues.append(Issue("warning", tr("크레딧 표기가 필요합니다: {0}").format(credit) if credit else tr("크레딧 표기가 필요합니다.")))
     if meta.other_license_url:
-        issues.append(Issue("info", f"추가 조건 확인: {meta.other_license_url}"))
+        issues.append(Issue("info", tr("추가 조건 확인: {0}").format(meta.other_license_url)))
     if meta.spec == "0.x":
-        issues.append(Issue("info", "VRM 0.x 메타는 영리 사용을 허용과 불가로만 구분합니다. 개인과 법인의 구분은 배포처의 약관에서 확인해야 합니다."))
+        issues.append(Issue("info", tr("VRM 0.x 메타는 영리 사용을 허용과 불가로만 구분합니다. 개인과 법인의 구분은 배포처의 약관에서 확인해야 합니다.")))
     return issues
