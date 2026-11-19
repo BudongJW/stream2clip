@@ -83,9 +83,12 @@ pre { margin: 10px 0; padding: 14px 16px; border-radius: 8px; background: var(--
 pre code { background: none; padding: 0; font-size: 1em; }
 pre.wrap { white-space: pre-wrap; word-break: break-all; }
 table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
-th, td { text-align: left; padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-thead th { font-size: 14px; color: var(--soft); font-weight: 700; border-bottom-width: 2px; }
-tbody th { font-weight: 700; white-space: nowrap; width: 1%; padding-right: 28px; }
+/* Header row and header column are centred; every cell is centred vertically. */
+th, td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td { text-align: left; }
+th { text-align: center; font-weight: 700; }
+thead th { font-size: 14px; color: var(--soft); border-bottom-width: 2px; white-space: nowrap; }
+tbody th { white-space: nowrap; width: 1%; padding-inline: 20px; }
 .tablewrap { overflow-x: auto; }
 figure { margin: 0; }
 figure img { border-radius: 8px; border: 1px solid var(--line); width: 100%; }
@@ -160,7 +163,7 @@ footer p { flex-basis: 100%; margin: 4px 0 0; }
 .doc { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 56px; padding: 32px 0 72px; align-items: start; }
 .toc { position: sticky; top: 24px; font-size: 15px; max-height: calc(100vh - 48px); overflow: auto; }
 .toc h2 { font-size: 15px; margin: 0 0 10px; }
-.toc ol { margin: 0; padding-left: 2.7em; }
+.doc .toc ol { margin: 0; padding-left: 2.2em; }
 .toc li { margin: 5px 0; }
 .toc a { color: var(--fg); text-decoration: none; }
 .toc a:hover { text-decoration: underline; }
@@ -205,7 +208,8 @@ footer p { flex-basis: 100%; margin: 4px 0 0; }
   .clipcard .time { font-size: 9px; margin: 8px 8px 0; padding: 4px 5px; }
   .manual { grid-template-columns: 72px minmax(0, 1fr); gap: 18px; }
   .block { padding: 44px 0; }
-  tbody th { white-space: normal; width: 34%; padding-right: 14px; }
+  th, td { padding: 10px 10px; }
+  tbody th { white-space: normal; width: 34%; padding-inline: 8px; }
 }
 
 /* ---------------------------------------------------------------- print: the manual as a PDF */

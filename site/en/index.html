@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stream2clip - Highlight clip tool for live streams</title>
+<meta name="description" content="Video editing tool that finds highlight moments in stream archives and exports them as vertical clips. Windows download and user manual.">
+<meta name="theme-color" content="#15131F">
+<meta property="og:type" content="website">
+<meta property="og:title" content="stream2clip - Stream in. Clips out.">
+<meta property="og:description" content="Video editing tool that finds highlight moments in stream archives and exports them as vertical clips">
+<meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="ko" href="https://budongjw.github.io/stream2clip/">
+<link rel="alternate" hreflang="en" href="https://budongjw.github.io/stream2clip/en/">
+<link rel="icon" href="../assets/favicon.ico" sizes="48x48">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@300;700&display=swap">
+<link rel="stylesheet" href="../css/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="lockup" href="./" aria-label="stream2clip home">
+      <img src="../assets/symbol-on-dark.svg" alt="" width="38" height="38">
+      <span><span class="s">stream</span><span class="two">2</span><span class="c">clip</span></span>
+    </a>
+    <nav class="nav" aria-label="Main menu">
+      <a href="#download">Download</a>
+      <a href="#features">Features</a>
+      <a href="guide.html">User manual</a>
+      <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+      <a href="../" lang="ko" hreflang="ko">한국어</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Stream in.<br><em>Clips</em> out.</h1>
+        <p class="summary">Video editing tool that finds highlight moments in stream archives and exports them as vertical clips</p>
+        <div class="actions">
+          <a class="btn" data-download href="https://github.com/BudongJW/stream2clip/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            Download for Windows
+          </a>
+          <a class="text" href="guide.html">User manual</a>
+        </div>
+        <dl class="facts">
+          <dt>Version</dt><dd data-release="version">Latest release</dd>
+          <dt>File size</dt><dd data-release="size">See the releases page</dd>
+          <dt>Platform</dt><dd>Windows 64-bit</dd>
+          <dt>License</dt><dd>Apache-2.0</dd>
+        </dl>
+      </div>
+
+      <div>
+        <div class="stage">
+          <div class="frame">
+            <img src="../assets/shots/en/highlights_window.png" alt="stream2clip highlights window: spans found on the chat timeline and a 9:16 preview" width="1350" height="956">
+          </div>
+          <div class="clipcard" aria-hidden="true">
+            <span class="time">CLIP 01 0:32</span>
+            <img src="../assets/kiri/kiri_laugh_512.png" alt="" width="512" height="512">
+          </div>
+        </div>
+        <div class="timeline">
+          <img src="../img/timeline.svg" alt="Chat timeline: grey bars are ordinary chat, three groups of pink bars are the spans detected as clips" width="1040" height="196">
+          <ul class="legend">
+            <li><span class="sw"></span>Chat activity</li>
+            <li><span class="sw clip"></span>Detected span</li>
+            <li><span class="sw vert"></span>9:16 vertical clip</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="download">
+    <div class="wrap">
+      <h2>Download</h2>
+      <div class="split">
+        <div class="tablewrap">
+          <table>
+            <tbody>
+              <tr><th scope="row">Package</th><td>Windows executables in a zip file. Contains the app <code>stream2clip-gui.exe</code> and the command line tool <code>stream2clip.exe</code></td></tr>
+              <tr><th scope="row">Platform</th><td>Windows 64-bit. Verified on Windows 11</td></tr>
+              <tr><th scope="row">Requirement</th><td>ffmpeg (video conversion)</td></tr>
+              <tr><th scope="row">Installation</th><td>Unzip and run. No installer</td></tr>
+              <tr><th scope="row">Code signing</th><td>Not signed. Windows SmartScreen may show a warning. The Python package is recommended where Smart App Control is on</td></tr>
+              <tr><th scope="row">Integrity</th><td>Compare with the SHA-256 value on the <a href="https://github.com/BudongJW/stream2clip/releases/latest">releases page</a></td></tr>
+              <tr><th scope="row">Separate install</th><td>Speech-to-text subtitles (Whisper) and YouTube upload are provided by the Python package</td></tr>
+              <tr><th scope="row">Other systems</th><td>macOS and Linux: Python package. Python 3.10 or later</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3>Installation steps</h3>
+          <ol class="procedure">
+            <li><a data-download href="https://github.com/BudongJW/stream2clip/releases/latest">Download the zip file</a> and unzip it to any folder</li>
+            <li>Install ffmpeg
+              <pre><code>winget install Gyan.FFmpeg</code></pre>
+            </li>
+            <li>Run <code>stream2clip-gui.exe</code></li>
+          </ol>
+          <h3 class="spaced">Python package</h3>
+          <pre class="wrap"><code>pip install "stream2clip[gui,ingest,obs] @ git+https://github.com/BudongJW/stream2clip"</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features">
+    <div class="wrap">
+      <h2>Features</h2>
+      <dl class="features">
+        <div>
+          <dt>Highlight detection</dt>
+          <dd><ul>
+            <li>Detection by comparing chat volume, number of chatters, reaction words and paid messages with the average of each stream</li>
+            <li>Moving and resizing of spans on the timeline</li>
+            <li>Loudness analysis, marking or exclusion of singing sections</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>Start from a stream address</dt>
+          <dd><ul>
+            <li>Chat collection and highlight detection from the address alone</li>
+            <li>Download of the selected spans only</li>
+            <li>YouTube, CHZZK and SOOP archives</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>Vertical clips and subtitles</dt>
+          <dd><ul>
+            <li>Four 9:16 layouts: blur, center, fit, stack</li>
+            <li>Karaoke subtitles, subtitle translation, glossary</li>
+            <li>Description text with the title and address of the source stream</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>Screen capture and recording</dt>
+          <dd><ul>
+            <li><kbd>F8</kbd> area capture with annotation</li>
+            <li><kbd>F9</kbd> screen recording: GIF, MP4, WebP, WebM</li>
+            <li>Transparent background by removing a chosen color</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>OBS and live mode</dt>
+          <dd><ul>
+            <li><kbd>F10</kbd> saves the replay buffer and converts it to a clip</li>
+            <li>Live mode: automatic replay save and clip creation when the chat surges during a stream</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>Guideline check</dt>
+          <dd><ul>
+            <li>Checklist per agency: hololive, NIJISANJI, VSPO!, Aogiri High School</li>
+            <li>Results are for reference and are not legal advice</li>
+          </ul></dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block" id="screens">
+    <div class="wrap">
+      <h2>Screens</h2>
+      <div class="shots">
+        <figure>
+          <img src="../assets/shots/en/highlights_window.png" alt="Highlights window: input files, timeline, list of spans, layout preview, export settings" width="1350" height="956" loading="lazy">
+          <figcaption>Highlights window: timeline, list of spans, preview, export settings. The example uses the brand image and synthetic chat data</figcaption>
+        </figure>
+        <figure>
+          <img src="../assets/shots/en/launcher.png" alt="Launcher: capture, screen recording, highlights, OBS replay, live mode" width="1180" height="1020" loading="lazy">
+          <figcaption>Launcher: capture, screen recording, clips, OBS</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="manual">
+    <div class="wrap">
+      <h2>User manual</h2>
+      <div class="manual">
+        <img src="../assets/kiri/kiri_wink_512.png" alt="Kiri, the mascot" width="512" height="512" loading="lazy">
+        <div>
+          <p>Installation, basic use, screen capture and recording, highlight clips, subtitles and translation, OBS, live mode, command line, troubleshooting</p>
+          <ul class="links">
+            <li><a href="guide.html">Read online</a></li>
+            <li><a href="../stream2clip-guide-en.pdf" download>Download PDF</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="tagline">Stream in. Clips out.</span>
+    <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+    <a href="https://github.com/BudongJW/stream2clip/releases">Releases</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/CHANGELOG.md">Changelog</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/LICENSE">License</a>
+    <p>Open source software (Apache-2.0). This page loads fonts from Google Fonts and release data from GitHub.</p>
+  </div>
+</footer>
+
+<script src="../js/site.js" defer></script>
+</body>
+</html>

@@ -1,9 +1,10 @@
 """Put the project site together: the pages in ``site/`` plus the brand files and screenshots they show.
 
     python packaging/build_site.py            # -> dist/site (open index.html, or serve the folder)
-    python packaging/build_site.py --pdf      # also print the manual to stream2clip-guide.pdf
+    python packaging/build_site.py --pdf      # also print the manuals to stream2clip-guide.pdf / -en.pdf
 
-The pages are plain HTML and CSS. Images are not kept twice in the repository: the logo,
+The pages are plain HTML and CSS, Korean at the top and English under ``en/``. Images are
+not kept twice in the repository: the logo,
 favicon and mascot come from ``assets/brand`` and the screenshots from ``docs/images``;
 :data:`ASSETS` says which file goes where. ``--pdf`` needs Chrome, Chromium or Edge
 (``STREAM2CLIP_BROWSER`` names another one); GitHub Pages is built with it by
@@ -22,6 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 PDF_NAME = "stream2clip-guide.pdf"
+#: manual page -> the PDF printed from it (both in the root of the site)
+MANUALS: dict[str, str] = {"guide.html": PDF_NAME, "en/guide.html": "stream2clip-guide-en.pdf"}
 
 #: path in the built site -> file in the repository
 ASSETS: dict[str, str] = {
@@ -38,6 +41,9 @@ ASSETS: dict[str, str] = {
     "assets/shots/highlights_window.png": "docs/images/highlights_window.png",
     "assets/shots/editor.png": "docs/images/editor.png",
     "assets/shots/layouts.png": "docs/images/layouts.png",
+    "assets/shots/en/launcher.png": "docs/images/en/launcher.png",
+    "assets/shots/en/highlights_window.png": "docs/images/en/highlights_window.png",
+    "assets/shots/en/editor.png": "docs/images/en/editor.png",
 }
 
 BROWSERS = (
@@ -80,28 +86,31 @@ def pdf_command(browser: str, page: Path, output: Path) -> list[str]:
     ]
 
 
-def print_manual(site: Path, browser: str | None = None, *, run=subprocess.run) -> Path:
-    """Print ``guide.html`` of a built site to ``stream2clip-guide.pdf`` next to it."""
+def print_manuals(site: Path, browser: str | None = None, *, run=subprocess.run) -> list[Path]:
+    """Print the manual of every language of a built site to its PDF in the site's root."""
     browser = browser or find_browser()
     if not browser:
         raise RuntimeError("No Chrome, Chromium or Edge found for --pdf (set STREAM2CLIP_BROWSER to the program)")
-    output = (site / PDF_NAME).resolve()
-    done = run(pdf_command(browser, site / "guide.html", output), capture_output=True, text=True, timeout=180)
-    if not output.is_file() or output.stat().st_size < 10_000:
-        raise RuntimeError(f"The browser did not write the PDF ({done.returncode}):\n{(done.stderr or '')[-600:]}")
-    return output
+    written = []
+    for page, name in MANUALS.items():
+        output = (site / name).resolve()
+        done = run(pdf_command(browser, site / page, output), capture_output=True, text=True, timeout=180)
+        if not output.is_file() or output.stat().st_size < 10_000:
+            raise RuntimeError(f"The browser did not write {name} ({done.returncode}):\n{(done.stderr or '')[-600:]}")
+        written.append(output)
+    return written
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("-o", "--output", default=str(ROOT / "dist" / "site"), help="folder to write (default: dist/site)")
-    parser.add_argument("--pdf", action="store_true", help=f"also print the manual to {PDF_NAME}")
+    parser.add_argument("--pdf", action="store_true", help="also print the manuals to PDF (" + ", ".join(MANUALS.values()) + ")")
     args = parser.parse_args(argv)
     site = build(args.output)
     print(f"site   {site}  ({sum(1 for p in site.rglob('*') if p.is_file())} files)")
     if args.pdf:
-        pdf = print_manual(site)
-        print(f"manual {pdf}  ({pdf.stat().st_size / 1024:.0f} KB)")
+        for pdf in print_manuals(site):
+            print(f"manual {pdf}  ({pdf.stat().st_size / 1024:.0f} KB)")
     return 0
 
 

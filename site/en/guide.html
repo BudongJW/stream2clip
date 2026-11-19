@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stream2clip user manual</title>
+<meta name="description" content="stream2clip user manual: installation, basic use, screen capture and recording, highlight clips, subtitles and translation, OBS, live mode, troubleshooting.">
+<meta name="theme-color" content="#F7F4FA">
+<meta property="og:type" content="article">
+<meta property="og:title" content="stream2clip user manual">
+<meta property="og:description" content="Installation, basic use, highlight clips, OBS, live mode, troubleshooting">
+<meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
+<link rel="alternate" hreflang="ko" href="https://budongjw.github.io/stream2clip/guide.html">
+<link rel="alternate" hreflang="en" href="https://budongjw.github.io/stream2clip/en/guide.html">
+<link rel="icon" href="../assets/favicon.ico" sizes="48x48">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@300;700&display=swap">
+<link rel="stylesheet" href="../css/site.css">
+</head>
+<body class="paper">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="lockup" href="./" aria-label="stream2clip home">
+      <img src="../assets/symbol-on-light.svg" alt="" width="38" height="38">
+      <span><span class="s">stream</span><span class="two">2</span><span class="c">clip</span></span>
+    </a>
+    <nav class="nav" aria-label="Main menu">
+      <a href="./#download">Download</a>
+      <a href="./#features">Features</a>
+      <a href="guide.html" aria-current="page">User manual</a>
+      <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+      <a href="../guide.html" lang="ko" hreflang="ko">한국어</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap dochead">
+  <h1>stream2clip user manual</h1>
+  <dl>
+    <dt>Version</dt><dd>v0.5</dd>
+    <dt>Audience</dt><dd>Users of the Windows executables and of the Python package</dd>
+    <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
+  </dl>
+</div>
+
+<div class="wrap doc">
+  <nav class="toc" aria-label="Contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#install">Installation</a></li>
+      <li><a href="#basics">Basic use</a></li>
+      <li><a href="#capture">Screen capture and editing</a></li>
+      <li><a href="#record">Screen recording</a></li>
+      <li><a href="#clips">Highlight clips</a></li>
+      <li><a href="#subtitles">Subtitles and translation</a></li>
+      <li><a href="#obs">OBS replay</a></li>
+      <li><a href="#live">Live mode</a></li>
+      <li><a href="#cli">Command line</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+      <li><a href="#notice">Copyright and guidelines</a></li>
+    </ol>
+    <a class="pdf" href="../stream2clip-guide-en.pdf" download>Download PDF</a>
+  </nav>
+
+  <article id="main">
+    <h2 id="install">Installation</h2>
+    <h3>Windows executables</h3>
+    <ol>
+      <li>Download the Windows zip file from the <a href="https://github.com/BudongJW/stream2clip/releases/latest">releases page</a></li>
+      <li>Unzip it to any folder. No installer</li>
+      <li>Install ffmpeg. Restart the terminal afterwards
+        <pre><code>winget install Gyan.FFmpeg</code></pre>
+        Alternative: place <code>ffmpeg.exe</code> and <code>ffprobe.exe</code> in the same folder as the executables</li>
+      <li>Run <code>stream2clip-gui.exe</code></li>
+    </ol>
+    <div class="note">
+      <h4>Note</h4>
+      <ul>
+        <li>Not code signed. Windows SmartScreen may show a warning</li>
+        <li>Smart App Control may block the programs. Use the Python package in that case</li>
+        <li>File integrity: compare the SHA-256 value on the releases page with the result of the command below</li>
+      </ul>
+      <pre><code>Get-FileHash .\stream2clip-*-windows-x64.zip -Algorithm SHA256</code></pre>
+    </div>
+    <h3>Python package</h3>
+    <ul>
+      <li>Requirements: Python 3.10 or later, ffmpeg</li>
+      <li>Systems: Windows, macOS, Linux</li>
+    </ul>
+    <pre><code>pip install "stream2clip[gui,ingest,obs] @ git+https://github.com/BudongJW/stream2clip"</code></pre>
+    <pre><code>stream2clip gui</code></pre>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Extra</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><code>asr</code></th><td>Speech-to-text subtitles (Whisper)</td></tr>
+          <tr><th scope="row"><code>detect</code></th><td>Automatic detection of the avatar position</td></tr>
+          <tr><th scope="row"><code>upload</code></th><td>YouTube upload</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Extras are added inside the square brackets of the install command. Speech-to-text subtitles and YouTube upload are provided by the Python package.</p>
+
+    <h2 id="basics">Basic use</h2>
+    <figure>
+      <img src="../assets/shots/en/launcher.png" alt="Launcher: capture, screen recording and clip areas" width="1180" height="1020" loading="lazy">
+      <figcaption>Launcher. From the top: capture, screen recording, clips</figcaption>
+    </figure>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Shortcut</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><kbd>F8</kbd></th><td>Capture a screen area and open it in the editor</td></tr>
+          <tr><th scope="row"><kbd>F9</kbd></th><td>Select an area and start recording. Press again to stop and save</td></tr>
+          <tr><th scope="row"><kbd>F10</kbd></th><td>Save the OBS replay buffer and convert it to a clip. Only when switched on in the launcher</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>Shortcuts work while other programs are in use</li>
+      <li>Default save location: <code>Videos\stream2clip</code>. Changed with <strong>Change folder</strong> at the bottom of the launcher</li>
+      <li>Interface languages: Korean, Japanese, English. A change applies after a restart</li>
+      <li>Settings are saved automatically and restored at the next start. Passwords are not saved</li>
+    </ul>
+
+    <h2 id="capture">Screen capture and editing</h2>
+    <ul>
+      <li><kbd>F8</kbd>: freezes the screen and sends the dragged area to the editor</li>
+      <li><strong>Capture everything</strong>: capture of all monitors</li>
+      <li><strong>Open an image to edit</strong>: editing of PNG, JPG and WebP files</li>
+    </ul>
+    <figure>
+      <img src="../assets/shots/en/editor.png" alt="Editor: toolbar, color palette, width, undo, copy, save" width="1475" height="950" loading="lazy">
+      <figcaption>Editor</figcaption>
+    </figure>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Key</th><th>Tool or action</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><kbd>V</kbd> <kbd>P</kbd> <kbd>H</kbd></th><td>Select, pen, highlighter</td></tr>
+          <tr><th scope="row"><kbd>R</kbd> <kbd>A</kbd> <kbd>T</kbd></th><td>Box, arrow, text</td></tr>
+          <tr><th scope="row"><kbd>M</kbd> <kbd>E</kbd> <kbd>C</kbd></th><td>Mosaic, erase, crop</td></tr>
+          <tr><th scope="row"><kbd>I</kbd></th><td>Eyedropper (pick a color from the screen)</td></tr>
+          <tr><th scope="row"><kbd>[</kbd> <kbd>]</kbd></th><td>Decrease, increase the width</td></tr>
+          <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd></th><td>Undo, redo</td></tr>
+          <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>S</kbd></th><td>Copy, save</td></tr>
+          <tr><th scope="row"><kbd>Delete</kbd></th><td>Remove the selected annotation</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>Erase tool: dragging removes the area, clicking makes the clicked color transparent in the whole image</li>
+      <li>Crop tool: marks the area to keep while the original stays intact</li>
+    </ul>
+
+    <h2 id="record">Screen recording</h2>
+    <ol>
+      <li>Choose the output format, frame rate and size in the launcher</li>
+      <li>Press <kbd>F9</kbd> and drag the area to record. Recording starts at once</li>
+      <li>Press <kbd>F9</kbd> again to stop and save</li>
+    </ol>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Format</th><th>Characteristics</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">GIF</th><td>Plays almost everywhere. Transparency has two levels</td></tr>
+          <tr><th scope="row">MP4</th><td>Small files</td></tr>
+          <tr><th scope="row">WebP</th><td>Good picture quality. Soft transparent edges</td></tr>
+          <tr><th scope="row">WebM</th><td>Video with transparency</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Transparent background</h3>
+    <ul>
+      <li>Output of GIF, WebP or WebM with a chosen color (a green screen, for example) removed</li>
+      <li><strong>Eyedropper</strong> picks the color to remove, <strong>Tolerance</strong> sets how similar a color has to be</li>
+    </ul>
+
+    <h2 id="clips">Highlight clips</h2>
+    <p>Detection, adjustment of spans and export are done in <strong>Find highlights</strong> in the launcher.</p>
+    <figure>
+      <img src="../assets/shots/en/highlights_window.png" alt="Highlights window: input files at the top, timeline and list of spans in the middle, export settings on the right" width="1350" height="956" loading="lazy">
+      <figcaption>Highlights window. Pink bars are detected spans, the yellow frame is the selected span</figcaption>
+    </figure>
+    <h3>Input</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Field</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Video</th><td>Archive file or stream address</td></tr>
+          <tr><th scope="row">Chat</th><td>Chat replay file. Collected automatically for a stream address</td></tr>
+          <tr><th scope="row">Info</th><td>Optional. Title and address of the source stream, used for the description text</td></tr>
+          <tr><th scope="row">Subtitles</th><td>Optional. SRT or WebVTT file</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Start from a stream address</h3>
+    <ul>
+      <li>A stream address in the Video field collects the chat replay and the stream information automatically</li>
+      <li>Only the selected spans of the video are downloaded at export</li>
+      <li>Collected data is kept per stream in the <code>sources</code> folder of the save folder and reused at the next run</li>
+      <li>The preview appears once the span has been downloaded</li>
+      <li>Loudness, laughter and singing analysis are available for a video file</li>
+      <li>Supported: YouTube, CHZZK and SOOP archives</li>
+    </ul>
+    <h3>Procedure</h3>
+    <ol>
+      <li>Run <strong>Find highlights</strong>. Spans with chat activity above normal appear on the timeline and in the list</li>
+      <li>Adjust spans on the timeline. Drag the middle to move, drag an edge to change the start or end, use the wheel or a double click to zoom</li>
+      <li>Select the spans to export and choose the layout and format</li>
+      <li>Run <strong>Export clips</strong>. The save folder receives the clips, subtitle files (<code>.ass</code>) and description texts (<code>.txt</code>)</li>
+    </ol>
+    <h3>Layouts</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Name</th><th>Composition</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">blur</th><td>Stream picture in the centre, blurred copy filling the space above and below</td></tr>
+          <tr><th scope="row">center</th><td>Centre of the picture enlarged to the vertical frame. Left and right are cut off</td></tr>
+          <tr><th scope="row">fit</th><td>Whole picture scaled down to fit</td></tr>
+          <tr><th scope="row">stack</th><td>Avatar on top, game picture below. <strong>Find it</strong> detects the avatar position</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <img src="../assets/shots/layouts.png" alt="9:16 layouts center, blur and stack with karaoke subtitles" width="1224" height="768" loading="lazy">
+      <figcaption>Layout examples, made with the brand image as the stream picture</figcaption>
+    </figure>
+    <h3>Detection options</h3>
+    <ul>
+      <li>Threshold: a lower value finds more spans, a higher value keeps only strong reactions</li>
+      <li>Up to: upper limit of the number of spans</li>
+      <li>Songs: marks or leaves out spans that overlap singing. Clips of singing streams are often restricted for copyright reasons</li>
+    </ul>
+    <h3>Download of a whole stream</h3>
+    <p>The command below saves the video, chat and stream information to the <code>vod</code> folder when the whole video is needed.</p>
+    <pre><code>stream2clip.exe fetch "STREAM_ADDRESS" -o vod --video</code></pre>
+
+    <h2 id="subtitles">Subtitles and translation</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Item</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Subtitle file</th><td>SRT and WebVTT. YouTube automatic captions can be used</td></tr>
+          <tr><th scope="row">Karaoke</th><td>Color follows the spoken word. Applies to subtitles with word timing</td></tr>
+          <tr><th scope="row">Transcription</th><td>Subtitles made from speech when there is no file (Whisper). Provided by the Python package</td></tr>
+          <tr><th scope="row">Translation</th><td><strong>Choose a translator file</strong> in the translator list with <code>translators\openai_compatible.py</code> translates through an OpenAI compatible address such as a local Ollama</td></tr>
+          <tr><th scope="row">Glossary</th><td>CSV with two columns, source and translation. Fixes names and other set terms</td></tr>
+          <tr><th scope="row">Keep original</th><td>Original and translation shown on two lines</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>No translation service is built in. The user connects a translator</li>
+      <li>Translation quality depends on the connected model</li>
+    </ul>
+
+    <h2 id="obs">OBS replay</h2>
+    <p>Saves the recent moments held in the OBS replay buffer and converts them to a clip.</p>
+    <h3>Preparation in OBS</h3>
+    <ol>
+      <li>Enable the replay buffer in the Output section of the OBS settings. It is off after a new installation</li>
+      <li>Enable the server in the WebSocket server settings of the OBS Tools menu and check the password</li>
+      <li>Start the replay buffer in OBS when the stream starts</li>
+    </ol>
+    <h3>Settings and use in stream2clip</h3>
+    <ol>
+      <li>Enter the OBS password in <strong>Connection</strong> in the launcher. The password is not saved and is entered at every start</li>
+      <li>Set the length to keep in <strong>Last</strong> and run <strong>Save replay</strong>. The format and size of the recording settings are used</li>
+      <li>With <strong>F10</strong> checked, <kbd>F10</kbd> saves while other programs are in use. Other programs do not receive F10 meanwhile</li>
+    </ol>
+
+    <h2 id="live">Live mode</h2>
+    <p>Detects a chat surge during a stream, saves the OBS replay buffer and cuts the moment out as a clip of about 35 seconds.</p>
+    <h3>Prerequisites</h3>
+    <ul>
+      <li>OBS replay buffer running and the WebSocket connection set up</li>
+      <li>Maximum replay time in OBS of 60 seconds or more. The default of 20 seconds loses the beginning of the moment</li>
+    </ul>
+    <h3>Procedure</h3>
+    <ol>
+      <li>Enter the address of a live YouTube stream in the Live mode field of the launcher</li>
+      <li>Choose the sensitivity. High saves on small surges, Low only on large ones</li>
+      <li>Run <strong>Start live mode</strong>. A chat surge creates a clip named <code>live_DATE_TIME</code> in the save folder</li>
+      <li>End with <strong>Stop live mode</strong></li>
+    </ol>
+    <h3>How it decides</h3>
+    <ul>
+      <li>Chat volume, number of chatters, reaction words and paid messages per 5 seconds are compared with the 15 minutes before</li>
+      <li>The first 2 minutes only collect the baseline. Clips are at least 90 seconds apart</li>
+      <li>The moment is taken to be 8 seconds before the surge. The clip keeps 20 seconds before and 10 seconds after</li>
+      <li>Supported: live YouTube streams</li>
+    </ul>
+    <h3>Command line</h3>
+    <pre><code>stream2clip.exe live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips</code></pre>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Option</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><code>--threshold</code></th><td>Level that triggers a save. Default 3.5. A higher value saves less often</td></tr>
+          <tr><th scope="row"><code>--no-obs</code></th><td>Reports surges without saving</td></tr>
+          <tr><th scope="row"><code>--simulate</code></th><td>Shows when a finished stream would have triggered, from its chat file</td></tr>
+          <tr><th scope="row"><code>--delay</code></th><td>Reaction delay of viewers. Streamers add their stream latency</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="cli">Command line</h2>
+    <p>Every function of the app is available through <code>stream2clip.exe</code>. Used for processing several streams in one go.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Command</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><code>fetch</code></th><td>Download of stream information, chat, video and subtitles from a stream address</td></tr>
+          <tr><th scope="row"><code>auto</code></th><td>From a video with chat, or from a stream address, to finished clips</td></tr>
+          <tr><th scope="row"><code>highlights</code>, <code>clips</code></th><td>Detection and export as separate steps</td></tr>
+          <tr><th scope="row"><code>convert</code></th><td>Cuts a span and area of a video and converts it to GIF, WebP or MP4</td></tr>
+          <tr><th scope="row"><code>record</code>, <code>capture</code></th><td>Recording and capture of a screen area</td></tr>
+          <tr><th scope="row"><code>replay</code>, <code>live</code></th><td>OBS replay save, live mode</td></tr>
+          <tr><th scope="row"><code>check</code></th><td>Compares a description text with the guideline items of an agency</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre><code>stream2clip.exe auto "STREAM_ADDRESS" --top 5 -o clips</code></pre>
+    <pre><code>stream2clip.exe auto vod\video.mp4 --chat vod\VIDEO_ID.live_chat.json --info vod\info.json -o clips</code></pre>
+    <pre><code>stream2clip.exe convert vod.mp4 --start 1:02:03 --end 1:02:18 --width 480 -o highlight.webp</code></pre>
+    <p>All options: add <code>--help</code> to a command. More examples in the <a href="https://github.com/BudongJW/stream2clip#readme">README</a> (Korean).</p>
+
+    <h2 id="troubleshooting">Troubleshooting</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Symptom</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Program blocked</th><td>Caused by the missing code signature. Use the Python package where Smart App Control is on</td></tr>
+          <tr><th scope="row">ffmpeg not found</th><td>Install ffmpeg and restart the program, or place <code>ffmpeg.exe</code> and <code>ffprobe.exe</code> in the same folder as the executables</td></tr>
+          <tr><th scope="row">No spans found</th><td>Lower the threshold and run again. Check that the chat file belongs to the stream</td></tr>
+          <tr><th scope="row">YouTube asks for sign-in</th><td>Pass browser cookies on the command line with <code>--cookies-from-browser chrome</code></td></tr>
+          <tr><th scope="row">Replay buffer not running</th><td>Enable the replay buffer in the Output section of the OBS settings and start it. OBS does not start the buffer for a scene without sources</td></tr>
+          <tr><th scope="row">No connection to OBS</th><td>Check that the WebSocket server is enabled, and the password and port (default 4455)</td></tr>
+          <tr><th scope="row">Live mode clip misses its beginning</th><td>Set the maximum replay time in OBS to 60 seconds or more</td></tr>
+          <tr><th scope="row">F8 or F9 without effect</th><td>Close the other program that uses the same key and restart</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Other problems: <a href="https://github.com/BudongJW/stream2clip/issues">GitHub issues</a>.</p>
+
+    <h2 id="notice">Copyright and guidelines</h2>
+    <div class="note kiri">
+      <img src="../assets/kiri/kiri_focus_112.png" alt="" width="112" height="112">
+      <ul>
+        <li>A clip is a derivative work of the source stream. The guidelines of the creator and of the agency apply</li>
+        <li>Choosing an agency in the guideline list of the export settings writes a description text with the source title and address and checks the guideline items</li>
+        <li>Items checked: members-only stream, public archive, channel registration, disclosure of AI use</li>
+        <li>The results are for reference and are not legal advice. Read the original guidelines of the agency and the creator before uploading</li>
+      </ul>
+    </div>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span class="tagline">Stream in. Clips out.</span>
+    <span class="links">
+      <a href="./">Home</a>
+      <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+      <a href="https://github.com/BudongJW/stream2clip/releases">Releases</a>
+      <a href="https://github.com/BudongJW/stream2clip/blob/main/LICENSE">License</a>
+    </span>
+    <p>stream2clip user manual. github.com/BudongJW/stream2clip</p>
+  </div>
+</footer>
+</body>
+</html>

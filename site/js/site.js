@@ -1,4 +1,4 @@
-// Point the download button at the newest Windows zip and fill in its version, date and size.
+// Point the download button at the newest Windows zip and fill in its version and size.
 // Without this script (or when GitHub's API does not answer) the button leads to the releases page.
 (function () {
   "use strict";
@@ -27,7 +27,6 @@
         button.setAttribute("download", "");
       });
       fill("version", release.tag_name);
-      fill("date", (release.published_at || "").slice(0, 10));
       fill("size", Math.round(asset.size / 1048576) + "MB");
     })
     .catch(function () {
