@@ -12,7 +12,7 @@ stream2clip은 단일 앱보다 필요한 부분만 가져다 쓰는 부품 묶�
 
 공통 규약:
 
-| 규약 | 내용 |
+| &numsp;&numsp;규&NoBreak;약&numsp;&numsp; | 내용 |
 |:---:|---|
 | 프레임 | `numpy.ndarray`, shape `(높이, 너비, 4)`, `uint8`, RGBA 순서. RGB와 흑백은 `stream2clip.frames.ensure_rgba()`로 변환 |
 | 좌표 | 왼쪽 위가 원점인 정수 픽셀. 영역은 `Region(x, y, width, height)`, 문자열 표기는 `"x,y,w,h"` 또는 `"WxH+X+Y"` |
@@ -50,7 +50,7 @@ mask = colorkey_alpha(frame_rgb, "#00FF00", 0.12, 0.05) / 255.0           # (h, 
 colorkey_filter("#00FF00", 0.12, 0.05)                                   # 'colorkey=0x00FF00:0.12:0.05'
 ```
 
-| 대상 | 적용 방법 |
+| &numsp;&numsp;&numsp;대&NoBreak;상&numsp;&numsp;&numsp; | 적용 방법 |
 |:---:|---|
 | MoviePy | 마스크 클립에 `colorkey_alpha(...) / 255` 사용. 색 처리는 v2 `clip.image_transform(fn)`(v1은 `clip.fl_image(fn)`)에 전달 |
 | OpenCV | 프레임이 BGR이므로 `cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)` 후 전달 |
@@ -105,7 +105,7 @@ recording.discard()
 
 포크 없이 기능을 추가하는 방법
 
-| 방법 | 용도 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;방&NoBreak;법&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 용도 |
 |:---:|---|
 | (a) 실행 중 등록 | 호스트 앱에 넣는 경우. 가장 간단 |
 | (b) entry point | 별도 패키지로 배포하는 경우 |
@@ -210,7 +210,7 @@ win.show()
 app.exec()
 ```
 
-| 위젯 | 용도 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;위&NoBreak;젯&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 용도 |
 |:---:|---|
 | `EditorCanvas(document, ToolState())` | 툴바 없이 캔버스만 사용. 변경 시 `changed` 시그널 발생 |
 | `gui.highlights.TimelineWidget` | 하이라이트 타임라인만 사용. `set_result(result)`로 `HighlightResult`를 전달하면 막대와 구간을 표시. 사용자가 구간을 끌면 `result.highlights`의 `start`, `end`가 변경되고 `changed(index)` 발생 |
@@ -268,7 +268,7 @@ LLM 기반 하이라이트 판정을 사용하는 프로젝트는 `HighlightResu
 
 ## 8. 라이선스 메모
 
-| 대상 | 라이선스 및 조건 |
+| &numsp;&numsp;&numsp;&numsp;대&NoBreak;상&numsp;&numsp;&numsp;&numsp; | 라이선스 및 조건 |
 |:---:|---|
 | stream2clip | Apache-2.0. 코어(`gui` 제외)는 numpy(BSD), Pillow(MIT-CMU)만 사용 |
 | GUI | PySide6는 LGPLv3. 동적 링크(pip 설치)로 사용하면 호스트 프로젝트 라이선스에 제약 없음 |

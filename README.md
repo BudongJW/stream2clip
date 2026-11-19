@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-367-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-369-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -51,7 +51,7 @@
 
 ## 개요
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 용도 | 방송 화면 및 다시보기(VOD)의 장면 캡쳐, 편집, 움짤 녹화, 하이라이트 클립 자동 제작 |
 | 구성 | 데스크톱 앱(PySide6), 명령줄 도구, 파이썬 라이브러리 |
@@ -67,7 +67,7 @@
 
 ### 버전별 주요 변경
 
-| 버전 | 주요 변경 |
+| &numsp;버&NoBreak;전&numsp; | 주요 변경 |
 |:---:|---|
 | v0.5 | 라이브 모드(방송 중 채팅 급증 시 OBS 리플레이 자동 저장), 하이라이트 창의 방송 주소 입력, 언어 선택이 있는 Windows 설치 프로그램, 홈페이지 및 사용 설명서(한국어, 영어, 일본어) |
 | v0.4 | 방송 주소만으로 클립 제작(하이라이트 구간만 다운로드), 화면 언어 3종, 앱의 번역, 업로드, OBS 리플레이(F10), 파일 하나로 번역기 연결, 여러 방송 평가(`evaluate`) |
@@ -83,7 +83,7 @@
 
 ### 캡쳐 및 편집
 
-| 기능 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 영역 캡쳐 <kbd>F8</kbd> | 화면을 정지한 상태에서 드래그한 영역 캡쳐. 실제 픽셀 크기 표시, <kbd>Enter</kbd> 전체 화면, <kbd>Esc</kbd> 취소. 모든 모니터 캡쳐, 이미지 파일 열기 지원 |
 | 편집기 | 도구 9종: 선택, 펜, 형광펜, 네모, 화살표, 글자, 모자이크, 투명, 자르기. 8색 팔레트, 임의 색, 스포이드, 굵기, 되돌리기 및 다시 실행, 클립보드 복사. PNG, JPG, WebP, BMP 저장 |
@@ -91,7 +91,7 @@
 
 ### 녹화 및 변환
 
-| 기능 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 움짤 녹화 <kbd>F9</kbd> | 영역 지정 후 즉시 녹화, 다시 누르면 정지 및 저장. 앱은 GIF, MP4, WebP, WebM, 명령줄은 MOV, APNG 추가 지원 |
 | 투명 배경 녹화 | 지정한 색(그린스크린 등)을 제거하여 GIF, WebP, WebM, MOV, APNG를 투명 배경으로 저장. 화면 스포이드로 색 지정, 허용 범위 조절. 움직임에 따른 잔상 없음(테스트로 검증) |
@@ -99,7 +99,7 @@
 
 ### 방송 클립 제작
 
-| 기능 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 하이라이트 자동 검출 | 채팅 급증, 고유 채터, 반응 어휘(草, ｗｗ, ㅋㅋ, KEKW, 888), 슈퍼챗, 음량, 많이 다시 본 구간을 방송별 기준선과 비교하여 점수화. 채팅 지연 보정, 인접 구간 병합, 검출 근거 제공 |
 | 9:16 세로 클립 | 레이아웃 4종: center, fit, blur(블러 배경), stack(아바타 위, 게임 아래). `--avatar auto`로 아바타 위치 자동 검출 |
@@ -110,7 +110,7 @@
 
 ### 이식
 
-| 기능 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 이식 가능한 코어 | ffmpeg 명령 빌더, ffmpeg `colorkey`와 동일 수식의 numpy 크로마키, JSON 주석 포맷(스키마 제공), 플러그인(캡처 백엔드, OCR, 번역기) |
 
@@ -128,7 +128,7 @@ flowchart LR
     C --> K{"가이드라인<br/>체크"}
 ```
 
-| 단계 | 명령 | 입력 | 출력 |
+| &numsp;단&NoBreak;계&numsp; | 명령 | 입력 | 출력 |
 |:---:|:---:|---|---|
 | 수집 | `fetch` | 방송 주소 | 방송 정보, 채팅 다시보기, 자막, 영상 |
 | 검출 | `highlights` | 채팅, 방송 정보, 영상(음량) | `highlights.json`, `timeline.png` |
@@ -187,7 +187,7 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 
 런처의 **하이라이트 찾기**로 실행. 명령줄과 동일한 절차를 한 창에서 수행
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 입력 | 영상 및 채팅 파일 선택 또는 영상 칸에 방송 주소 입력 |
 | 구간 조정 | 타임라인에서 구간 가운데를 끌어 이동, 가장자리를 끌어 시작과 끝 조정. 휠 또는 구간 더블클릭으로 타임라인 확대 |
@@ -219,7 +219,7 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --translate ko --translator examples/translators/openai_compatible.py -o clips
 ```
 
-| 환경 변수 | 기본값 | 용도 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;환&NoBreak;경&nbsp;변&NoBreak;수&numsp;&numsp;&numsp;&numsp;&numsp; | 기본값 | 용도 |
 |:---:|---|---|
 | `S2C_TRANSLATE_URL` | `http://127.0.0.1:11434/v1/chat/completions` | 예제 번역기의 요청 주소 |
 | `S2C_TRANSLATE_MODEL` | `qwen2.5:7b` | 예제 번역기의 모델 |
@@ -232,7 +232,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VID
 stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --translate ko --glossary names.csv --bilingual -o clips
 ```
 
-| 옵션 | 동작 |
+| &numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
 | `--glossary` | `source,target` CSV 또는 JSON. 버튜버 이름 등 오역이 잦은 용어 고정. 번역 전과 번역 후에 각 1회 적용 |
 | `--bilingual` | 원문 위에 번역 1줄 추가 |
@@ -256,7 +256,7 @@ stream2clip singing vod/video.mp4 -o singing.json
 stream2clip auto vod/video.mp4 --chat vod/VIDEO_ID.live_chat.json --audio --skip-singing -o clips
 ```
 
-| 옵션 | 동작 |
+| &numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
 | `--mark-singing` | 각 하이라이트와 노래 구간의 겹침 정도를 근거에 기재 |
 | `--skip-singing` | 노래 구간과 절반 이상 겹치는 하이라이트 제외 |
@@ -270,7 +270,7 @@ stream2clip auto vod/video.mp4 --chat vod/VIDEO_ID.live_chat.json --audio --skip
 stream2clip replay -o moment.gif --last 15 --width 480
 ```
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 사전 설정 | OBS 설정의 출력 메뉴에서 리플레이 버퍼 사용, 도구 메뉴에서 WebSocket 서버 사용. 신규 설치한 OBS는 리플레이 버퍼가 꺼진 상태 |
 | 앱 | 런처의 **리플레이 저장** 버튼. 형식과 크기는 녹화 설정 적용, 비밀번호 미저장 |
@@ -285,7 +285,7 @@ stream2clip replay -o moment.gif --last 15 --width 480
 stream2clip live "https://www.youtube.com/watch?v=VIDEO_ID" -o clips
 ```
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 앱 | 런처의 **라이브 모드** 줄에 YouTube 라이브 주소 입력, 민감도 선택(낮음 4.5, 보통 3.5, 높음 2.5) 후 **라이브 모드 시작**. 클립은 저장 폴더에 녹화 설정의 형식으로 저장 |
 | 사전 설정 | OBS 리플레이 버퍼 사용, 최대 리플레이 시간 60초 이상. 기본값 20초에서는 장면 앞부분이 버퍼에 남지 않으며 저장 시 안내. 버퍼 미동작 시 대기 전에 안내하고 `--start-buffer`로 시작 가능 |
@@ -352,7 +352,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 
 ### 입출력 형식
 
-| 입력 | 형식 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;입&NoBreak;력&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 형식 |
 |:---:|---|
 | YouTube 채팅 다시보기 | yt-dlp `*.live_chat.json`(일반 채팅, 슈퍼챗, 스티커, 멤버십, 선물) |
 | chat-downloader | xenova/chat-downloader JSON |
@@ -361,7 +361,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | 기타 채팅 | `time,author,text[,amount]` CSV, JSONL. `1:02:03` 형식의 시각 지원 |
 | 자막 | SRT, WebVTT(YouTube 자동 자막의 단어별 시각 포함), Whisper JSON. `--transcribe`로 faster-whisper 직접 실행 |
 
-| 출력 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;출&NoBreak;력&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | `clip_01.mp4` | 9:16 클립. 형식은 `-f gif`, `-f webp`, `-f webm` 등으로 변경 |
 | `clip_01.ass` | 클립 시간에 맞춘 카라오케 자막. 편집기에서 수정 가능 |
@@ -371,7 +371,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 
 ### 검출 방식 및 평가
 
-| 항목 | 요약 |
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 요약 |
 |:---:|---|
 | 점수 계산 | 방송을 5초 단위로 분할, 신호별로 해당 방송의 평소 수준(중앙값, MAD)과 비교한 robust z-점수를 가중합 |
 | 제외 신호 | 인사 및 작별 메시지, YouTube 대기실 채팅 |
@@ -382,7 +382,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 
 ### 가이드라인 점검
 
-| 프로필 | 기준 |
+| &numsp;&numsp;프&NoBreak;로&NoBreak;필&numsp;&numsp; | 기준 |
 |:---:|---|
 | `hololive` | 2026-08-31 개정 |
 | `nijisanji` | 2025-05-23 개정 |
@@ -415,7 +415,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 
 ## 기술 스펙
 
-| 구분 | 사용 기술 | 요구 버전 | 검증 버전 | 비고 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;분&numsp;&numsp;&numsp;&numsp;&numsp; | 사용 기술 | 요구 버전 | 검증 버전 | 비고 |
 |:---:|---|:---:|:---:|---|
 | 언어 | **Python** | 3.10 이상 | 3.13, 3.14 | 타입 힌트, `src/` 레이아웃, `py.typed` |
 | GUI | **PySide6** (Qt for Python) | 6.6 이상 | 6.12 | 선택 설치 `[gui]`, LGPLv3 |
@@ -427,14 +427,14 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 367개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 369개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
 
 ### 출력 포맷
 
-| 포맷 | 코덱 | 투명 배경 | 오디오 | 용도 |
+| &numsp;포&NoBreak;맷&numsp; | 코덱 | 투명 배경 | 오디오 | 용도 |
 |:---:|---|:---:|:---:|---|
 | **GIF** | gif, 팔레트 최적화 | 1비트 | 미지원 | 범용 재생, 커뮤니티 업로드 |
 | **WebP** | libwebp_anim | 8비트 | 미지원 | 동일 용량 대비 선명한 움짤 |
@@ -504,7 +504,7 @@ python packaging/build_windows.py
 | `dist/stream2clip-0.5.1-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
 | `dist/stream2clip-0.5.1-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작 |
 
-| 옵션 | 동작 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
 | `--ffmpeg auto`, `--ffmpeg 경로` | `ffmpeg.exe`, `ffprobe.exe`를 폴더에 복사. 실행 파일은 같은 폴더의 ffmpeg를 우선 사용하므로 ffmpeg가 없는 PC에서도 동작. 미지정 시 사용자가 ffmpeg를 PATH에 배치 |
 | `--icon kiri` | 실행 파일 아이콘을 키리형으로 지정. 기본값은 심볼형 |
@@ -531,7 +531,7 @@ python packaging/build_windows.py
 stream2clip gui
 ```
 
-| 단축키 | 동작 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;단&NoBreak;축&NoBreak;키&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
 | <kbd>F8</kbd> | 영역 캡쳐 후 편집기 실행 |
 | <kbd>F9</kbd> | 녹화 영역 선택 후 즉시 녹화. 다시 누르면 정지 및 저장 |
@@ -556,7 +556,7 @@ stream2clip gui
 | **번역**, **용어집**, **원문 병기** | 자막 번역기(플러그인 또는 `.py` 파일) 선택, 이름 고정, 원문과 2줄 표시 |
 | **업로드** | 선택한 클립을 YouTube 업로드 창으로 전달. 기본값 비공개 |
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 화면 언어 | 한국어, 日本語, English. 런처 우측 하단에서 선택, 다음 실행부터 적용 |
 | 언어 결정 순서 | 앱에서 선택한 언어, 환경 변수 `STREAM2CLIP_LANG`, 설치 시 선택한 언어, 시스템 언어(한국어, 일본어 외에는 영어) |
@@ -569,7 +569,7 @@ stream2clip gui
 
 ### CLI
 
-| 명령 | 기능 |
+| &numsp;&numsp;&numsp;명&NoBreak;령&numsp;&numsp;&numsp; | 기능 |
 |:---:|---|
 | `gui` | 데스크톱 앱 실행 |
 | `monitors` | 모니터 목록과 좌표 표시 |
@@ -782,14 +782,14 @@ src/stream2clip/
 
 심볼: 가로 16:9 스트림 프레임에서 세로 9:16 클립 카드를 꺼내는 순간. 구성 요소는 16:9 스트림 프레임, 9:16 클립 카드, REC 점
 
-| 색상 | 이름 | HEX |
+| 색&NoBreak;상 | 이름 | HEX |
 |:---:|:---:|:---:|
 | <img src="https://img.shields.io/badge/-%20%20%20%20-15131F?style=flat-square" alt=""> | 잉크 | `#15131F` |
 | <img src="https://img.shields.io/badge/-%20%20%20%20-F7F4FA?style=flat-square" alt=""> | 페이퍼 | `#F7F4FA` |
 | <img src="https://img.shields.io/badge/-%20%20%20%20-FF4F8B?style=flat-square" alt=""> | 라이브 핑크 | `#FF4F8B` |
 | <img src="https://img.shields.io/badge/-%20%20%20%20-FFD84D?style=flat-square" alt=""> | 하이라이트 | `#FFD84D` |
 
-| 서체 | 용도 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;서&NoBreak;체&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 용도 |
 |:---:|---|
 | **Outfit** | 워드마크, 영문 헤드라인 |
 | **Noto Sans KR** | 국문 헤드라인, 본문 |
@@ -825,7 +825,7 @@ src/stream2clip/
 </tr>
 </table>
 
-| 사용 위치 | 표시 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;사&NoBreak;용&nbsp;위&NoBreak;치&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 표시 |
 |:---:|---|
 | 하이라이트 창 상태 줄 | 준비 wink, 분석 및 내보내기 중 focus, 하이라이트 검출 laugh, 클립 완성 cut, 실패 surprised |
 | 하이라이트 창 구간 목록 | 해당 장면에서 가장 많이 나온 채팅 반응에 따라 표시. 웃음 laugh, 놀람 surprised, 귀여움 wink, 환호 cut |
@@ -845,7 +845,7 @@ src/stream2clip/
 
 ### 예정
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 라이브 채팅 | CHZZK, SOOP 라이브 채팅 직접 수신 |
 | 화면 언어 | 하이라이트 근거, 가이드라인 점검, 명령줄 출력의 일본어 및 영어 지원, 원어민 검수 |
@@ -860,7 +860,7 @@ src/stream2clip/
 
 <br>
 
-| 버전 | 항목 |
+| &numsp;버&NoBreak;전&numsp; | 항목 |
 |:---:|---|
 | v0.1 | 영역 및 전체 화면 캡쳐, 편집기(도구 9종, 팔레트, 스포이드, 되돌리기) |
 | v0.1 | F9 움짤 녹화: GIF, MP4, WebP, WebM, MOV, APNG |
@@ -894,7 +894,7 @@ src/stream2clip/
 
 ## 개발
 
-| 작업 | 명령 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;작&NoBreak;업&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 명령 |
 |:---:|---|
 | 개발 환경 설치 | `pip install -e ".[dev]"` |
 | 린트 | `ruff check .` |
@@ -914,7 +914,7 @@ src/stream2clip/
 
 ## 알려진 제약
 
-| 환경 | 상태 |
+| &numsp;&numsp;&numsp;&numsp;환&NoBreak;경&numsp;&numsp;&numsp;&numsp; | 상태 |
 |:---:|---|
 | Windows 11 | 실기기(1920×1080, 배율 125%, 모니터 1대)에서 전역 단축키, 캡쳐, 녹화, 투명 배경, 클립보드 복사 검증 완료. 배율 100%, 150%, 175%는 Qt 배율 계수로만 확인, 배율이 다른 모니터 2대는 미검증 |
 | Windows 10 | 동일한 Win32 API 사용. 실기기 미검증 |
@@ -922,7 +922,7 @@ src/stream2clip/
 | Linux (X11) | Xvfb에서 전체 절차 테스트 |
 | Wayland | 화면 캡쳐(mss)는 X11, XWayland에서만 동작 |
 
-| 기능 | 제약 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;기&NoBreak;능&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 제약 |
 |:---:|---|
 | 다중 모니터 | 배율이 다른 모니터 구성에서는 논리 좌표와 물리 좌표를 가상 화면 전체 비율로 환산하므로 선택 영역에 오차 발생 가능 |
 | 소수 배율 | 125%, 150% 등에서는 선택 영역의 위치와 크기를 각각 반올림. 동일 크기로 드래그하면 위치와 무관하게 동일 픽셀 크기이며 화면 픽셀과의 차이는 최대 1px |
@@ -941,7 +941,7 @@ src/stream2clip/
 
 [Apache License 2.0](LICENSE)
 
-| 구성 요소 | 라이선스 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;성&nbsp;요&NoBreak;소&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 라이선스 |
 |:---:|---|
 | GUI | PySide6(LGPLv3) |
 | 화면 캡쳐 | mss(MIT) |

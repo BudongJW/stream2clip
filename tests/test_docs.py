@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import unicodedata
 from pathlib import Path
@@ -144,6 +145,36 @@ def test_tables_have_no_empty_or_placeholder_cells_left_by_editing():
                 assert ":" not in cells and ":," not in " ".join(cells), f"{path.name}: {line[:80]}"
             assert not line.startswith("- []"), f"{path.name}: {line[:80]}"
             assert ", ," not in line, f"{path.name}: {line[:80]}"
+
+
+@pytest.fixture(scope="module")
+def formatter():
+    spec = importlib.util.spec_from_file_location("format_docs", ROOT / "packaging" / "format_docs.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_label_column_header_is_unbreakable_and_as_wide_as_its_labels(formatter):
+    table = "| 항목 | 내용 |\n|:---:|---|\n| 사전 설정 | 긴 설명 |\n| `--start-buffer` | 긴 설명 |"
+    once = formatter.format_text(table)
+    head = once.split("\n")[0]
+    assert "항&NoBreak;목" in head and head.count("&numsp;") >= 4 and head.count("&numsp;") % 2 == 0
+    assert once.split("\n")[1:] == table.split("\n")[1:]
+    assert formatter.format_text(once) == once  # running it again changes nothing
+    assert formatter.format_text("| 환경 변수 | 용도 |\n|:---:|---|\n| `A` | b |").startswith("| 환&NoBreak;경&nbsp;변&NoBreak;수 |")
+    left = "| 파일 | 범위 |\n|---|---|\n| `a.py` | b |"
+    assert formatter.format_text(left) == left  # only centred first columns are label columns
+    fenced = "```\n| 항목 | 내용 |\n|:---:|---|\n| a | b |\n```"
+    assert formatter.format_text(fenced) == fenced
+    assert formatter.label_width("사전 설정") < formatter.label_width("언어 결정 순서") < formatter.label_width("하이라이트 창 작업 스레드")
+
+
+def test_documents_are_formatted(formatter):
+    assert {path.name for path in formatter.documents()} == {path.name for path in DOCS}
+    for path in DOCS:
+        text = read(path)
+        assert formatter.format_text(text) == text, f"run python packaging/format_docs.py ({path.name})"
 
 
 def test_readme_names_the_current_version():

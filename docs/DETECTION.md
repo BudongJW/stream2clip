@@ -2,7 +2,7 @@
 
 하이라이트 검출, 라이브 모드, 아바타 박스 검출의 계산 방식과 기본값 산정 근거
 
-| 항목 | 위치 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 위치 |
 |:---:|---|
 | 다시보기 하이라이트 점수 | [하이라이트 점수 계산](#하이라이트-점수-계산) |
 | 기본값 근거(방송 1개) | [실제 방송으로 확인한 기본값](#실제-방송으로-확인한-기본값) |
@@ -14,7 +14,7 @@
 
 방송을 `--window`(기본 5초) 단위로 분할하고, 신호별로 해당 방송의 평소 수준(중앙값, MAD)과 비교한 robust z-점수를 가중합. 채팅이 적은 채널과 많은 채널에 동일 기준 적용 가능
 
-| 신호 | 의미 | 가중치 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;신&NoBreak;호&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 의미 | 가중치 |
 |:---:|---|:---:|
 | 채팅 속도 | 구간당 메시지 수 | 0.30 |
 | 고유 채터 | 1명의 도배보다 여러 명의 반응을 반영 | 0.20 |
@@ -37,7 +37,7 @@
 
 채팅 신호에서 제외하는 항목:
 
-| 항목 | 사유 | 비고 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 사유 | 비고 |
 |:---:|---|---|
 | 인사, 작별 | "こんぺこ～", "おつかれ", "hello", "안녕하세요" 등은 방송 시작과 종료 시점에 집중되어 하이라이트로 오인 | `--keep-greetings`로 해제. 슈퍼챗은 계속 집계 |
 | 대기실 채팅 | YouTube 다시보기에서 전부 0초로 기록 | 보낸 시각이 방송 시작 시각과 맞지 않으면 제외 |
@@ -48,7 +48,7 @@
 - 방법: `fetch`, `auto`를 기본 설정으로 실행
 - 유의: 방송 1개의 결과이므로 참고 수치. 채팅이 적은 채널이나 다른 장르에서는 결과가 다를 수 있음
 
-| 항목 | 확인 내용 | 조치 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 확인 내용 | 조치 |
 |:---:|---|---|
 | 반응 어휘 | 최초에는 메시지의 11%만 반응으로 분류. 실제 채팅은 문장 끝의 `ｗ` 1개, "え？", "！？", 채널 이모티콘으로 반응 | 어휘 추가 후 40% |
 | 인사, 작별 | 종료 인사("おつぺこ～" 등 마지막 2분에 약 300개)가 10개 중 8위로 선정 | 인사, 작별 제외 후 해당 순위에 실제 장면 선정 |
@@ -76,7 +76,7 @@ stream2clip fetch "https://www.youtube.com/watch?v=VIDEO_ID" -o data/VIDEO_ID --
 stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 ```
 
-| 값 | 의미 |
+| &numsp;&numsp;&numsp;&numsp;값&numsp;&numsp;&numsp;&numsp; | 의미 |
 |:---:|---|
 | precision | 검출한 하이라이트 중 시청자가 표시한 순간이 포함된 비율 |
 | recall | 시청자가 표시한 순간 중 하이라이트에 포함된 비율 |
@@ -113,7 +113,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 
 ### 검출 방식
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 점수 | 5초 구간마다 채팅 수, 참여자 수, 반응 어휘, 후원을 직전 15분의 구간과 비교. 다시보기 검출과 동일한 robust z-점수 사용 |
 | 판정 시점 | 구간이 확정된 이후에만 판정. 다음 구간의 메시지가 도착했거나 지연 허용 시간(`--lag`)이 경과한 경우 |
@@ -155,7 +155,7 @@ stream2clip evaluate data/* --sweep threshold=1.5,2,2.5 --sweep delay=4,8,12
 3. 여러 프레임의 동일 위치에 계속 나타나는 얼굴을 아바타로 판정. 게임 캐릭터나 섬네일 속 얼굴은 나타났다 사라지나 아바타는 유지됨. 추출 프레임의 40% 이상에서 검출되어야 함
 4. 머리가 움직인 범위를 포함하도록 얼굴 높이의 약 3배 크기로 확장하고, 머리카락, 귀, 모자를 고려하여 위쪽 여유를 추가. 가로세로 비율은 stack 레이아웃의 아바타 칸에 맞춤
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 모델 보관 | 최초 사용 시 1회 다운로드하여 `~/.cache/stream2clip` 또는 `STREAM2CLIP_MODEL_DIR`에 보관. 고정된 SHA-256과 불일치 시 사용 안 함 |
 | 오프라인 사용 | `--face-model model.onnx`로 파일 지정 |

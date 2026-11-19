@@ -22,7 +22,7 @@ ruff check .
 pytest -q
 ```
 
-| 항목 | 기준 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 기준 |
 |:---:|---|
 | 테스트 실행 | Windows에서 `pytest`를 옵션 없이 실행하면 창을 표시하고 F8, F9를 실제로 입력. 화면 없이 실행하려면 `QT_QPA_PLATFORM=offscreen` 지정 |
 | 신규 기능 | 테스트 포함. 외부 서비스(OBS, YouTube, 번역 서비스 등)는 테스트에서 가짜 구현으로 대체하고, 실제 서비스 검증 여부를 PR에 기재 |
@@ -34,7 +34,7 @@ pytest -q
 
 상세 설명: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/PORTING.md](docs/PORTING.md)
 
-| 원칙 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;원&NoBreak;칙&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 코어와 앱 분리 | `gui/` 밖의 코드는 numpy와 Pillow에만 의존하며 PySide6를 import하지 않음 |
 | 명령 생성과 실행 분리 | `ffmpeg.py`는 명령 생성만 담당. 실행은 `export.py`와 `record/`가 담당 |
@@ -75,11 +75,12 @@ pytest -q
 
 적용 대상: README, `CHANGELOG.md`, `docs/`, 홈페이지와 사용 설명서(`site/`), 앱 화면 문구
 
-| 항목 | 기준 |
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 기준 |
 |:---:|---|
 | 어체 | 개조식(명사형 종결). 사실과 절차만 기재하며 구어체 문장, 수식어, 예정 사항 표기("다음 버전")는 사용하지 않음 |
 | 기호 | 가운뎃점, 화살표, 줄표, 말줄임표, 꺾쇠 등 장식 기호와 이모지 사용 금지. 쉼표와 "및"으로 표기 |
 | 구성 | 표와 번호 목록으로 정리. 대문자 라벨, 번호 장식, 카드 그리드, 블러, 애니메이션 사용 금지 |
 | 언어판 | 홈페이지는 한국어, 영어(`site/en/`), 일본어(`site/ja/`) 3종. 1개 언어판 수정 시 나머지도 동일 구성으로 수정 |
+| 표 | 항목 열은 첫 열 가운데 정렬(`:---:`)로 작성. 수정 후 `python packaging/format_docs.py` 실행 시 제목 칸에 줄바꿈 방지 처리 적용 |
 | 확인 | `python packaging/build_site.py --pdf`로 조립하여 확인 |
 | 자동 검사 | 홈페이지는 `tests/test_site.py`, 앱 문구는 `tests/test_i18n.py`, 저장소 문서는 `tests/test_docs.py` |

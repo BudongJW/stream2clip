@@ -20,7 +20,7 @@
 
 stream2clip은 사용자의 PC에서 사용자가 제공한 파일과 주소를 처리하는 도구
 
-| 구분 | 대상 | 사유 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;분&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 대상 | 사유 |
 |:---:|---|---|
 | 취약점으로 보지 않음 | `--translator 파일.py`, 플러그인 | 사용자가 지정한 파이썬 코드를 실행하는 설계. 신뢰할 수 있는 코드만 지정 필요 |
 | 취약점으로 보지 않음 | `STREAM2CLIP_YTDLP`, `STREAM2CLIP_FFMPEG` 등 환경 변수로 지정한 프로그램 실행 | 사용자가 직접 선택하는 항목 |

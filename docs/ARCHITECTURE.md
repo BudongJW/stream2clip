@@ -2,7 +2,7 @@
 
 ## 설계 원칙
 
-| 원칙 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;원&NoBreak;칙&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 코어와 앱 분리 | `gui/`를 삭제해도 나머지는 그대로 동작. GUI는 코어 위의 얇은 층 |
 | 순수 함수 우선 | ffmpeg 명령, 필터그래프, 크로마키 수식, 주석 렌더링은 입력과 출력이 정해진 함수. 프로세스 실행(`export.py`, `record/`)은 그 위의 별도 층 |
@@ -54,7 +54,7 @@ F9 ─► 영역 선택 ─► (200ms: 오버레이가 화면에서 사라질 �
 F9 ─► Recorder.stop() ─► Recording ─► export(GIF/WebP/MP4/WebM/MOV/APNG, 투명 배경 옵션)
 ```
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 타이밍 | 캡처 루프는 벽시계 기준. 캡처가 느리면 직전 프레임을 반복하여 재생 속도를 실제와 동일하게 유지 |
 | 중간 파일 | FFV1, Matroska로 알파를 보존한 상태로 녹화하고 정지 후 원하는 포맷으로 변환. 녹화 중 GIF 팔레트 계산이 불필요하며 동일 녹화본을 여러 포맷으로 재내보내기 가능. VOD 변환과 동일한 `export()` 경로 사용 |
@@ -82,7 +82,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
             clip_XX.mp4, clip_XX.ass, clip_XX.txt, clips.json
 ```
 
-| 구성 | 모듈 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;성&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 모듈 | 내용 |
 |:---:|:---:|---|
 | 아바타 박스 | `detect.py` | 프레임 12장에서 애니메 얼굴을 검출하고 여러 프레임의 동일 위치에 유지되는 얼굴을 아바타로 판정하여 방송 1개에 고정 박스 1개 결정. 프레임 단위 추적 미수행. 전처리(letterbox), 후처리(YOLO 출력 해석, NMS), 군집, 박스 계산은 numpy만 사용하는 순수 함수이며 onnxruntime은 `OnnxFaceDetector` 생성 시에만 import. 프레임 추출은 `export.grab_frames` 담당 |
 | 자막 번역 | `translation.py` | `make_clips`가 클립 자막 생성 후 `translate_cues`로 번역기(플러그인)에 전달. 용어집은 번역 전후에 문자열을 치환하는 단순 방식이므로 번역기 종류와 무관. 번역 자막에는 단어 시각 없음 |
@@ -95,7 +95,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 
 필터 및 자막 처리:
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 필터 순서 | `crop, fps, [layout 그래프], scale, subtitles, extra, colorkey, 포맷별 처리`. 레이아웃은 `[pre], [lay]` 레이블을 사용하는 서브그래프이므로 GIF 팔레트 등 이후 단계와 그대로 연결 |
 | 자막 시간 | `-ss`를 입력 옵션으로 사용하므로 필터 기준 시간은 0부터 시작. 자막은 `slice_cues`로 클립 기준 시간으로 이동(자막의 표시 시간을 테스트로 확인) |
@@ -117,7 +117,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
    레이아웃을 입힌 프레임 1장          진행률, QProgressBar
 ```
 
-| 항목 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 타임라인 | 막대는 표시 중인 시간 범위를 균등 분할하여 각 구간의 최고 점수를 표시(시간축과의 불일치 방지). 긴 방송에서는 클립 1개가 수 픽셀에 불과하므로 확대(휠, 더블클릭) 제공. 잡는 영역은 가장자리가 바깥쪽으로 넓어 좁은 구간도 가운데를 잡아 이동 가능 |
 | 스레드 | 분석, 미리보기, 아바타 찾기, 내보내기는 `threading.Thread`에서 실행하고 결과는 Qt 시그널로 GUI 스레드에 전달. 미리보기는 요청 번호를 부여하여 늦게 끝난 이전 요청이 화면을 덮지 않도록 처리 |
@@ -138,7 +138,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 
 `packaging/build_windows.py`가 PyInstaller로 `stream2clip-gui.exe`(창)와 `stream2clip.exe`(콘솔)를 라이브러리를 공유하는 한 폴더에 생성하고 zip으로 묶음. `--installer` 지정 시 Inno Setup으로 설치 프로그램 추가 생성
 
-| 항목 | 빌드된 프로그램의 동작 |
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 빌드된 프로그램의 동작 |
 |:---:|---|
 | ffmpeg | `ffmpeg.find_ffmpeg()`, `find_ffprobe()`는 환경 변수 다음으로 실행 파일과 같은 폴더를 우선 확인하고, 없으면 PATH 확인 |
 | yt-dlp | `python -m yt_dlp`를 사용할 수 없으므로 `stream2clip.exe yt-dlp ...`로 실행(`cli.main`이 해당 인자를 yt-dlp에 그대로 전달) |
@@ -149,7 +149,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 
 ## 포맷별 처리
 
-| 포맷 | 코덱 | 투명 | 비고 |
+| &numsp;포&NoBreak;맷&numsp; | 코덱 | 투명 | 비고 |
 |:---:|---|---|---|
 | GIF | gif, palettegen/paletteuse | 1비트 (`reserve_transparent`, `alpha_threshold=128`) | 불투명은 `stats_mode=diff`, `diff_mode=rectangle`로 용량 절감 |
 | WebP | libwebp_anim | `yuva420p` | 애니메이션 WebP는 ffprobe가 읽지 못하므로 테스트는 Pillow로 확인 |
@@ -160,7 +160,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 
 ## 스레드
 
-| 스레드 | 역할 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;스&NoBreak;레&NoBreak;드&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 역할 |
 |:---:|---|
 | GUI 스레드 | Qt 이벤트, 캔버스 렌더, 커서 좌표 갱신(33ms 타이머) |
 | 하이라이트 창 작업 스레드 | 분석, 미리보기 프레임, 아바타 찾기, 클립 내보내기. 동시에 1개만 실행하며 미리보기만 별도 |
