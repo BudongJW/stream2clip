@@ -82,15 +82,22 @@ def test_kept_parts_are_whole_frames_and_the_sound_loses_the_same_parts():
     options = ExportOptions(format="mp4", fps=30, start=10.0, end=20.0, keep=((0.0, 2.0), (3.5, 6.0)), subtitles="clip.ass")
     video, audio = keep_filters(options)
     assert video == ["select='between(n,0,59)+between(n,105,179)'", "setpts=N/(30*TB)"]
-    # the sound is chosen by counting 160-sample frames at 48 kHz (300 a second), never by a timestamp
-    assert audio == "aresample=48000,asetnsamples=n=160:p=0,aselect='between(n,0,599)+between(n,1050,1799)',asetpts=N/SR/TB"
+    # the sound is cut by counting samples at 48 kHz, never by a timestamp: one atrim per part, then joined
+    assert audio == (
+        "[0:a:0]aresample=48000,asplit=2[ka0][ka1];"
+        "[ka0]atrim=start_sample=0:end_sample=96000,asetpts=N/SR/TB[kb0];"
+        "[ka1]atrim=start_sample=168000:end_sample=288000,asetpts=N/SR/TB[kb1];"
+        "[kb0][kb1]concat=n=2:v=0:a=1[a]"
+    )
     graph = build_video_filter(options)
     assert graph.index("fps=30") < graph.index("select=") < graph.index("subtitles=")  # captions are drawn on the shortened clip
     cmd = build_export_command("in.mp4", "out.mp4", options, ffmpeg="ffmpeg")
     complex_graph = cmd[cmd.index("-filter_complex") + 1]
-    assert complex_graph.endswith(f";[0:a:0]{audio}[a]") and cmd[cmd.index("-map") + 1] == "[v]" and "[a]" in cmd and "0:a:0?" not in cmd
+    assert complex_graph.endswith(f";{audio}") and cmd[cmd.index("-map") + 1] == "[v]" and "[a]" in cmd and "0:a:0?" not in cmd
+    one = keep_filters(ExportOptions(format="mp4", fps=30, keep=((1.0, 2.0),)), audio_in="[1:a]", audio_out="[x]")[1]
+    assert one == "[1:a]aresample=48000,atrim=start_sample=48000:end_sample=96000,asetpts=N/SR/TB[x]"  # a single part needs no joining
     silent = build_export_command("in.mp4", "out.gif", ExportOptions(format="gif", fps=10, keep=((0.0, 1.0),)), ffmpeg="ffmpeg")
-    assert "select='between(n,0,9)'" in silent[silent.index("-filter_complex") + 1] and "-an" in silent and "aselect" not in " ".join(silent)
+    assert "select='between(n,0,9)'" in silent[silent.index("-filter_complex") + 1] and "-an" in silent and "atrim" not in " ".join(silent)
     free = keep_filters(ExportOptions(format="mp4", fps=None, keep=((0.5, 1.0),)))
     assert free[0] == ["select='gte(t,0.5000)*lt(t,1.0000)'", "setpts=N/FRAME_RATE/TB"]  # no rate given: chosen by time
     assert keep_filters(ExportOptions(format="mp4")) == ([], "")

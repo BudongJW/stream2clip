@@ -219,17 +219,18 @@ def filter_path(path: str | os.PathLike[str]) -> str:
     return re.sub(r"([\\'\[\],;])", r"\\\1", value)  # graph level
 
 
-#: Sound is cut in frames of this many samples at this rate when parts of a clip are dropped (3.3 ms).
-_KEEP_RATE, _KEEP_STEP = 48000, 160
+#: The sound of a clip that loses parts is brought to this rate, so that its parts can be counted in samples.
+_KEEP_RATE = 48000
 
 
-def keep_filters(options: ExportOptions) -> tuple[list[str], str]:
-    """Filters that drop everything outside ``options.keep`` and close the result up: (video filters, audio chain).
+def keep_filters(options: ExportOptions, *, audio_in: str = "[0:a:0]", audio_out: str = "[a]") -> tuple[list[str], str]:
+    """What drops everything outside ``options.keep`` and closes the result up: (video filters, audio graph).
 
     Both are chosen by counting, not by timestamps: with a known frame rate the picture by frame
-    number, the sound - brought to 48 kHz and cut into 160-sample frames - by the number of those.
-    Each part is then a whole number of picture frames with its sound to within 3 ms, whatever
-    timestamps the file or the ffmpeg at hand gives its frames, and the two stay together across many cuts.
+    number, the sound - brought to 48 kHz - by sample number (``atrim`` per part, then ``concat``).
+    Each part is then a whole number of picture frames with exactly its sound, whatever timestamps
+    the file or the ffmpeg at hand gives its frames, and the two stay together across many cuts.
+    The audio graph reads ``audio_in`` and writes ``audio_out``.
     """
     if not options.keep:
         return [], ""
@@ -244,9 +245,15 @@ def keep_filters(options: ExportOptions) -> tuple[list[str], str]:
         times = list(options.keep)
         picture = "+".join(f"gte(t,{a:.4f})*lt(t,{b:.4f})" for a, b in times)
         video = [f"select='{picture}'", "setpts=N/FRAME_RATE/TB"]
-    steps = [(int(round(a * _KEEP_RATE / _KEEP_STEP)), int(round(b * _KEEP_RATE / _KEEP_STEP))) for a, b in times]
-    sound = "+".join(f"between(n,{i},{j - 1})" for i, j in steps if j > i)
-    return video, f"aresample={_KEEP_RATE},asetnsamples=n={_KEEP_STEP}:p=0,aselect='{sound}',asetpts=N/SR/TB"
+    cuts = [(int(round(a * _KEEP_RATE)), int(round(b * _KEEP_RATE))) for a, b in times]
+    cuts = [(i, j) for i, j in cuts if j > i]
+    if len(cuts) == 1:
+        i, j = cuts[0]
+        return video, f"{audio_in}aresample={_KEEP_RATE},atrim=start_sample={i}:end_sample={j},asetpts=N/SR/TB{audio_out}"
+    parts = [f"{audio_in}aresample={_KEEP_RATE},asplit={len(cuts)}" + "".join(f"[ka{k}]" for k in range(len(cuts)))]
+    parts += [f"[ka{k}]atrim=start_sample={i}:end_sample={j},asetpts=N/SR/TB[kb{k}]" for k, (i, j) in enumerate(cuts)]
+    parts.append("".join(f"[kb{k}]" for k in range(len(cuts))) + f"concat=n={len(cuts)}:v=0:a=1{audio_out}")
+    return video, ";".join(parts)
 
 
 def build_video_filter(options: ExportOptions) -> str:
@@ -378,7 +385,7 @@ def build_export_command(
     wants_audio = options.audio and raw_input is None and options.format in _AUDIO_CODECS
     graph = build_video_filter(options)
     if wants_audio and options.keep:  # the sound loses the same parts as the picture (the input must have sound)
-        cmd += ["-filter_complex", f"{graph};[0:a:0]{keep_filters(options)[1]}[a]", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
+        cmd += ["-filter_complex", f"{graph};{keep_filters(options)[1]}", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
     elif wants_audio:
         cmd += ["-filter_complex", graph, "-map", "[v]", "-map", "0:a:0?"] + _AUDIO_CODECS[options.format]
     else:
