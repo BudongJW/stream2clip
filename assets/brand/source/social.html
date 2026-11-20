@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>stream2clip social preview</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  .repo { left: 80px; top: 66px; color: #8C86A0; font: 500 19px/1 var(--code); letter-spacing: .02em; }
+  .lockup { left: 76px; top: 158px; height: 150px; }
+  .slogan { left: 80px; top: 336px; font-size: 34px; font-weight: 500; letter-spacing: .005em; }
+  .summary { left: 80px; top: 394px; color: #C9C3D6; font-size: 24px; font-weight: 400; }
+  .card .tag { font-size: 12px; margin: 14px 0 0 14px; padding: 6px 9px; border-radius: 6px; }
+  .card .say { font-size: 19px; margin-top: 12px; padding: 8px 13px; border-radius: 8px; }
+  .card { border-radius: 18px; }
+  .bars i { width: 7px; }
+  .bars { gap: 3px; }
+</style>
+</head>
+<body>
+  <div class="abs repo">BudongJW / stream2clip</div>
+  <img class="abs lockup" src="../logo/png/lockup_on-dark.png" alt="stream2clip">
+  <div class="abs slogan">Stream in. Clips out.</div>
+  <div class="abs summary">버튜버를 위한 방송 클립 편집 도구</div>
+
+  <svg class="links" width="1280" height="640" aria-hidden="true">
+    <path d="M 1022 322 C 1010 400, 880 400, 848 488"/>
+  </svg>
+
+  <div class="card dark" style="left: 846px; top: 132px; width: 150px; height: 226px; transform: rotate(-9deg);">
+    <span class="tag">CLIP 01</span><span class="say" style="align-self: flex-start; margin-left: 14px;">실화?!</span>
+    <img src="../mascot/kiri_surprised_512.png" alt="">
+  </div>
+  <div class="card pink" style="left: 1066px; top: 138px; width: 150px; height: 226px; transform: rotate(10deg);">
+    <span class="tag" style="align-self: flex-end; margin: 14px 12px 0 0;">CLIP 03</span><span class="say" style="align-self: flex-end; margin-right: 10px;">고음!!</span>
+    <img src="../mascot/kiri_cut_512.png" alt="">
+  </div>
+  <div class="card yellow" style="left: 958px; top: 98px; width: 138px; height: 228px; transform: rotate(-1deg);">
+    <span class="tag">CLIP 02</span><span class="say">ㅋㅋㅋ</span>
+    <img src="../mascot/kiri_laugh_512.png" alt="">
+  </div>
+
+  <div class="bars" id="bars" style="left: 80px; top: 496px; height: 72px;"></div>
+  <div class="abs axis" style="left: 80px; top: 578px;">00:00:00</div>
+  <div class="abs axis" style="left: 432px; top: 578px;">01:00:00</div>
+  <div class="abs axis" style="left: 783px; top: 578px;">02:00:00</div>
+  <div class="abs axis" style="left: 1134px; top: 578px;">03:00:00</div>
+
+<script>
+  // Quiet bars with one burst; a fixed seed keeps the picture the same every time it is rendered.
+  (function () {
+    var seed = 20261120;
+    function random() { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }
+    var host = document.getElementById("bars");
+    var count = 112, burst = [72, 81];
+    for (var i = 0; i < count; i++) {
+      var bar = document.createElement("i");
+      if (i >= burst[0] && i <= burst[1]) {
+        var middle = (burst[0] + burst[1]) / 2, half = (burst[1] - burst[0]) / 2;
+        bar.style.height = Math.round(34 + 34 * (1 - Math.pow(Math.abs(i - middle) / (half + 1.2), 2)) + random() * 4) + "px";
+        bar.className = "hit";
+      } else {
+        bar.style.height = Math.round(12 + random() * 16) + "px";
+      }
+      host.appendChild(bar);
+    }
+    var left = 80 + burst[0] * 10 - 8, width = (burst[1] - burst[0] + 1) * 10 + 12;
+    var box = document.createElement("div");
+    box.className = "bracket";
+    box.style.cssText = "left:" + left + "px;top:490px;width:" + width + "px;height:84px;";
+    document.body.insertBefore(box, host);
+  })();
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-stream2clip 컨셉 로고 및 컨셉 이미지 (v0.1)
+stream2clip 컨셉 로고 및 컨셉 이미지 (v0.2)
 ================================================
 
 [ 메인 이미지 ]
@@ -7,6 +7,17 @@ stream2clip 컨셉 로고 및 컨셉 이미지 (v0.1)
 02_concept-image_keyvisual_1920x1080.png  동일 이미지, FHD 크기
 03_github-social-preview_1280x640.png     GitHub 소셜 프리뷰 (업로드용 규격)
 03_github-social-preview@2x.png           동일 이미지, 2배 크기
+- 02, 03은 source 폴더의 페이지를 브라우저로 그린 결과 (v0.2부터). 직접 고치지 않고 아래 명령으로 다시 생성
+    python packaging/build_brand.py
+- 그림 속 캐릭터는 mascot 폴더의 이모트 파일을 그대로 사용. 캐릭터 변경 시 build_mascot.py 실행 후 위 명령 실행
+- 01(로고 시트)은 v0.1 그대로
+
+[ source ]  키 비주얼과 소셜 프리뷰의 원본 페이지
+keyvisual.html   키 비주얼 (1920×1080 기준)
+social.html      소셜 프리뷰 (1280×640 기준)
+brand.css        두 페이지 공용 색상, 글꼴, 클립 카드, 타임라인
+- 문구와 배치는 이 페이지에서 수정. 외부 자료를 불러오지 않으며 저장소의 파일만 사용
+- 글꼴은 그리는 PC에 설치된 것 사용: Noto Sans KR, 고정폭 글꼴(JetBrains Mono, 없으면 Cascadia Mono 또는 Consolas)
 
 [ logo/svg ]  벡터 원본 (크기와 무관하게 선명)
 symbol_color_on-light.svg   밝은 배경용 컬러 심볼

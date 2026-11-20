@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>stream2clip key visual</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  .lockup { left: 112px; top: 98px; height: 60px; }
+  .eyebrow { left: 112px; top: 366px; color: var(--pink); font: 700 17px/1 var(--code); letter-spacing: .16em; }
+  h1 { left: 108px; top: 412px; font-weight: 900; font-size: 128px; line-height: 1.16; letter-spacing: -.035em; white-space: nowrap; }
+  .summary { left: 112px; top: 742px; color: #C9C3D6; font-size: 27px; line-height: 1.6; font-weight: 400; }
+  .address { left: 112px; top: 966px; color: #8C86A0; font: 500 17px/1 var(--code); letter-spacing: .02em; }
+  .slogan { right: 84px; top: 928px; color: #A39DB3; font-size: 24px; font-weight: 500; letter-spacing: .01em; }
+
+  .frame { left: 800px; top: 96px; width: 800px; height: 450px; border-radius: 26px; background: linear-gradient(180deg, #221E33, #1B1829); border: 2px solid var(--border); overflow: hidden; }
+  .live { left: 26px; top: 26px; padding: 9px 15px 9px 13px; border-radius: 999px; background: var(--pink); color: var(--ink); font: 800 16px/1 var(--code); letter-spacing: .08em; display: flex; align-items: center; gap: 8px; }
+  .live::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ink); }
+  .clock { right: 26px; top: 34px; color: #B9B3C8; font: 500 16px/1 var(--code); letter-spacing: .04em; }
+  .star { color: var(--yellow); font-size: 34px; line-height: 1; }
+  .chat { left: 22px; display: flex; gap: 9px; align-items: baseline; padding: 8px 12px; border-radius: 9px; background: rgba(21, 19, 31, .86); font-size: 16px; font-weight: 500; white-space: nowrap; }
+  .chat b { font-weight: 800; }
+  .avatar { left: 190px; top: 62px; width: 388px; }
+  .pick { left: 266px; top: 18px; width: 236px; height: 418px; border: 3px dashed var(--pink); border-radius: 14px; }
+  .pick .tag { position: absolute; left: 10px; top: 10px; padding: 5px 9px; border-radius: 6px; background: var(--pink); color: var(--ink); font: 800 14px/1 var(--code); }
+
+  .legend { left: 800px; top: 936px; display: flex; gap: 46px; color: #C9C3D6; font-size: 16px; font-weight: 500; }
+  .legend span { display: flex; align-items: center; gap: 11px; }
+  .legend i { display: block; }
+  .legend .a { width: 7px; height: 18px; border-radius: 2px; background: var(--bar); }
+  .legend .b { width: 16px; height: 16px; border-radius: 4px; border: 3px solid var(--pink); }
+  .legend .c { width: 12px; height: 18px; border-radius: 3px; border: 2px dashed var(--pink); }
+</style>
+</head>
+<body>
+  <img class="abs lockup" src="../logo/png/lockup_on-dark.png" alt="stream2clip">
+  <div class="abs eyebrow">FOR VTUBERS</div>
+  <h1 class="abs">긴 방송 속<br><em>레전드</em>만 쏙.</h1>
+  <p class="abs summary">방송 다시보기에서 클립을 뽑아내는,<br>버튜버를 위한 영상 편집 도구</p>
+  <div class="abs address">github.com/BudongJW/stream2clip</div>
+
+  <div class="abs frame">
+    <div class="abs live">LIVE</div>
+    <div class="abs clock">02:41:07</div>
+    <div class="abs star" style="left: 98px; top: 104px;">&#10022;</div>
+    <div class="abs star" style="left: 152px; top: 196px; font-size: 16px; color: #8C86A0;">&#10022;</div>
+    <div class="abs star" style="left: 618px; top: 84px; font-size: 20px; color: var(--pink);">&#10022;</div>
+    <img class="abs avatar" src="../mascot/kiri_wink_512.png" alt="">
+    <div class="abs pick"><span class="tag">9:16</span></div>
+    <div class="abs chat" style="top: 318px;"><b style="color: var(--yellow);">새벽반</b>ㅋㅋㅋㅋㅋㅋ</div>
+    <div class="abs chat" style="top: 356px;"><b style="color: var(--pink);">클립장인</b>방금 그거 클립 각</div>
+    <div class="abs chat" style="top: 394px;"><b style="color: #7DD3FC;">구독자</b>레전드 갱신!!</div>
+  </div>
+
+  <svg class="links" width="1920" height="1080" aria-hidden="true">
+    <path d="M 1446 550 C 1370 606, 1050 580, 1019 684"/>
+    <path d="M 1588 500 C 1560 590, 1400 600, 1369 684"/>
+    <path d="M 1722 568 C 1724 622, 1692 650, 1684 684"/>
+  </svg>
+
+  <div class="card dark" style="left: 1344px; top: 212px; width: 216px; height: 344px; transform: rotate(-8deg);">
+    <span class="tag">CLIP 01 0:32</span><span class="say" style="align-self: flex-start; margin-left: 20px;">실화?!</span>
+    <img src="../mascot/kiri_surprised_512.png" alt="">
+  </div>
+  <div class="card pink" style="left: 1640px; top: 214px; width: 216px; height: 344px; transform: rotate(9deg);">
+    <span class="tag" style="align-self: flex-end; margin: 18px 16px 0 0;">CLIP 03 0:45</span><span class="say" style="align-self: flex-end; margin-right: 14px;">고음 성공!!</span>
+    <img src="../mascot/kiri_cut_512.png" alt="">
+  </div>
+  <div class="card yellow" style="left: 1498px; top: 150px; width: 196px; height: 348px; transform: rotate(-2deg);">
+    <span class="tag">CLIP 02 0:28</span><span class="say">ㅋㅋㅋ 레전드</span>
+    <img src="../mascot/kiri_laugh_512.png" alt="">
+  </div>
+
+  <div class="bars" id="bars" style="left: 800px; top: 690px; height: 124px;"></div>
+  <div class="abs axis" style="left: 800px; top: 836px;">00:00:00</div>
+  <div class="abs axis" style="left: 1123px; top: 836px;">01:00:00</div>
+  <div class="abs axis" style="left: 1446px; top: 836px;">02:00:00</div>
+  <div class="abs axis" style="left: 1769px; top: 836px;">03:00:00</div>
+
+  <div class="abs legend">
+    <span><i class="a"></i>채팅 반응</span>
+    <span><i class="b"></i>클립 구간</span>
+    <span><i class="c"></i>9:16 세로 클립</span>
+  </div>
+  <div class="abs slogan">Stream in. Clips out.</div>
+
+<script>
+  // The chat timeline: quiet bars with three bursts. The same numbers every time (a fixed seed), so the picture is reproducible.
+  (function () {
+    var seed = 20261120;
+    function random() { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }
+    var host = document.getElementById("bars");
+    var count = 104, bursts = [[17, 26, "01"], [51, 61, "02"], [83, 92, "03"]];
+    for (var i = 0; i < count; i++) {
+      var bar = document.createElement("i");
+      var burst = bursts.filter(function (b) { return i >= b[0] && i <= b[1]; })[0];
+      if (burst) {
+        var middle = (burst[0] + burst[1]) / 2, half = (burst[1] - burst[0]) / 2;
+        var shape = 1 - Math.pow(Math.abs(i - middle) / (half + 1.2), 2);
+        bar.style.height = Math.round(46 + 74 * shape + random() * 6) + "px";
+        bar.className = "hit";
+      } else {
+        bar.style.height = Math.round(18 + random() * 22) + "px";
+      }
+      host.appendChild(bar);
+    }
+    bursts.forEach(function (b) {
+      var left = 800 + b[0] * 10 - 9, width = (b[1] - b[0] + 1) * 10 + 14;
+      var box = document.createElement("div");
+      box.className = "bracket";
+      box.style.cssText = "left:" + left + "px;top:686px;width:" + width + "px;height:136px;";
+      document.body.insertBefore(box, host);
+      var mark = document.createElement("div");
+      mark.className = "mark";
+      mark.textContent = b[2];
+      mark.style.cssText = "left:" + left + "px;top:662px;";
+      document.body.appendChild(mark);
+    });
+  })();
+</script>
+</body>
+</html>
