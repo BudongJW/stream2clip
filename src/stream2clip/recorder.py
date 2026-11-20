@@ -186,8 +186,10 @@ class ObsPart(Part):
     """OBS over obs-websocket: scenes, outputs, saved replays, the canvas and the VTube Studio source."""
 
     name = "obs"
-    #: Seconds between two looks at where the VTube Studio source is (it can be moved by hand at any time).
+    #: Seconds between two looks at where the VTube Studio source is when OBS says nothing (it does say when a source is moved, shown or hidden).
     placement_every = 15.0
+    #: Seconds after such a word from OBS before looking: a source being dragged sends many.
+    placement_settle = 0.3
 
     def __init__(self, writer: SessionWriter, connect: Callable[[], Any], *, avatar_source: str | None = None) -> None:
         super().__init__(writer)
@@ -199,6 +201,7 @@ class ObsPart(Part):
         self._placement: Any = None
         self._next_placement = 0.0
         self.replays = 0
+        self._replay_wanted = False
 
     def _open(self, now: float) -> None:
         self.client = self._connect()
@@ -208,10 +211,14 @@ class ObsPart(Part):
         self._scene(str(scene.get("currentProgramSceneName") or scene.get("sceneName") or ""))
         for output, request in (("stream", "GetStreamStatus"), ("record", "GetRecordStatus"), ("replay_buffer", "GetReplayBufferStatus")):
             try:
-                active = bool(self.client.request(request).get("outputActive"))
+                status = self.client.request(request)
             except Exception:
                 continue  # e.g. no replay buffer configured
-            self._output(output, active)
+            active = bool(status.get("outputActive"))
+            running = status.get("outputDuration")  # milliseconds; the stream and the recording say how long they have been on
+            # Already on when the recorder connected: second 0 of the video is when it began, not now.
+            began = now - float(running) / 1000.0 if active and isinstance(running, (int, float)) and running > 0 else None
+            self._output(output, active, began)
         self._next_placement = 0.0
 
     def _drop(self) -> None:
@@ -228,10 +235,10 @@ class ObsPart(Part):
             self.writer.write("scene", name=name)
             self._next_placement = 0.0  # the VTube Studio source may be somewhere else (or nowhere) in this scene
 
-    def _output(self, output: str, active: bool) -> None:
+    def _output(self, output: str, active: bool, when: float | None = None) -> None:
         if self._outputs.get(output) != active:
             self._outputs[output] = active
-            self.writer.write("output", output=output, active=active)
+            self.writer.write("output", when, output=output, active=active)
 
     def _place(self) -> None:
         """Write where the VTube Studio source is in the program scene when that changed (an empty transform: not shown)."""
@@ -251,6 +258,14 @@ class ObsPart(Part):
             self.writer.write("avatar_source", source=self.avatar_source, scene=self.scene, transform=transform)
 
     def _read(self, now: float) -> None:
+        if self._replay_wanted:
+            self._replay_wanted = False
+            try:
+                self.save_replay()
+            except ObsError as exc:
+                if exc.code is None:  # the connection, not the request
+                    raise
+                self.writer.write("status", source="obs", state="connected", detail=f"replay not saved: {exc}")
         for event in self.client.poll(0.0):
             kind, data = event.get("eventType"), event.get("eventData") or {}
             if kind == "CurrentProgramSceneChanged":
@@ -262,6 +277,9 @@ class ObsPart(Part):
                     self._output(output, True)
                 elif state.endswith("_STOPPED"):
                     self._output(output, False)
+            elif kind in ("SceneItemTransformChanged", "SceneItemEnableStateChanged", "SceneItemCreated", "SceneItemRemoved"):
+                if data.get("sceneName") in (None, self.scene):  # moved, shown or hidden in the scene on air: look again in a moment
+                    self._next_placement = min(self._next_placement, now + self.placement_settle)
             elif kind == "ReplayBufferSaved":
                 self.replays += 1
                 self.writer.write("replay_saved", path=str(data.get("savedReplayPath") or ""))
@@ -270,6 +288,10 @@ class ObsPart(Part):
         if self.avatar_source and now >= self._next_placement:
             self._next_placement = now + self.placement_every
             self._place()
+
+    def ask_replay(self) -> None:
+        """Have the replay buffer saved at this part's next turn (from any thread: the connection is used by one thread only)."""
+        self._replay_wanted = True
 
     def save_replay(self) -> None:
         """Ask OBS to save its replay buffer (the saved file arrives as a ``replay_saved`` event)."""
@@ -411,10 +433,7 @@ class SessionRecorder:
             self.writer.write("marker", when, by=by, **({"label": label} if label else {}))
             obs = self.part("obs")
             if self.save_replay_on_marker and isinstance(obs, ObsPart) and obs.client is not None:
-                try:
-                    obs.save_replay()
-                except Exception as exc:
-                    self.writer.write("status", source="obs", state="connected", detail=f"replay not saved: {exc}")
+                obs.ask_replay()
 
     def step(self) -> None:
         """One turn of the loop: markers first (their time is when they were asked for), then every part."""
@@ -423,19 +442,44 @@ class SessionRecorder:
         for part in self.parts:
             part.poll(now)
 
-    def run(self, *, poll: float = 0.1, until: float | None = None, on_step: Callable[["SessionRecorder"], None] | None = None) -> None:
-        """Record until :meth:`stop` (or the clock passes ``until``), then close the parts and the file."""
+    def _drive(self, part: Part, poll: float) -> None:
+        while not self._stop.is_set():
+            part.poll(self._clock())
+            self._stop.wait(poll)
+
+    def run(self, *, poll: float = 0.1, until: float | None = None, on_step: Callable[["SessionRecorder"], None] | None = None, threads: bool = True) -> None:
+        """Record until :meth:`stop` (or the clock passes ``until``), then close the parts and the file.
+
+        Every part reads on a thread of its own: an event gets the time it is read at, and a part
+        that waits for its connection (seconds, when nothing listens) must not hold up the others.
+        ``threads=False`` reads them in turn on this thread, as :meth:`step` does.
+        """
+        workers: list[threading.Thread] = []
         try:
+            if threads and not self._stop.is_set():
+                workers = [threading.Thread(target=self._drive, args=(part, poll), name=f"stream2clip-{part.name}", daemon=True) for part in self.parts]
+                for worker in workers:
+                    worker.start()
             while not self._stop.is_set():
-                self.step()
+                if workers:
+                    self._take_marks()
+                else:
+                    self.step()
                 if on_step is not None:
                     on_step(self)
                 if until is not None and self._clock() >= until:
                     break
                 self._sleep(poll)
         finally:  # also on Ctrl+C: the markers asked for so far are kept, the file is closed properly
+            self._stop.set()
+            for worker in workers:
+                worker.join(timeout=5.0)
             try:
                 self._take_marks()
+                now = self._clock()
+                for part, worker in zip(self.parts, workers):
+                    if part._open_ok and not worker.is_alive():
+                        part.poll(now)  # what was asked for or arrived in the last moment: a marker's replay, the last chat lines
             except Exception:
                 pass
             for part in self.parts:
@@ -505,10 +549,11 @@ def build_recorder(
         parts.append(chat_part(writer, chat, os.fspath(out.with_name(out.stem + "-chat")), config=live_config, ytdlp=ytdlp, viewer_votes=viewer_votes))
     if obs is not None:
         if connect_obs is None:
-            from .obs import EVENTS_GENERAL, EVENTS_OUTPUTS, EVENTS_SCENES, ObsClient
+            from .obs import EVENTS_GENERAL, EVENTS_ITEM_TRANSFORMS, EVENTS_OUTPUTS, EVENTS_SCENE_ITEMS, EVENTS_SCENES, ObsClient
 
             host, port, password = obs
-            connect_obs = lambda: ObsClient(host, port, password, timeout=5.0, events=EVENTS_GENERAL | EVENTS_SCENES | EVENTS_OUTPUTS)  # noqa: E731
+            events = EVENTS_GENERAL | EVENTS_SCENES | EVENTS_OUTPUTS | ((EVENTS_SCENE_ITEMS | EVENTS_ITEM_TRANSFORMS) if avatar_source else 0)
+            connect_obs = lambda: ObsClient(host, port, password, timeout=5.0, events=events)  # noqa: E731
         parts.append(ObsPart(writer, connect_obs, avatar_source=avatar_source))
     if vts_url:
         if connect_vts is None:

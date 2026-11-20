@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 
 import pytest
 
 from stream2clip.chat import ChatMessage
 from stream2clip.cli import main
 from stream2clip.obs import ObsClient
-from stream2clip.recorder import ChatPart, ObsPart, SessionRecorder, VtsPart
+from stream2clip.recorder import ChatPart, ObsPart, Part, SessionRecorder, VtsPart
 from stream2clip.session import SessionWriter, load_session
 from stream2clip.vts import VtsClient, VtsError
 
@@ -121,6 +123,8 @@ class FakeObsServer:
         self.identify = None
         self.closed = False
         self.drop = False
+        self.recording_ms = 0  # how long OBS has been recording already
+        self.threads: list[str] = []  # which thread each request came from
 
     def connect(self, url, timeout):
         return self
@@ -137,6 +141,7 @@ class FakeObsServer:
         d = message["d"]
         kind, data = d["requestType"], d.get("requestData") or {}
         self.requests.append(kind)
+        self.threads.append(threading.current_thread().name)
         ok, out = True, {}
         if kind == "GetVideoSettings":
             out = {"baseWidth": 1920, "baseHeight": 1080, "outputWidth": 1280, "outputHeight": 720, "fpsNumerator": 60, "fpsDenominator": 1}
@@ -145,7 +150,7 @@ class FakeObsServer:
         elif kind == "GetStreamStatus":
             out = {"outputActive": self.streaming}
         elif kind == "GetRecordStatus":
-            out = {"outputActive": False}
+            out = {"outputActive": self.recording_ms > 0, "outputDuration": self.recording_ms}
         elif kind == "GetReplayBufferStatus":
             ok = False  # switched off in the settings
         elif kind in ("GetSceneItemId", "GetSceneItemEnabled", "GetSceneItemTransform"):
@@ -382,3 +387,114 @@ def test_the_widget_shows_the_votes_and_markers(tmp_path):
         recorder.stop()
         recorder.run()
     assert recorder.widget is None  # closed with the recorder
+
+
+class SlowToConnect(Part):
+    """Nothing listens: every try takes a while and fails, as a refused connection does on Windows."""
+
+    name = "vts"
+    retry = 0.0
+
+    def _open(self, now):
+        time.sleep(0.4)
+        raise OSError("nothing listens")
+
+
+class Ticking(Part):
+    """Notes when it was read."""
+
+    name = "obs"
+
+    def __init__(self, writer):
+        super().__init__(writer)
+        self.reads: list[float] = []
+
+    def _open(self, now):
+        pass
+
+    def _read(self, now):
+        self.reads.append(time.monotonic())
+
+
+def longest_gap(tmp_path, threads):
+    writer = SessionWriter(tmp_path / f"s{int(threads)}.jsonl")
+    ticking = Ticking(writer)
+    recorder = SessionRecorder(writer, [SlowToConnect(writer), ticking])
+    recorder.run(poll=0.02, until=time.time() + 1.2, threads=threads)
+    assert len(ticking.reads) >= 2
+    return max(b - a for a, b in zip(ticking.reads, ticking.reads[1:]))
+
+
+def test_a_part_waiting_for_its_connection_does_not_hold_up_the_others(tmp_path):
+    # Seen with a real OBS: while VTube Studio was not running, each try to reach it took 2 s and scene changes were written that much late.
+    assert longest_gap(tmp_path, threads=True) < 0.3
+    assert longest_gap(tmp_path, threads=False) >= 0.4  # read in turn, the wait is everyone's
+
+
+def test_a_recording_already_running_keeps_its_real_start(tmp_path):
+    clock = Clock(2000.0)
+    writer = SessionWriter(tmp_path / "s.jsonl", clock=clock)
+    obs = FakeObsServer()
+    obs.recording_ms = 12500
+    part = ObsPart(writer, lambda: ObsClient(connect=obs.connect, events=69))
+    part.poll(clock())
+    part.close()
+    writer.close()
+    session = load_session(tmp_path / "s.jsonl")
+    assert session.origin("record") == pytest.approx(1987.5)  # second 0 of the recording file, not the moment the recorder connected
+    assert [e.data["active"] for e in session.of("output") if e.data["output"] == "record"] == [True]
+
+
+def test_a_marker_saves_the_replay_on_the_obs_thread(tmp_path):
+    writer = SessionWriter(tmp_path / "s.jsonl")
+    obs = FakeObsServer()
+    recorder = SessionRecorder(writer, [ObsPart(writer, lambda: ObsClient(connect=obs.connect, events=69))], save_replay_on_marker=True)
+    runner = threading.Thread(target=recorder.run, kwargs={"poll": 0.02})
+    runner.start()
+    try:
+        deadline = time.time() + 5
+        while time.time() < deadline and "GetVideoSettings" not in obs.requests:
+            time.sleep(0.01)
+        recorder.mark("button")
+        while time.time() < deadline and not writer.counts.get("replay_saved"):
+            time.sleep(0.01)
+    finally:
+        recorder.stop()
+        runner.join(timeout=10)
+    assert not runner.is_alive() and obs.closed
+    session = load_session(tmp_path / "s.jsonl")
+    assert [e.data["by"] for e in session.of("marker")] == ["button"] and session.of("replay_saved")[0].data["path"] == "C:/replays/r1.mkv"
+    assert set(obs.threads) == {"stream2clip-obs"}  # one thread talks to OBS: the marker's thread only asks for the save
+
+
+def test_a_moved_source_is_looked_at_again_at_once(tmp_path):
+    # Seen with a real OBS: a source moved without a scene change was noticed only at the next 15 s round.
+    clock = Clock()
+    writer = SessionWriter(tmp_path / "s.jsonl", clock=clock)
+    obs = FakeObsServer()
+    part = ObsPart(writer, lambda: ObsClient(connect=obs.connect, events=69), avatar_source="VTS")
+    part.poll(clock())
+    assert writer.counts["avatar_source"] == 1
+    item_id, shown, transform = obs.items[("Game", "VTS")]
+    obs.items[("Game", "VTS")] = (item_id, shown, {**transform, "positionX": 100})
+    obs.event("SceneItemTransformChanged", {"sceneName": "Game", "sceneUuid": "u", "sceneItemId": item_id, "sceneItemTransform": {}})
+    clock.now = 1000.1
+    part.poll(clock())
+    assert writer.counts["avatar_source"] == 1  # still being dragged, perhaps: wait a moment
+    clock.now = 1000.5
+    part.poll(clock())
+    assert writer.counts["avatar_source"] == 2
+    asked = obs.requests.count("GetSceneItemTransform")
+    obs.event("SceneItemTransformChanged", {"sceneName": "Talk", "sceneItemId": 3})  # a scene that is not on air
+    obs.event("SceneItemEnableStateChanged", {"sceneName": "Game", "sceneItemId": item_id, "sceneItemEnabled": False})
+    obs.items[("Game", "VTS")] = (item_id, False, transform)
+    clock.now = 1001.0
+    part.poll(clock())
+    clock.now = 1001.4
+    part.poll(clock())
+    part.close()
+    writer.close()
+    assert obs.requests.count("GetSceneItemTransform") == asked  # hidden: its transform is not asked for
+    placed = load_session(tmp_path / "s.jsonl").of("avatar_source")
+    assert [bool(e.data["transform"]) for e in placed] == [True, True, False] and placed[1].data["transform"]["positionX"] == 100
+

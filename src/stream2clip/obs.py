@@ -31,6 +31,8 @@ OP_HELLO, OP_IDENTIFY, OP_IDENTIFIED, OP_EVENT, OP_REQUEST, OP_RESPONSE = 0, 1, 
 EVENTS_GENERAL = 1 << 0  # EventSubscription::General - ExitStarted ...
 EVENTS_SCENES = 1 << 2  # EventSubscription::Scenes - CurrentProgramSceneChanged
 EVENTS_OUTPUTS = 1 << 6  # EventSubscription::Outputs - where ReplayBufferSaved is sent
+EVENTS_SCENE_ITEMS = 1 << 7  # EventSubscription::SceneItems - a source added, removed, shown or hidden
+EVENTS_ITEM_TRANSFORMS = 1 << 19  # EventSubscription::SceneItemTransformChanged - many while a source is dragged; sent only when asked for
 RPC_VERSION = 1
 
 

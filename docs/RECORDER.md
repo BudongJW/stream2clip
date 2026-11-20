@@ -20,11 +20,11 @@
 | 채팅 | 라이브 모드와 동일한 수신부(Twitch, CHZZK, SOOP 직접 수신, YouTube는 yt-dlp, 파일) | 하이라이트 검출. 방송 후 채팅 다시보기를 받을 필요 없음 |
 | 채팅 급증 | 라이브 모드의 급증 판정(`SurgeDetector`) | `session show`의 시점 목록 |
 | 표시 | 창의 **지금 표시** 버튼, F11(사용 설정 시), 명령줄의 Enter, VTube Studio 단축키(`--vts-hotkey`), 채팅의 `!clip` 등 | 하이라이트 검출에서 항상 클립으로 포함 |
-| OBS 장면 | obs-websocket `CurrentProgramSceneChanged` | `--skip-scene`으로 대기 화면, 엔딩 등 제외 |
-| 송출, 녹화, 리플레이 버퍼 | `StreamStateChanged`, `RecordStateChanged`, `ReplayBufferStateChanged` | 영상의 0초 시점 결정 |
+| OBS 장면 | obs-websocket `CurrentProgramSceneChanged`. OBS가 전환 효과 종료 시점에 통지하므로 효과 길이(기본 0.3초)만큼 늦게 기록 | `--skip-scene`으로 대기 화면, 엔딩 등 제외 |
+| 송출, 녹화, 리플레이 버퍼 | `StreamStateChanged`, `RecordStateChanged`, `ReplayBufferStateChanged`. 기록기 시작 전에 이미 송출, 녹화 중이면 OBS의 진행 시간(`outputDuration`)으로 시작 시점 계산(오차 약 1초) | 영상의 0초 시점 결정 |
 | 저장된 리플레이 | `ReplayBufferSaved` | 표시할 때 리플레이 저장(`--replay-on-marker`) 결과 기록 |
 | 캔버스 크기 | `GetVideoSettings`의 기본 해상도와 출력 해상도 | 아바타 좌표를 영상 픽셀로 변환 |
-| VTube Studio 소스 배치 | `GetSceneItemTransform`(장면 전환 시와 15초마다 확인, 변경 시에만 기록) | 아바타 좌표를 영상 픽셀로 변환. 숨김 상태이거나 장면에 없으면 빈 값 기록 |
+| VTube Studio 소스 배치 | `GetSceneItemTransform`(장면 전환 시, 소스 이동과 표시 변경 통지 0.3초 뒤, 통지가 없어도 15초마다 확인. 변경 시에만 기록) | 아바타 좌표를 영상 픽셀로 변환. 숨김 상태이거나 장면에 없으면 빈 값 기록 |
 | 아바타 외곽선 | VTube Studio `ModelOutlineEvent`(초당 15회 수신, 기본 0.5초마다 기록) | `--avatar session`의 아바타 박스 |
 | 아바타 파라미터 | VTube Studio `Live2DParameterListRequest`(기본 0.2초마다) | `--avatar-motion`(실험): 구간별 움직임을 보조 신호로 하이라이트 점수에 반영. 기본값은 표준 얼굴, 머리 파라미터 13종 |
 | 연결 상태 | 각 부분의 연결, 대기, 재연결 | `session show`의 연결 문제 개수 |
@@ -117,7 +117,7 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 | 앱 | 시작 화면 클립 영역의 **방송 기록기**. 채팅 주소, OBS 사용, VTube Studio 사용, VTS 소스 이름, 표시할 때 리플레이 저장, F11 선택 후 **기록 시작**. 채팅, OBS, VTube Studio의 연결 상태와 채팅, 급증, 표시, 아바타 외곽선 개수 표시. 종료 후 **하이라이트 찾기**로 하이라이트 창의 세션 칸에 세션 파일 입력 |
 | 저장 위치 | 저장 폴더의 `sessions/session-날짜-시각.jsonl`. YouTube 채팅을 yt-dlp로 받는 경우 같은 폴더의 `-chat` 폴더 사용 |
 | F11 | 사용 설정 시 다른 프로그램 사용 중에도 F11로 표시. 사용 중에는 다른 프로그램이 F11을 받지 못하므로 기본값은 사용 안 함 |
-| 연결 실패 | 각 부분이 독립적으로 재연결(채팅 30초, OBS와 VTube Studio 10초 간격). 한 부분의 실패가 다른 부분의 기록을 멈추지 않음 |
+| 연결 실패 | 각 부분이 별도 스레드에서 독립적으로 재연결(채팅 30초, OBS와 VTube Studio 10초 간격). 한 부분의 연결 대기가 다른 부분의 기록과 시각에 영향 없음 |
 | 하이라이트 창 | **세션** 칸에 세션 파일 지정. 채팅 칸에 넣거나 창에 끌어다 놓은 세션 파일은 세션 칸으로 이동. 채팅 칸이 비어 있으면 세션의 채팅과 표시로 검출 |
 | 하이라이트 창의 세션 설정 | 세션 지정 시 표시. **0초 기준**(`--session-origin`)과 보정 초(`--session-offset`), **제외 장면**(`--skip-scene`, 쉼표 구분), **아바타 움직임 (실험)**(`--avatar-motion`) |
 | 하이라이트 창의 아바타 | 내보내기 설정 아바타 줄의 **세션에서**(`--avatar session`). 체크한 하이라이트 구간의 외곽선 기준이며 해당 구간에 외곽선이 없으면 세션 전체 기준 |
