@@ -570,3 +570,28 @@ def test_clips_take_the_avatar_offset_from_the_session(tmp_path, capsys):
     assert _avatar_offset(argparse.Namespace(avatar_offset=None, avatar_video="avatar.mov", session=None)) == 0.0
     assert _avatar_offset(argparse.Namespace(avatar_offset=None, avatar_video=None, session=str(path))) == 0.0
 
+
+def test_votes_right_after_a_marker_are_not_counted(tmp_path):
+    # Seen with live chats: after the marker the widget went on counting, up to "14 / 3".
+    clock = Clock()
+    writer = SessionWriter(tmp_path / "s.jsonl", clock=clock)
+
+    def votes(start, names):
+        return [ChatMessage(time=start + i, text="!clip", author=name) for i, name in enumerate(names)]
+
+    chat = ListChat([votes(1000, "abc"), votes(1010, "defgh"), votes(1070, "ij"), votes(1075, "k")])
+    part = ChatPart(writer, lambda: chat, viewer_votes=3)
+    part.poll(clock())
+    assert writer.counts["marker"] == 1 and part.voters == 0
+    part.poll(clock())
+    assert part.voters == 0 and writer.counts["marker"] == 1  # five more within the minute: about the same moment
+    part.poll(clock())
+    assert part.voters == 2  # the minute is over: counted afresh
+    part.poll(clock())
+    assert writer.counts["marker"] == 2 and part.voters == 0
+    writer.close()
+    assert [e.t for e in load_session(tmp_path / "s.jsonl").of("marker")] == [1000.0, 1070.0]
+    from stream2clip.widget import PAGE
+
+    assert "Math.min(s.votes, s.needed)" in PAGE  # the page never shows more votes than are needed
+
