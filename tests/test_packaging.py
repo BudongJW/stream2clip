@@ -231,3 +231,43 @@ def test_commits_signed_by_a_tool_are_found(capsys):
     assert check.main(["main..HEAD"], run=lambda cmd, **kwargs: types.SimpleNamespace(stdout=log.split("\x1e")[0] + "\x1e")) == 0
     assert check.main([]) == 2
 
+
+def test_demo_stream_schedule_chat_and_game():
+    spec = importlib.util.spec_from_file_location("build_demo_stream", ROOT / "packaging" / "build_demo_stream.py")
+    demo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(demo)
+
+    big = demo.moments(900)
+    assert big == [110.0, 310.0, 510.0, 710.0] and demo.moments(180) == [110.0] and demo.moments(120) == []
+    said = demo.lines(900)
+    assert said == sorted(said) and said[0] == (2.0, demo.OPENING) and said[-1][1] == demo.CLOSING
+    for m in big:  # something is said just before and right at each big moment
+        assert any(m - 8 < t < m for t, _ in said) and any(m <= t < m + 2 for t, _ in said)
+
+    rows = demo.chat_rows(900)
+    assert rows[0] == "time,author,text" and rows == demo.chat_rows(900)  # the same chat every time
+    times = [float(row.split(",", 1)[0]) for row in rows[1:]]
+    assert times == sorted(times) and times[-1] < 900
+    for m in big:  # the chat bursts a few seconds after the moment, as a real chat does
+        burst = sum(m + 3 <= t < m + 25 for t in times)
+        quiet = sum(m - 30 <= t < m - 8 for t in times)
+        assert burst > 5 * quiet > 0
+
+    game, other = demo.Game(), demo.Game()
+    start = len(game.bricks)
+    heard = []
+    for _ in range(900):
+        heard += game.step(1 / 30)
+        other.step(1 / 30)
+        assert 1 <= len(game.balls) <= 3
+    assert game.score > 0 and (len(game.bricks) < start or game.stage > 1) and "brick" in heard and "paddle" in heard
+    assert (other.score, other.stage, sorted(other.bricks)) == (game.score, game.stage, sorted(game.bricks))  # it plays itself the same way
+    game.frenzy()
+    assert len(game.balls) >= 10 and game.wild
+    before = game.score
+    for _ in range(300):
+        game.step(1 / 30)
+    assert len(game.balls) >= 10 and game.score > before + 300  # no ball is lost in a big moment, and bricks fall fast
+    game.calm()
+    assert len(game.balls) == 2 and not game.wild
+

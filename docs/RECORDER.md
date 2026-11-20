@@ -140,7 +140,8 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 | 시작과 중지 | `session record --avatar-record --vts-source "소스 이름"`: 기록 시작 시 Source Record의 `record_start`, 종료 시 `record_stop` 요청(obs-websocket `CallVendorRequest`, 벤더 이름 `source-record`). 시작 시각을 `avatar_record` 이벤트로 기록 |
 | 오프셋 자동 계산 | `--avatar-video`와 `--session`을 함께 지정하면 `--avatar-offset`을 세션의 시작 시각으로 계산(영상 0초 기준과 보정 초 반영). 직접 지정한 값이 우선 |
 | 플러그인이 없는 경우 | 연결 상태에 사유를 기록하고 나머지 기록 계속 |
-| 미검증 | 실제 Spout2, Source Record 플러그인으로의 확인(이 PC에 미설치). 요청 이름과 항목은 플러그인 공개 소스 기준, 가짜 서버로 테스트. 플러그인이 녹화를 실제로 시작하기까지의 지연에 따른 오프셋 오차 미측정 |
+| 실측 | Source Record 0.5.0, OBS 33.0.1에서 확인. 세션으로 계산한 오프셋과 화면에서 측정한 값의 차이 0.16초 |
+| 미검증 | Spout2로 받은 VTube Studio 화면과 투명 배경 녹화 |
 | 앱 | 기록기 창에는 해당 설정 없음. 명령줄에서만 사용 |
 
 ```bash
