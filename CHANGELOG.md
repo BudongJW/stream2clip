@@ -25,6 +25,10 @@
 - `session record --avatar-record`: OBS의 Source Record 필터(별도 플러그인)로 아바타 소스만 따로 녹화하도록 시작과 중지를 요청하고 시작 시각을 세션에 기록. `--avatar-video`와 `--session`을 함께 지정하면 `--avatar-offset` 자동 계산. 플러그인 코드는 포함하지 않으며 실제 플러그인으로는 미검증
 - `--avatar-motion`(실험): 기록된 VTube Studio 파라미터의 구간별 변화량을 하이라이트 점수의 보조 신호로 사용(가중치 0.15, 다른 신호를 깎지 않음). 근거 문구 **아바타 움직임 큼 (실험)**
 
+### 문서 및 개발
+- README 첫 항목을 빠른 시작으로 구성: Windows 앱 기준 4단계와 명령줄 기준 4개 명령
+- PR 커밋 검사 추가(`packaging/check_commits.py`, CI의 commits 작업): 도구 명의의 작성자, 도구를 가리키는 `Co-Authored-By` 서명, 세션 주소 꼬리표가 있는 커밋 차단
+
 ### 확인 내용
 - OBS와 VTube Studio는 공개 프로토콜 문서(obs-websocket 5, VTube Studio 공개 API의 인증, 이벤트, 좌표계) 기준으로 작성하고 가짜 서버로 테스트
 - 합성 영상과 합성 외곽선으로 `--avatar session` 세로 클립 제작까지 확인
