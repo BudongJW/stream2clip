@@ -3,11 +3,12 @@
 > 조사 기준일: 2026-11-18. 범위 밖(다른 조사자 담당): 쇼츠 제작, 키리누키/하이라이트 추출 알고리즘, 아바타 렌더링, Live2D, 3D/VRM.
 > 메타데이터 수집 방법: GitHub REST API가 이 세션에서 막혀 있어 star 수, 마지막 push 날짜, 설명은 GitHub 미러 API `ungh.cc`(`https://ungh.cc/repos/{owner}/{repo}`)로, 라이선스는 각 저장소의 `LICENSE` 파일 본문(raw.githubusercontent.com)을 직접 읽어 판별했다(2026-11-18 조회). "archived" 플래그는 직접 확인하지 못했으므로, 아래 상태 표시는 마지막 push 날짜와 README의 공지 문구를 근거로 한다. 표기는 `★star / 라이선스 / 마지막 push`.
 > 상태 범례: **활발**(최근 3개월 내 push), **둔화**(3~12개월), **정체**(12개월 넘음), **중단**(README에 유지보수 중단 공지).
+> 2026-11-20 정정: §1의 "CHZZK/SOOP 공식 API가 확인되지 않았다"는 서술은 틀렸다. 두 플랫폼 모두 공식 Open API가 있다. 다만 채팅 수신은 OAuth로 동의한 본인 채널에만 쓸 수 있다. §1의 Takeaway, 한국 항목, Inferences, Gaps와 §8 Inferences를 고쳤다. CHZZK·SOOP 추가 조사(공식 API 세부, 외부 오픈소스)는 `07_chzzk_soop.md`에 있다.
 
 ## 1. VTuber 데이터/메타데이터 플랫폼과 API (Holodex, 스케줄 트래커, vtbs.moe, 시청 통계, 한국 CHZZK/SOOP)
 
 ### Takeaway
-stream2clip이 바로 쓸 수 있는 공개 API는 사실상 Holodex v2 하나다. 라이브/아카이브/클립 목록, 곡 정보, 타임스탬프 댓글까지 제공한다. 다만 API 키가 필요하고, 파생 콘텐츠에 유료 과금을 금지하는 약관이 있다. 한국(CHZZK/SOOP)에는 VTuber 전용 통계 사이트나 공식 API가 확인되지 않았다. 비공식 라이브러리와 streamlink 플러그인으로 대체해야 한다.
+stream2clip이 바로 쓸 수 있는 공개 API는 사실상 Holodex v2 하나다. 라이브/아카이브/클립 목록, 곡 정보, 타임스탬프 댓글까지 제공한다. 다만 API 키가 필요하고, 파생 콘텐츠에 유료 과금을 금지하는 약관이 있다. 한국(CHZZK/SOOP)에는 VTuber 전용 통계 사이트가 확인되지 않았다. 두 플랫폼 모두 공식 Open API가 있지만, 채팅은 OAuth로 동의한 본인 채널에서만 받을 수 있고 다시보기 채팅 API는 문서에 없다. 그래서 남의 방송과 다시보기를 다루는 클립 작업은 비공식 라이브러리, 비공식 엔드포인트, streamlink 플러그인에 기대야 한다.
 
 ### Cited Findings
 **Holodex (홀로덱스)**
@@ -31,16 +32,28 @@ stream2clip이 바로 쓸 수 있는 공개 API는 사실상 Holodex v2 하나�
 - Stream Hatchet의 SOOP 첫 주 리뷰(2024)에서 VTuber 아이네가 최다 시청 스트리머 10위에 올랐다 — [Stream Hatchet](https://streamhatchet.com/blog/soop-first-week-in-live-streaming-review/)
 - CHZZK 비공식 라이브러리: kimcore/chzzk(JS) ★211 / MIT / 2024-08-13 (정체) — [GitHub](https://github.com/kimcore/chzzk). gunyu1019/chzzkpy(Python) ★47 / MIT / 2026-11-12 (활발) — [GitHub](https://github.com/gunyu1019/chzzkpy)
 - streamlink 본가에 `chzzk.py`와 `soop.py` 플러그인이 있다. `afreeca.py`는 더 이상 없다(SOOP로 이름 변경). `twitcasting.py`와 `nicolive.py`도 있다. chzzk 플러그인 메타데이터는 `$type live, vod`다 — [streamlink plugins 디렉터리](https://github.com/streamlink/streamlink/tree/master/src/streamlink/plugins)
+- (2026-11-20 추가) CHZZK 공식 Open API(CHZZK Developers):
+  - 문서 목차는 Authorization, Session, User, Channel, Category, Live, Chat, Drops, Restriction이다. 다시보기와 클립 항목은 없다.
+  - 채팅 이벤트 구독(`POST /open/v1/sessions/events/subscribe/chat`, Scope "채팅 메시지 조회")은 "사용자의 채팅 이벤트"를 구독한다.
+  - 유저 세션은 "세션 생성에 사용된 Access Token과 동일한 유저 이벤트만 구독"할 수 있다.
+  - 소켓은 Socket.IO-client 1.0.0~2.0.3만 지원한다.
+  - 출처 — [CHZZK Developers](https://chzzk.gitbook.io/chzzk), [Session](https://chzzk.gitbook.io/chzzk/chzzk-api/session)
+- (2026-11-20 추가) SOOP 공식 Open API와 Chat SDK(SOOP Developers):
+  - API 범위에는 다시보기 목록(`broad_review_list`), 생방송 상태(`validate_live_status`), 방송국 정보, 채팅 조회·전송·후원 메시지 조회(`broad_access_chatinfo`) 등이 있다.
+  - Chat SDK는 브라우저 JavaScript 전용이다. 문서는 "현재 SDK로 개발된 프로그램은 본인 방송에만 접속하여 사용이 가능"하다고 밝힌다.
+  - 일부 scope는 별도 심사를 거친다.
+  - 출처 — [SOOP Developers](https://developers.sooplive.co.kr/) (SPA라서 사이트 JS 번들의 문서 문자열로 확인)
 
 ### Inferences
 - stream2clip의 "소스 발견" 단계(어떤 방송을 언제 클립할지)는 Holodex `/live`·`/videos`·`/channels/{id}/clips`로 구현할 수 있다. `c=1` 타임스탬프 댓글은 하이라이트 후보의 약한 라벨(weak label)로 쓸 수 있다. 다만 상업 서비스로 만들면 "파생 콘텐츠 프리미엄 과금 금지" 조항과 충돌할 수 있으니 약관 검토가 필요하다.
-- 한국 VTuber를 지원하려면 chzzkpy + streamlink(chzzk/soop 플러그인) 조합이 가장 현실적이다. 메타데이터 DB는 자체 구축해야 한다.
+- 한국 VTuber를 지원하려면 chzzkpy + streamlink(chzzk/soop 플러그인) 조합이 가장 현실적이다. 메타데이터 DB는 자체 구축해야 한다. 공식 Open API는 본인 채널 전용이라 키리누키 편집자의 주 용도(남의 방송, 다시보기)에는 쓸 수 없다. 스트리머가 자기 방송에 라이브 모드를 쓸 때만 선택 백엔드로 검토할 만하다.
 - 통계 사이트(Playboard, StreamsCharts)는 채널 우선순위 결정용 참고 자료다. 파이프라인 입력으로는 부적합하다(유료이거나 정확도 논란이 있음).
 
 ### Gaps
 - Holodex API의 실제 레이트리밋 수치는 문서에 없다.
 - TwitchTracker와 SullyGnome의 API 제공 여부와 조건은 이번 검색에서 1차 출처로 확인하지 못했다.
 - CHZZK/SOOP VTuber 전용 통계 사이트(예: 커뮤니티 운영 랭킹)는 검색으로 찾지 못했다.
+- CHZZK·SOOP 공식 Open API는 문서만 읽었고 실제로 호출해 보지 않았다(앱 등록과 OAuth 동의 필요). 이용약관도 읽지 않았다.
 - 공식 hololive/にじさんじ 스케줄 사이트의 API 존재 여부는 확인하지 않았다.
 
 ## 2. AI VTuber (LLM + TTS + 아바타 파이프라인)
@@ -272,7 +285,7 @@ VTuber 커뮤니티에는 크라우드소싱 타임스탬프(디스코드 tagger
 ### Inferences
 - bilive와 biliup은 stream2clip의 아키텍처 레퍼런스로 가장 가치가 높다. 특히 녹화와 처리를 파이프라인으로 겹쳐 돌리는 구조, 탄막(채팅) 밀도 기반 슬라이스, LLM 제목 생성, 사람 확인 단계(human-in-the-loop)가 참고할 만하다. biliup은 MIT라 코드 재사용도 가능하다(bilive는 Apache-2.0).
 - 두 프로젝트 모두 업로드 대상이 빌리빌리 중심이다. YouTube Shorts, TikTok 업로드와 hololive·にじさんじ 가이드라인 준수 로직을 붙이는 것이 stream2clip의 차별점이 될 수 있다.
-- 한국어권(CHZZK/SOOP)은 녹화 스크립트 수준의 소규모 프로젝트뿐이라, "CHZZK/SOOP + 한국어 자막 + 쇼츠" 엔드투엔드는 사실상 비어 있는 영역이다.
+- 한국어권(CHZZK/SOOP)은 녹화 스크립트 수준의 소규모 프로젝트뿐이라, "CHZZK/SOOP + 한국어 자막 + 쇼츠" 엔드투엔드는 사실상 비어 있는 영역이다. 2026-11-20 추가 조사에서도 이 판단은 그대로다. 녹화기, 후보 구간 표시 도구, 노래 구간 도구는 늘었지만 렌더링까지 잇는 도구는 없었다(`07_chzzk_soop.md` 참고).
 
 ### Gaps
 - 상용 서비스(OpusClip, Eklipse, Vizard 등)는 쇼츠·하이라이트 담당 조사자 범위로 보고 조사하지 않았다.
