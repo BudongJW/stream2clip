@@ -107,6 +107,7 @@ class SessionWindow(QWidget):
         grid.addWidget(self.source_edit, 3, 1, 1, 2)
         grid.addWidget(QLabel(tr("표시")), 4, 0)
         marks = QHBoxLayout()
+        marks.setSpacing(18)
         self.replay_check = QCheckBox(tr("표시할 때 OBS 리플레이도 저장"))
         marks.addWidget(self.replay_check)
         self.hotkey_check = QCheckBox(MARKER_KEY)
