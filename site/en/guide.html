@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.13</dd>
+    <dt>Version</dt><dd>v0.14</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -68,6 +68,7 @@
       <li><a href="#subtitles">Subtitles and translation</a></li>
       <li><a href="#obs">OBS replay</a></li>
       <li><a href="#live">Live mode</a></li>
+      <li><a href="#recorder">Stream recorder</a></li>
       <li><a href="#cli">Command line</a></li>
       <li><a href="#troubleshooting">Troubleshooting</a></li>
       <li><a href="#notice">Copyright and guidelines</a></li>
@@ -351,6 +352,39 @@
         </tbody>
       </table>
     </div>
+
+    <h2 id="recorder">Stream recorder</h2>
+    <p>Records the chat, markers, OBS scenes and the position and expression of the VTube Studio avatar into a session file during the stream, for making clips afterwards. OBS records the video.</p>
+    <h3>Procedure</h3>
+    <ol>
+      <li>Open <strong>Stream recorder</strong> in the clip area of the start window</li>
+      <li>Enter the live address of the streamer's own channel and choose whether to use OBS and VTube Studio. In VTube Studio, switch the API on in the settings and press Allow in the plugin popup the first time</li>
+      <li>Enter the name of the OBS source that shows VTube Studio. It places the avatar box when clips are made</li>
+      <li>Run <strong>Start recording</strong>. At a moment to keep, press <strong>Mark now</strong> or F11 (when switched on)</li>
+      <li>After the stream, <strong>Stop recording</strong>, then <strong>Find highlights</strong> opens the session file in the highlights window</li>
+    </ol>
+    <h3>What is recorded and what for</h3>
+    <ul>
+      <li>Chat and markers: highlights are found without downloading the chat replay. Marked moments always become clips</li>
+      <li>OBS scenes: highlights in chosen scenes such as a waiting or ending screen are left out</li>
+      <li>VTube Studio outline and its place in OBS: the avatar box of vertical clips</li>
+      <li>Second 0 of the video is when OBS started streaming, or recording when it did not stream</li>
+      <li>Viewer votes: 3 viewers typing <code>!clip</code> within 30 seconds leave a marker</li>
+      <li>OBS widget: <code>http://127.0.0.1:8790/widget</code> added as an OBS browser source shows the votes and markers on stream</li>
+      <li>Chatters are recorded only as values that do not identify them, and the file stays on this PC</li>
+    </ul>
+    <h3>Settings in the highlights window</h3>
+    <ul>
+      <li>Put the session file in the <strong>Session</strong> box. A session file put in the chat box or dropped on the window moves there too. With the chat box empty, highlights are found from the session's chat and markers</li>
+      <li><strong>Second 0</strong>: choose OBS stream start for a platform's replay and OBS recording start for an OBS recording file. When the video starts later than that, enter the difference in seconds</li>
+      <li><strong>Skip scenes</strong>: parts of scene names separated by commas. Highlights with half or more of their length in such a scene are left out</li>
+      <li><strong>Avatar motion (experimental)</strong>: adds to the score of moments in which the avatar moved a lot</li>
+      <li><strong>From session</strong> in the avatar row of the export settings: fills the avatar box from the outline during the ticked highlights</li>
+      <li><strong>Audio track</strong>: the track number when OBS recorded the microphone on a track of its own. Used for subtitles, silences and loudness, and the sound of the clips does not change</li>
+    </ul>
+    <h3>Command line</h3>
+    <pre><code>stream2clip.exe session record --chat "https://chzzk.naver.com/live/CHANNEL_ID" --vts --vts-source "VTube Studio"</code></pre>
+    <pre><code>stream2clip.exe auto vod.mp4 -o clips --session session.jsonl --skip-scene waiting --layout stack --avatar session</code></pre>
 
     <h2 id="cli">Command line</h2>
     <p>Every function of the app is available through <code>stream2clip.exe</code>. Used for processing several streams in one go.</p>

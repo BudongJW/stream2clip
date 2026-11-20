@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stream2clip"
-version = "0.13.2"
+version = "0.14.0"
 description = "Stream in. Clips out. Capture, annotate, record and auto-clip VTuber streams (highlights from chat, 9:16 layouts, karaoke subtitles, GIF/MP4/WebP with transparency)"
 readme = "README.md"
 license = "Apache-2.0"
@@ -34,6 +34,7 @@ stream2clip = "stream2clip.cli:main"
 
 [project.gui-scripts]
 stream2clip-gui = "stream2clip.gui.app:main"
+stream2clip-recorder = "stream2clip.gui.session:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

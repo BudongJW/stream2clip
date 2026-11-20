@@ -13,7 +13,21 @@ from .ffmpeg import find_ffmpeg
 __all__ = ["SingingSection", "audio_levels", "audio_envelope", "decode_pcm", "sound_parts", "laughter_levels", "singing_sections"]
 
 
-def audio_levels(path: str | os.PathLike[str], *, window: float = 10.0, sample_rate: int = 8000, ffmpeg: str | None = None) -> np.ndarray:
+def track_map(track: int | None) -> list[str]:
+    """ffmpeg options that pick audio track ``track`` (0 = the first; ``None``: ffmpeg's choice).
+
+    OBS can record several tracks (Settings > Output > Recording > Audio Track); with the
+    microphone alone on one of them, subtitles and the sound signals hear the streamer
+    without the game and the music.
+    """
+    if track is None:
+        return []
+    if track < 0:
+        raise ValueError("The audio track number starts at 0")
+    return ["-map", f"0:a:{track}"]
+
+
+def audio_levels(path: str | os.PathLike[str], *, window: float = 10.0, sample_rate: int = 8000, ffmpeg: str | None = None, track: int | None = None) -> np.ndarray:
     """Return RMS loudness in dBFS for consecutive ``window``-second buckets.
 
     Audio is decoded to mono ``sample_rate`` Hz 16-bit PCM and streamed, so
@@ -23,7 +37,7 @@ def audio_levels(path: str | os.PathLike[str], *, window: float = 10.0, sample_r
         raise ValueError("window must be positive")
     cmd = [
         ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin",
-        "-i", os.fspath(path), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "-",
+        "-i", os.fspath(path), *track_map(track), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "-",
     ]
     chunk = max(1, int(round(window * sample_rate)))
     levels: list[float] = []
@@ -49,11 +63,11 @@ def audio_levels(path: str | os.PathLike[str], *, window: float = 10.0, sample_r
     return np.array(levels, dtype=np.float64)
 
 
-def audio_envelope(path: str | os.PathLike[str], *, rate: int = 100, sample_rate: int = 8000, ffmpeg: str | None = None) -> np.ndarray:
+def audio_envelope(path: str | os.PathLike[str], *, rate: int = 100, sample_rate: int = 8000, ffmpeg: str | None = None, track: int | None = None) -> np.ndarray:
     """RMS amplitude (0..1) in ``1 / rate`` second frames, streamed so hours of audio stay small in memory."""
     cmd = [
         ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin",
-        "-i", os.fspath(path), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "-",
+        "-i", os.fspath(path), *track_map(track), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "-",
     ]
     hop = max(1, sample_rate // rate)
     frames: list[np.ndarray] = []
@@ -79,7 +93,7 @@ def audio_envelope(path: str | os.PathLike[str], *, rate: int = 100, sample_rate
     return np.concatenate(frames) if frames else np.empty(0, dtype=np.float32)
 
 
-def laughter_levels(source: "str | os.PathLike[str] | np.ndarray", *, window: float = 5.0, rate: int = 100, ffmpeg: str | None = None) -> np.ndarray:
+def laughter_levels(source: "str | os.PathLike[str] | np.ndarray", *, window: float = 5.0, rate: int = 100, ffmpeg: str | None = None, track: int | None = None) -> np.ndarray:
     """Experimental: how much each ``window`` sounds like a burst of laughter (0 = not at all).
 
     Laughter is loud and chopped into a few bursts per second ("ha-ha-ha"). Each second is
@@ -93,7 +107,7 @@ def laughter_levels(source: "str | os.PathLike[str] | np.ndarray", *, window: fl
     """
     if window <= 0:
         raise ValueError("window must be positive")
-    envelope = source if isinstance(source, np.ndarray) else audio_envelope(source, rate=rate, ffmpeg=ffmpeg)
+    envelope = source if isinstance(source, np.ndarray) else audio_envelope(source, rate=rate, ffmpeg=ffmpeg, track=track)
     span, step = 2 * rate, rate  # 2 s of envelope, scored every second
     if envelope.size < span:
         return np.zeros(max(1, int(np.ceil(envelope.size / rate / window))))
@@ -121,6 +135,7 @@ def laughter_levels(source: "str | os.PathLike[str] | np.ndarray", *, window: fl
 
 def decode_pcm(
     path: str | os.PathLike[str], *, sample_rate: int = 16000, start: float | None = None, duration: float | None = None, ffmpeg: str | None = None,
+    track: int | None = None,
 ) -> np.ndarray:
     """Decode a media file (or ``duration`` seconds of it from ``start``) to mono float32 samples in -1..1."""
     cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin"]
@@ -128,7 +143,7 @@ def decode_pcm(
         cmd += ["-ss", f"{max(0.0, start):.3f}"]
     if duration is not None:
         cmd += ["-t", f"{duration:.3f}"]
-    cmd += ["-i", os.fspath(path), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "f32le", "-"]
+    cmd += ["-i", os.fspath(path), *track_map(track), "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "f32le", "-"]
     proc = subprocess.run(cmd, capture_output=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(f"ffmpeg could not decode audio from {path}: {proc.stderr.decode('utf-8', 'replace').strip()[-400:]}")
@@ -240,6 +255,7 @@ def singing_sections(
     steadiness: float = 0.75,
     held_pitch: float = 0.05,
     ffmpeg: str | None = None,
+    track: int | None = None,
 ) -> list[SingingSection]:
     """Find the songs in a stream (歌枠, karaoke) from the audio alone.
 
@@ -258,7 +274,7 @@ def singing_sections(
 
     ``source`` is a media file, or mono float samples at 8 kHz.
     """
-    pcm = source if isinstance(source, np.ndarray) else decode_pcm(source, sample_rate=_SING_RATE, ffmpeg=ffmpeg)
+    pcm = source if isinstance(source, np.ndarray) else decode_pcm(source, sample_rate=_SING_RATE, ffmpeg=ffmpeg, track=track)
     freq, tonal, level = _tone_track(np.asarray(pcm, dtype=np.float32))
     per = max(1, int(round(window * _SING_RATE / _SING_HOP)))
     count = freq.size // per

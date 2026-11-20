@@ -144,6 +144,15 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 - 필터 순서: `crop, fps, scale, (format=rgba, colorkey), 포맷별 처리(GIF 팔레트 / 픽셀 포맷)`
 - yuv420 계열(MP4, WebM)은 짝수 크기로 조정
 
+### 방송 기록기 (`stream2clip session record`)
+
+- 절차: `build_recorder()`가 세션 파일(`SessionWriter`)과 부분(`ChatPart`, `ObsPart`, `VtsPart`)을 조립, `SessionRecorder.run()`이 0.1초 간격으로 각 부분을 폴링
+- 각 부분은 짧은 수신 대기(OBS, VTube Studio 0.001초, 채팅 0.05초)로 도착한 메시지만 읽고 반환. 스레드를 추가로 만들지 않음
+- 연결 실패 시 해당 부분만 `waiting` 상태로 두고 일정 시간 후 재연결. 상태 변화는 `status` 사건으로 기록
+- 표시(`mark()`)는 다른 스레드(창, 단축키)에서 호출 가능. 호출 시각으로 대기열에 넣고 다음 폴링에서 기록
+- 방송 후: `load_chat`이 세션 파일을 채팅으로 읽음. `session.avatar_region()`이 외곽선과 OBS 배치로 아바타 박스 계산
+- 상세: [RECORDER.md](RECORDER.md)
+
 ## Windows 실행 파일 (`packaging/`)
 
 `packaging/build_windows.py`가 PyInstaller로 `stream2clip-gui.exe`(창)와 `stream2clip.exe`(콘솔)를 라이브러리를 공유하는 한 폴더에 생성하고 zip으로 묶음. `--installer` 지정 시 Inno Setup으로 설치 프로그램 추가 생성
@@ -177,6 +186,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 | 녹화 스레드 | 프레임 캡처, ffmpeg stdin 쓰기. mss 핸들은 스레드마다 별도 생성 |
 | 인코딩 스레드 | 정지 후 내보내기. 결과는 Qt 시그널(`finished`, `failed`)로 GUI 스레드에 전달 |
 | 라이브 모드 스레드 | 채팅 감시와 급증 판정, 리플레이 저장. 결과는 Qt 시그널로 런처에 전달 |
+| 방송 기록기 스레드 | 채팅, OBS, VTube Studio 폴링과 세션 파일 기록. 창은 0.5초 타이머로 상태와 개수를 읽어 표시 |
 
 ## 테스트
 

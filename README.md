@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.13.2-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.14.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-517-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-575-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -39,13 +39,50 @@
 
 <br>
 
-**[다운로드, 사용 설명서](https://budongjw.github.io/stream2clip/)** ([English](https://budongjw.github.io/stream2clip/en/), [日本語](https://budongjw.github.io/stream2clip/ja/)) | [주요 기능](#주요-기능) | [자동 클립](#방송-클립-자동화) | [스크린샷](#스크린샷) | [기술 스펙](#기술-스펙) | [설치](#설치) | [사용법](#사용법) | [이식](#라이브러리로-쓰기-다른-프로젝트에-이식) | [구조](#구조) | [브랜드](#브랜드) | [로드맵](#로드맵)
+**[다운로드, 사용 설명서](https://budongjw.github.io/stream2clip/)** ([English](https://budongjw.github.io/stream2clip/en/), [日本語](https://budongjw.github.io/stream2clip/ja/)) | [빠른 시작](#빠른-시작) | [주요 기능](#주요-기능) | [자동 클립](#방송-클립-자동화) | [스크린샷](#스크린샷) | [기술 스펙](#기술-스펙) | [설치](#설치) | [사용법](#사용법) | [이식](#라이브러리로-쓰기-다른-프로젝트에-이식) | [구조](#구조) | [브랜드](#브랜드) | [로드맵](#로드맵)
 
 <br>
 
 <img alt="긴 방송 속 레전드만 쏙. stream2clip 키 비주얼" src="assets/brand/02_concept-image_keyvisual_1920x1080.png" width="100%">
 
 </div>
+
+<br>
+
+## 빠른 시작
+
+Windows 앱 기준. 설치부터 첫 클립까지 4단계
+
+| 순&NoBreak;서 | 작업 | 내용 |
+|:---:|---|---|
+| 1 | 설치 | [홈페이지](https://budongjw.github.io/stream2clip/)에서 설치 프로그램 다운로드 후 실행. ffmpeg는 설치 과정에서 내려받기 |
+| 2 | 실행 | 시작 메뉴의 stream2clip 실행 후 클립 영역의 **하이라이트 찾기** 선택 |
+| 3 | 검출 | 영상 칸에 방송 주소 또는 다시보기 파일 입력 후 **하이라이트 찾기**. 방송 주소는 채팅 다시보기로 구간을 찾고 그 구간의 영상만 다운로드 |
+| 4 | 내보내기 | 검출된 구간 확인 후 **클립 내보내기**. 저장 칸의 폴더에 세로형 클립 생성 |
+
+- 캡쳐와 움짤 녹화: 앱 실행 상태에서 <kbd>F8</kbd> 영역 캡쳐, <kbd>F9</kbd> 영역 녹화
+- 방송 중 기록: 시작 화면의 **방송 기록기**. 상세는 [방송 기록기](#방송-기록기)
+
+명령줄 기준(macOS, Linux 포함). Python 3.10 이상과 ffmpeg 필요
+
+```bash
+git clone https://github.com/BudongJW/stream2clip.git
+```
+
+```bash
+cd stream2clip
+```
+
+```bash
+pip install -e ".[gui]"
+```
+
+```bash
+stream2clip auto "방송 주소" --top 5 -o clips
+```
+
+- 설치 방법별 상세: [설치](#설치)
+- 앱과 명령줄 전체 사용법: [사용법](#사용법), [방송 클립 자동화](#방송-클립-자동화)
 
 <br>
 
@@ -69,6 +106,7 @@
 
 | &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 주요 변경 |
 |:---:|---|
+| v0.14 | 방송 기록기: 방송 중 채팅, 표시, OBS 장면, VTube Studio 아바타 기록, 세션 파일로 하이라이트 검출과 아바타 영역 지정 |
 | v0.13 | 앱의 구성요소 점검 창 |
 | v0.12 | 무음 구간 제거(`--trim-silence`), 앱의 새 버전 알림 |
 | v0.11 | 편집 프로그램용 내보내기(EDL 컷 목록, 타임라인 마커, 타임스탬프), 모음 영상(`compile`), 출처 표기(`--credit`), 파일 끌어다 놓기 |
@@ -114,6 +152,7 @@
 | 카라오케 자막 | 단어 단위로 강조되는 자막. SRT, YouTube 자동 자막 VTT, Whisper 지원. 번역기 연결 시 번역 자막 및 원문 병기. 말이 끊기지 않도록 클립의 시작과 끝을 자막 줄의 경계로 이동. 언어별 폰트 자동 선택, 문절 단위 줄바꿈, 스타일 4종과 위치 선택 |
 | 가이드라인 점검 | hololive, にじさんじ, ぶいすぽっ!, あおぎり高校 프로필 제공. 원본 URL과 제목을 최상단에 둔 설명란 생성, 멤버십, 아카이브 공개, 채널 등록, AI 표기 사전 점검. VRM 아바타 파일의 사용 조건(영리 사용, 크레딧 표기) 검사 |
 | 라이브 모드 | 방송 중 채팅 급증 시 OBS 리플레이 버퍼를 저장하여 해당 장면을 클립으로 자동 저장. YouTube, Twitch, CHZZK, SOOP 채팅 직접 수신 |
+| 방송 기록기 | 방송 중 채팅, 스트리머 표시(버튼, F11, VTube Studio 단축키), OBS 장면과 송출 시작, VTube Studio 아바타 외곽선과 파라미터를 세션 파일로 기록. 방송 후 채팅 다시보기 없이 하이라이트 검출, 대기 화면 장면 제외, 아바타 영역 자동 지정 |
 | YouTube 업로드 | 제작한 클립과 설명란을 YouTube에 업로드. 공개 범위 기본값은 비공개 |
 | 모음 영상, 출처 표기 | 클립을 이어 붙인 모음 영상과 챕터 목록 제작, 클립 구석에 원본 채널 표기 |
 | 편집 프로그램 연계 | 하이라이트를 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내어 DaVinci Resolve, Premiere Pro 등에서 이어서 편집 |
@@ -403,6 +442,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VID
 | `--trim-silence` | 0.7초 이상 조용한 부분을 앞뒤 0.25초씩만 남기고 제거 |
 | `--trim-silence 초` | 지정한 길이 이상 조용한 부분만 제거 |
 | `--silence-level dB` | 조용함의 기준. 클립의 큰 소리보다 이 값 이상 작은 부분이 대상(기본값 24). 값이 작을수록 더 많이 제거 |
+| `--audio-track N` | 판정에 쓸 오디오 트랙(0부터). OBS 녹화에서 마이크만 별도 트랙에 둔 경우 게임 소리, 배경 음악과 무관하게 판정. 자막 인식, 음량, 웃음소리, 노래 구간 검출에도 적용. 클립의 소리는 첫 번째 트랙 유지 |
 
 | &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
@@ -500,6 +540,34 @@ stream2clip live "https://play.sooplive.co.kr/STREAMER_ID" -o clips
 
 기본값 산정 근거: [docs/DETECTION.md](docs/DETECTION.md#라이브-모드-기본값)
 
+### 방송 기록기
+
+방송 중에만 얻을 수 있는 신호를 세션 파일에 기록하고 방송 후 클립 제작에 사용. 영상은 OBS가 녹화
+
+```bash
+stream2clip session record --chat "https://chzzk.naver.com/live/CHANNEL_ID" --vts --vts-source "VTube Studio"
+```
+
+```bash
+stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --layout stack --avatar session
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 앱 | 시작 화면 클립 영역의 **방송 기록기**, 단독 실행은 `stream2clip-recorder`. 채팅, OBS, VTube Studio 연결 상태와 기록 개수 표시. 종료 후 **하이라이트 찾기**로 하이라이트 창에 세션 입력 |
+| 기록 신호 | 채팅과 급증, 표시(**지금 표시** 버튼, F11, Enter, VTube Studio 단축키, 채팅 `!clip`), OBS 장면, 송출과 녹화 시작, 저장된 리플레이, VTube Studio 소스의 OBS 배치, 아바타 외곽선(0.5초 간격), 파라미터(0.2초 간격) |
+| 방송 후 | `--session`으로 세션의 채팅과 표시로 하이라이트 검출(채팅 다시보기 불필요), `--skip-scene`으로 대기 화면 등 장면 제외, `--avatar session`으로 외곽선 기준 아바타 영역 지정, `--avatar-motion`(실험)으로 아바타 움직임을 보조 신호로 사용. `session show`로 장면과 표시 시점 확인 |
+| 하이라이트 창 | **세션** 칸에 세션 파일 입력. 세션 지정 시 **0초 기준**, **제외 장면**, **아바타 움직임 (실험)** 설정 표시, 내보내기 설정 아바타 줄의 **세션에서**로 아바타 영역 입력. **오디오 트랙**은 OBS와 같이 1부터 |
+| 아바타 별도 녹화 | `session record --avatar-record`: OBS의 Source Record 필터(별도 플러그인)에 시작과 중지를 요청하고 시작 시각 기록. `--avatar-video`와 `--session`을 함께 지정하면 `--avatar-offset` 자동 계산. 구성 방법은 [docs/RECORDER.md](docs/RECORDER.md) 참조. 실제 플러그인으로는 미검증 |
+| 영상의 0초 | 기본값은 OBS 송출 시작(플랫폼 다시보기), 송출이 없으면 녹화 시작. `--session-origin`, `--session-offset`으로 변경 |
+| VTube Studio | 설정에서 API 시작. 첫 연결 시 VTube Studio의 플러그인 허용 창에서 허용하면 이후 자동 연결 |
+| 시청자 투표 | `--viewer-votes 3`(앱의 **시청자 투표**): 서로 다른 시청자 3명이 30초 안에 `!clip` 입력 시 표시 |
+| OBS 위젯 | `--widget`(앱의 **OBS 위젯**): 투표 진행과 표시를 방송 화면에 띄우는 브라우저 소스 `http://127.0.0.1:8790/widget` |
+| CHZZK 공식 API | `stream2clip chzzk login`으로 1회 로그인 후 `--chat chzzk-api`로 본인 채널의 채팅과 후원을 공식 Open API로 수신. CHZZK 개발자 센터의 애플리케이션 등록 필요 |
+| 개인정보 | 채팅 작성자는 해시로만 기록. 파일은 로컬에만 저장 |
+
+세션 형식, 좌표 변환, 옵션 전체: [docs/RECORDER.md](docs/RECORDER.md)
+
 ### YouTube 업로드
 
 ```bash
@@ -563,6 +631,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | Twitch | TwitchDownloader 채팅 JSON(비트 포함) |
 | CHZZK, SOOP | `fetch`가 수신하여 정규화한 `*.chat.jsonl`. 직접 받은 CHZZK 다시보기 채팅 API 응답(JSON)과 SOOP 채팅 XML도 지원 |
 | 기타 채팅 | `time,author,text[,amount][,role]` CSV, JSONL. `1:02:03` 형식의 시각 지원 |
+| 세션 파일 | 방송 기록기의 `session-*.jsonl`. 채팅과 표시를 OBS 송출 시작 기준 시각으로 변환하여 읽음 |
 | 자막 | SRT, WebVTT(YouTube 자동 자막의 단어별 시각 포함), Whisper JSON. `--transcribe`로 faster-whisper 직접 실행 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;출&NoBreak;력&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
@@ -655,10 +724,10 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 517개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 575개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
-| 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, entry point 플러그인, Windows용 zip 및 설치 프로그램 |
-| 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json) |
+| 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
+| 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
 
 ### 출력 포맷
 
@@ -824,8 +893,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.13.2-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.13.2-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
+| `dist/stream2clip-0.14.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.14.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -901,7 +970,7 @@ stream2clip gui
 
 ### CLI
 
-| &numsp;&numsp;&numsp;명&NoBreak;령&numsp;&numsp;&numsp; | 기능 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;명&NoBreak;령&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 기능 |
 |:---:|---|
 | `gui` | 데스크톱 앱 실행 |
 | `monitors` | 모니터 목록과 좌표 표시 |
@@ -920,6 +989,8 @@ stream2clip gui
 | `evaluate` | 시청자 댓글 타임스탬프 기준 검출 성능 평가 |
 | `replay` | OBS 리플레이 버퍼 저장 및 클립 변환 |
 | `live` | 라이브 채팅 감시, 급증 시 OBS 리플레이를 클립으로 저장 |
+| `session record`, `session show` | 방송 중 채팅, 표시, OBS 장면, VTube Studio 아바타를 세션 파일로 기록, 기록 내용 표시 |
+| `chzzk login`, `chzzk logout` | CHZZK 공식 Open API 로그인(본인 채널), 보관한 토큰 삭제 |
 | `upload` | 클립을 YouTube에 업로드. 기본값 비공개 |
 | `language` | 앱 시작 시 적용되는 화면 언어 표시 |
 | `setup` | 기능별 필요 구성요소의 유무와 해결 방법 표시. `--ffmpeg`로 ffmpeg 내려받기 |
@@ -1092,6 +1163,9 @@ src/stream2clip/
 ├── sources.py     yt-dlp: info, 채팅, VOD 구간, heatmap        audio.py  음량 곡선
 ├── highlights.py  하이라이트 검출, 타임라인 그래프
 ├── live.py        라이브 모드: 실시간 급증 검출, 채팅 따라 읽기 (파일, yt-dlp, Twitch, CHZZK, SOOP), 리플레이 클립 변환
+├── session.py     세션 파일 쓰기와 읽기, 영상의 0초, 장면 구간, OBS 배치 좌표 변환, 아바타 박스
+├── recorder.py    방송 기록기: 채팅, OBS, VTube Studio 폴링 루프
+├── vts.py         VTube Studio 공개 API 클라이언트
 ├── layouts.py     9:16 레이아웃 (center, fit, blur, stack, pip), 별도 아바타 영상 합성
 ├── detect.py      애니메 얼굴 검출, stack 레이아웃 아바타 박스 제안
 ├── subtitles.py   SRT/VTT/JSON을 카라오케 ASS로 변환, 언어별 폰트, 줄바꿈, 스타일 프리셋, faster-whisper 연결
@@ -1106,9 +1180,9 @@ src/stream2clip/
 ├── record/        실시간 영역 녹화 (무손실 FFV1 중간 파일을 원하는 포맷으로 변환)
 ├── translate/     OCR + 번역 플러그인 인터페이스
 ├── plugins.py     entry point 기반 플러그인 레지스트리
-├── schemas/       annotation.v1 JSON Schema
+├── schemas/       annotation.v1, session.v1 JSON Schema
 ├── cli.py         stream2clip 명령
-└── gui/           PySide6 앱 (런처, 영역 선택, 편집기, 녹화 오버레이, 전역 단축키, 하이라이트 창, 업로드 창, 설정 기억)
+└── gui/           PySide6 앱 (런처, 영역 선택, 편집기, 녹화 오버레이, 전역 단축키, 하이라이트 창, 업로드 창, 방송 기록기 창, 설정 기억)
 ```
 
 설계 원칙, 녹화 파이프라인, 스레드 구조: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -1242,7 +1316,8 @@ python packaging/build_brand.py
 |:---:|---|
 | 화면 언어 | 일본어, 영어 문구의 원어민 검수. 명령줄의 진행 출력은 영어만 제공 |
 | 가이드라인 | 한국 기획사 프로필. 공식 원문이 확인된 곳부터 추가(스텔라이브, 이세계아이돌은 원문 미확보) |
-| 아바타 레이어 | Spout2, NDI 알파 레이어 녹화, VMC 및 VTube Studio 파라미터 기록 후 재렌더 |
+| 아바타 레이어 | Spout2, NDI 알파 레이어 녹화, VMC 수신 기록, 기록한 VTube Studio 파라미터로 세로 화면용 재렌더 |
+| 방송 기록기 | 아바타 움직임 신호(`--avatar-motion`)의 실제 방송 검출 성능 평가, 실제 OBS, VTube Studio, CHZZK Open API 연결 검증. SOOP 공식 Chat SDK는 브라우저 전용이라 대상 외 |
 | 실서비스 검증 | 실제 YouTube 업로드, Holodex API 키 사용 검증 |
 | 편집 연계 | 편집 프로그램에서의 EDL 가져오기 실측, FCPXML 내보내기, 말소리 인식 기반의 무음 구간 판정 |
 | 검출 신호 | SOOP 구독 및 팔로우 알림, Streamer.bot 이벤트, 사용자가 연결하는 판정 플러그인(LLM 등) |
@@ -1250,7 +1325,7 @@ python packaging/build_brand.py
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 46건</b></summary>
+<summary><b>버전별 완료 항목 49건</b></summary>
 
 <br>
 
@@ -1301,6 +1376,9 @@ python packaging/build_brand.py
 | v0.12 | 무음 구간 제거(`--trim-silence`, 하이라이트 창의 조용한 부분 줄이기) |
 | v0.12 | 새 버전 알림: 시작 화면의 안내, `setup --check-update` |
 | v0.13 | 앱의 구성요소 점검 창: 구성요소별 상태와 해결 방법, ffmpeg와 얼굴 검출 모델 내려받기 |
+| v0.14 | 방송 기록기(`session record`, 앱 창, `stream2clip-recorder`): 채팅, 표시, OBS 장면과 송출 시작, VTube Studio 외곽선과 파라미터를 세션 파일로 기록 |
+| v0.14 | 세션 파일 사용: `--session`으로 하이라이트 검출, `--skip-scene`으로 장면 제외, `--avatar session`으로 아바타 영역 지정, `session show` |
+| v0.14 | CHZZK 공식 Open API 수신(`chzzk login`, `--chat chzzk-api`), 시청자 `!clip` 투표 표시 |
 | v0.10 | 구성요소 점검 명령(`setup`): 기능별 필요 구성요소의 유무와 해결 방법 |
 
 </details>
@@ -1351,6 +1429,7 @@ python packaging/build_brand.py
 | 편집 프로그램용 내보내기 | EDL은 독립된 판독기(OpenTimelineIO)로 확인. DaVinci Resolve, Premiere Pro에서의 실제 가져오기는 미검증. 마커 목록은 DaVinci Resolve 형식만 제공 |
 | 무음 구간 제거 | 음량 기준 판정. 말소리가 작게 깔린 부분이 함께 줄어들 수 있으며 배경 음악이 큰 방송은 효과가 적음. 실제 방송 1개로만 측정 |
 | 모음 영상 | 클립을 다시 인코딩하여 이어 붙임. 챕터 문구는 검출 근거이므로 게시 전 수정 필요 |
+| 방송 기록기 | OBS 33.0.1에서 장면, 녹화 시작, 소스 배치, 표시 기록과 세션 기반 클립 제작 확인. VTube Studio 연결과 실제 모델 외곽선, 본인 채널 방송 채팅, 송출 시작 기준의 시각 차이는 미검증. 장면 시각은 OBS 전환 효과 길이(기본 0.3초)만큼 늦게 기록. 녹화 중 기록기를 시작한 경우 0초 기준 오차 약 1초. 아바타 영역은 실행 1회에 1개이므로 하이라이트마다 소스 배치가 다르면 구간별로 실행. 회전, 반전된 소스와 그룹 안의 소스 미지원 |
 
 기능별 실환경 검증 결과와 미검증 범위: [docs/VERIFICATION.md](docs/VERIFICATION.md)
 

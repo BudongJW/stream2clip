@@ -105,6 +105,8 @@ class LauncherWindow(QMainWindow):
         self._ffmpeg_stop = threading.Event()
         self._ffmpeg_thread: threading.Thread | None = None
         self.dialogs = True  # show failures in a message box too (tests turn this off)
+        self.extra_hotkeys: dict[str, object] = {}  # keys other windows asked for (the recorder's marker key)
+        self.session_window = None
 
         root = QWidget(objectName="Root")
         outer = QVBoxLayout(root)
@@ -425,6 +427,11 @@ class LauncherWindow(QMainWindow):
         text.addWidget(QLabel(tr("방송 클립 제작"), objectName="Title"))
         text.addWidget(QLabel(tr("채팅 반응 기반 하이라이트 검출, 구간 조정, 9:16 클립 내보내기"), objectName="Muted"))
         row.addLayout(text, 1)
+        self.session_button = QPushButton(tr("방송 기록기"))
+        self.session_button.setMinimumHeight(44)
+        self.session_button.setToolTip(tr("방송 중 채팅, 표시, OBS 장면, VTube Studio 아바타를 기록합니다. 방송 후 하이라이트 찾기에 사용합니다."))
+        self.session_button.clicked.connect(self.open_session)
+        row.addWidget(self.session_button)
         self.highlights_button = QPushButton(tr("하이라이트 찾기"))
         self.highlights_button.setMinimumHeight(44)
         self.highlights_button.clicked.connect(self.open_highlights)
@@ -487,7 +494,17 @@ class LauncherWindow(QMainWindow):
             self.obs_password = dialog.password_edit.text()
 
     def _hotkey_names(self) -> list[str]:
-        return ["F8", "F9"] + (["F10"] if self.replay_hotkey_check.isChecked() else [])
+        return ["F8", "F9"] + (["F10"] if self.replay_hotkey_check.isChecked() else []) + sorted(self.extra_hotkeys)
+
+    def set_extra_hotkey(self, name: str, callback) -> None:
+        """Let another window have a system-wide key (``callback`` None gives it back)."""
+        if callback is None:
+            self.extra_hotkeys.pop(name.upper(), None)
+        else:
+            self.extra_hotkeys[name.upper()] = callback
+        if getattr(self, "hotkeys", None) is not None:
+            self.hotkeys.unregister()
+            self.hotkeys.register(self._hotkey_names())
 
     def _set_replay_hotkey(self, on: bool) -> None:
         """Take or give back the system-wide F10 (opt-in: other programs lose the key while it is on)."""
@@ -646,6 +663,17 @@ class LauncherWindow(QMainWindow):
                 self.status.setText(tr("라이브 모드 실패: {0}").format(text.splitlines()[0][:110]))
                 if self.dialogs and self.isVisible():
                     QMessageBox.warning(self, tr("라이브 모드"), text)
+
+    def open_session(self):
+        """The broadcast recorder window (one, kept while the app runs)."""
+        from .session import SessionWindow
+
+        if self.session_window is None:
+            self.session_window = SessionWindow(save_dir=self.settings.save_dir, obs=(self.obs_host, self.obs_port, self.obs_password), host=self)
+        self.session_window.show()
+        self.session_window.raise_()
+        self.session_window.activateWindow()
+        return self.session_window
 
     def open_highlights(self):
         from .highlights import HighlightsWindow
@@ -935,6 +963,8 @@ class LauncherWindow(QMainWindow):
             self.capture_region()
         elif name == "F10":
             self.save_replay()
+        elif name in self.extra_hotkeys:
+            self.extra_hotkeys[name]()
 
     def _on_record_state(self, state: str) -> None:
         labels = {"idle": tr("●  영역 녹화 (F9)"), "selecting": tr("영역 선택 중"), "recording": tr("■  정지 (F9)"), "encoding": tr("저장 중")}
@@ -965,6 +995,8 @@ class LauncherWindow(QMainWindow):
             self._live_thread.join(timeout=5)
         if self.components_dialog is not None:
             self.components_dialog.close()
+        if self.session_window is not None:
+            self.session_window.close()  # a recording in progress is stopped and its file closed
         self._ffmpeg_stop.set()  # a download in progress stops at the next block; its partial file is removed
         if self._ffmpeg_thread is not None:
             self._ffmpeg_thread.join(timeout=5)

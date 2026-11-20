@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 사용 설명서</h1>
   <dl>
-    <dt>적용 버전</dt><dd>v0.13</dd>
+    <dt>적용 버전</dt><dd>v0.14</dd>
     <dt>대상</dt><dd>Windows 설치 프로그램, 실행 파일 및 파이썬 패키지 사용자</dd>
     <dt>배포처</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -68,6 +68,7 @@
       <li><a href="#subtitles">자막 및 번역</a></li>
       <li><a href="#obs">OBS 리플레이 저장</a></li>
       <li><a href="#live">라이브 모드</a></li>
+      <li><a href="#recorder">방송 기록기</a></li>
       <li><a href="#cli">명령줄 사용</a></li>
       <li><a href="#troubleshooting">문제 해결</a></li>
       <li><a href="#notice">저작권 및 가이드라인</a></li>
@@ -351,6 +352,39 @@
         </tbody>
       </table>
     </div>
+
+    <h2 id="recorder">방송 기록기</h2>
+    <p>방송 중 채팅, 표시, OBS 장면, VTube Studio 아바타의 위치와 표정을 세션 파일로 기록하고 방송 후 클립 제작에 사용. 영상은 OBS가 녹화.</p>
+    <h3>사용 절차</h3>
+    <ol>
+      <li>시작 화면 클립 영역의 <strong>방송 기록기</strong> 실행</li>
+      <li>본인 채널의 라이브 주소 입력, OBS와 VTube Studio 사용 여부 선택. VTube Studio는 설정에서 API를 켜고, 첫 연결 시 VTube Studio에 표시되는 플러그인 허용 창에서 허용</li>
+      <li>OBS에서 VTube Studio를 표시하는 소스 이름 입력. 클립 제작 시 아바타 영역 자동 지정에 사용</li>
+      <li><strong>기록 시작</strong> 실행. 클립으로 남길 장면에서 <strong>지금 표시</strong> 또는 F11(사용 설정 시)</li>
+      <li>방송 종료 후 <strong>기록 중지</strong>, <strong>하이라이트 찾기</strong>로 하이라이트 창에 세션 파일 입력</li>
+    </ol>
+    <h3>기록 내용과 용도</h3>
+    <ul>
+      <li>채팅과 표시: 채팅 다시보기를 받지 않고 하이라이트 검출. 표시한 장면은 항상 클립에 포함</li>
+      <li>OBS 장면: 대기 화면, 엔딩 등 지정한 장면의 하이라이트 제외</li>
+      <li>VTube Studio 외곽선과 OBS 배치: 세로 클립의 아바타 영역 지정</li>
+      <li>영상의 0초는 OBS 송출 시작 시점. 송출 기록이 없으면 녹화 시작 시점</li>
+      <li>시청자 투표: 시청자 3명이 30초 안에 <code>!clip</code> 입력 시 표시로 기록</li>
+      <li>OBS 위젯: OBS 브라우저 소스로 <code>http://127.0.0.1:8790/widget</code> 추가 시 투표 진행과 표시를 방송 화면에 표시</li>
+      <li>채팅 작성자는 식별 불가능한 값으로만 기록하며 파일은 이 PC에만 저장</li>
+    </ul>
+    <h3>하이라이트 창 설정</h3>
+    <ul>
+      <li><strong>세션</strong> 칸에 세션 파일 입력. 채팅 칸에 넣거나 창에 끌어다 놓은 세션 파일도 세션 칸으로 이동. 채팅 칸이 비어 있으면 세션의 채팅과 표시로 검출</li>
+      <li><strong>0초 기준</strong>: 플랫폼 다시보기는 OBS 송출 시작, OBS 녹화 파일은 OBS 녹화 시작 선택. 영상이 기준보다 늦게 시작하면 그 차이를 초 단위로 입력</li>
+      <li><strong>제외 장면</strong>: 장면 이름의 일부를 쉼표로 구분해 입력. 절반 이상이 해당 장면에 속한 하이라이트 제외</li>
+      <li><strong>아바타 움직임 (실험)</strong>: 아바타 움직임이 큰 장면에 점수 추가</li>
+      <li>내보내기 설정 아바타 줄의 <strong>세션에서</strong>: 체크한 하이라이트 구간의 외곽선으로 아바타 영역 입력</li>
+      <li><strong>오디오 트랙</strong>: OBS에서 마이크를 별도 트랙으로 녹화한 경우 그 트랙 번호 선택. 자막 인식, 무음 구간, 음량 판정에 사용하며 클립의 소리는 변경 없음</li>
+    </ul>
+    <h3>명령줄 실행</h3>
+    <pre><code>stream2clip.exe session record --chat "https://chzzk.naver.com/live/CHANNEL_ID" --vts --vts-source "VTube Studio"</code></pre>
+    <pre><code>stream2clip.exe auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --layout stack --avatar session</code></pre>
 
     <h2 id="cli">명령줄 사용</h2>
     <p>앱의 모든 기능은 <code>stream2clip.exe</code>로 실행 가능. 다수의 방송을 일괄 처리할 때 사용.</p>

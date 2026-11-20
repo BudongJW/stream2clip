@@ -56,6 +56,8 @@ _STAGES = {
 _SUBTITLE_STYLES = [("default", tr("기본")), ("box", tr("상자")), ("pink", tr("분홍 강조")), ("small", tr("작게"))]
 _SUBTITLE_POSITIONS = [("bottom", tr("아래쪽")), ("middle", tr("가운데")), ("top", tr("위쪽"))]
 _SINGING = [("off", tr("노래 구간 안 봄")), ("mark", tr("노래 구간 표시")), ("skip", tr("노래 구간 제외"))]
+#: Which moment of the session is second 0 of the video (see stream2clip.session.Session.origin).
+_SESSION_ORIGINS = [("auto", tr("자동")), ("stream", tr("OBS 송출 시작")), ("record", tr("OBS 녹화 시작")), ("session", tr("세션 시작"))]
 _PICK_FILE = "\x00file"  # the "choose a .py file" entry of the translator list
 _AGENCIES = ["", "hololive", "nijisanji", "vspo", "aogiri", "generic"]
 
@@ -304,7 +306,7 @@ _IMAGE_TYPES = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
 
 
 def kind_of(item: str) -> str:
-    """What a dropped file (or address) is: "video", "chat", "info", "subtitles", "image" or ""."""
+    """What a dropped file (or address) is: "video", "session", "chat", "info", "subtitles", "image" or ""."""
     from ..sources import is_url
 
     name = str(item).strip().lower()
@@ -316,11 +318,33 @@ def kind_of(item: str) -> str:
         return "video"
     if name.endswith((".srt", ".vtt")):
         return "subtitles"
+    if name.endswith(".jsonl"):
+        from ..session import is_session
+
+        if is_session(Path(str(item).strip())):  # a recorder's session, not a plain chat log
+            return "session"
     if name.endswith((".json", ".jsonl", ".csv", ".xml")):
         return "chat"
     if name.endswith(_IMAGE_TYPES):
         return "image"
     return ""
+
+
+def open_session(path: str, origin: str = "auto", offset: float = 0.0):
+    """``(session, time 0)`` for a session file, or ``(None, 0.0)`` without one; raises ``ValueError`` with a message for the user.
+
+    Takes plain values, so it can run in a worker thread with what was read from the window before.
+    """
+    if not path:
+        return None, 0.0
+    from ..session import load_session
+
+    if not Path(path).is_file():
+        raise ValueError(tr("세션 파일을 찾을 수 없습니다: {0}").format(path))
+    session = load_session(path)
+    if origin in ("stream", "record") and not session.output_starts(origin):
+        raise ValueError(tr("세션에 OBS 송출 시작 기록이 없습니다. 다른 0초 기준을 고르세요.") if origin == "stream" else tr("세션에 OBS 녹화 시작 기록이 없습니다. 다른 0초 기준을 고르세요."))
+    return session, session.origin(origin) + offset
 
 
 def dropped_items(mime) -> list[str]:
@@ -397,6 +421,7 @@ class HighlightsWindow(QMainWindow):
         self.setAcceptDrops(True)  # a video, chat, info or subtitle file dropped on the window goes into its box
         self.last_compilation = None
         self.last_handoff: list[Path] = []
+        self.scenes_skipped = 0  # highlights the last analysis left out for the scene they were in
         self.status = QLabel(tr("영상과 채팅 다시보기를 고르거나 방송 주소를 넣으세요"), objectName="Muted")
         bottom.addWidget(self.status, 1)
         self.progress = QProgressBar()
@@ -466,6 +491,41 @@ class HighlightsWindow(QMainWindow):
         self.info_edit = self._path_row(grid, 1, 0, tr("정보"), tr("(선택) yt-dlp info.json: 원본 제목, URL, 많이 다시 본 구간"), "JSON (*.json);;All files (*)")
         self.subs_edit = self._path_row(grid, 1, 3, tr("자막"), tr("(선택) SRT, WebVTT: YouTube 자동 자막도 됩니다"), "Subtitles (*.vtt *.srt *.json);;All files (*)")
         self.video_edit.setToolTip(tr("방송 주소를 넣으면 채팅 다시보기로 하이라이트를 찾고 그 구간의 영상만 내려받습니다.\n음량, 웃음소리, 노래 구간은 영상 파일이 있어야 씁니다."))
+        self.session_edit = self._path_row(grid, 2, 0, tr("세션"), tr("(선택) 방송 기록기의 세션 파일: 채팅, 표시, 장면, 아바타"), "Session (*.jsonl);;All files (*)")
+        self.session_edit.setToolTip(tr("방송 기록기로 기록한 세션 파일. 채팅 칸이 비어 있으면 세션의 채팅과 표시로 하이라이트를 찾습니다.\n채팅 칸에 세션 파일을 넣으면 이 칸으로 옮깁니다."))
+        grid.addWidget(QLabel(tr("오디오 트랙")), 2, 3)
+        track_row = QHBoxLayout()
+        self.track_spin = QSpinBox(minimum=0, maximum=6, value=0)
+        self.track_spin.setSpecialValueText(tr("기본"))
+        self.track_spin.setToolTip(tr("자막, 무음 구간, 음량, 웃음소리, 노래 구간을 들을 트랙. OBS에서 마이크만 트랙 2로 녹화했다면 2.\n클립에 들어가는 소리는 바뀌지 않습니다."))
+        track_row.addWidget(self.track_spin)
+        track_row.addStretch(1)
+        grid.addLayout(track_row, 2, 4, 1, 2)
+        # What to do with the session: a row that takes room only once a session is given.
+        self.session_row = QWidget()
+        session_options = QHBoxLayout(self.session_row)
+        session_options.setContentsMargins(0, 0, 0, 0)
+        session_options.setSpacing(8)
+        session_options.addWidget(QLabel(tr("0초 기준")))
+        self.origin_combo = QComboBox()
+        for key, label in _SESSION_ORIGINS:
+            self.origin_combo.addItem(label, key)
+        self.origin_combo.setToolTip(tr("영상의 0초가 세션의 어느 시각인지. 플랫폼 다시보기는 송출 시작, OBS 녹화 파일은 녹화 시작."))
+        session_options.addWidget(self.origin_combo)
+        self.offset_spin = QDoubleSpinBox(minimum=-36000.0, maximum=36000.0, value=0.0, singleStep=0.5, decimals=1)
+        self.offset_spin.setSuffix(tr("초"))
+        self.offset_spin.setToolTip(tr("기준 시각과 영상 0초의 차이. 영상이 기준보다 늦게 시작하면 양수."))
+        session_options.addWidget(self.offset_spin)
+        session_options.addSpacing(14)
+        session_options.addWidget(QLabel(tr("제외 장면")))
+        self.skip_scene_edit = QLineEdit()
+        self.skip_scene_edit.setPlaceholderText(tr("(선택) 제외할 OBS 장면 이름. 쉼표로 구분 (예: 대기, 휴식)"))
+        self.skip_scene_edit.setToolTip(tr("이름에 이 말이 들어간 장면에서 대부분이 지나간 하이라이트를 제외합니다."))
+        session_options.addWidget(self.skip_scene_edit, 1)
+        self.motion_check = QCheckBox(tr("아바타 움직임 (실험)"))
+        self.motion_check.setToolTip(tr("세션에 기록된 VTube Studio 아바타의 움직임이 큰 장면에 점수를 더합니다."))
+        session_options.addWidget(self.motion_check)
+        grid.addWidget(self.session_row, 3, 0, 1, 6)
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(4, 1)
         grid.setColumnMinimumWidth(3, 44)
@@ -499,9 +559,80 @@ class HighlightsWindow(QMainWindow):
         self.analyse_button.setMinimumHeight(34)
         self.analyse_button.clicked.connect(self.analyse)
         options.addWidget(self.analyse_button)
-        grid.addLayout(options, 2, 0, 1, 6)
+        grid.addLayout(options, 4, 0, 1, 6)
         self.video_edit.textChanged.connect(self._on_source_changed)
+        self.chat_edit.textChanged.connect(self._on_chat_changed)
+        self.session_edit.textChanged.connect(self._on_session_changed)
+        self._on_session_changed()
         return card
+
+    # ------------------------------------------------------------------ session
+    def _on_chat_changed(self) -> None:
+        """A session file put into the chat box belongs in the session box: its scenes and avatar are used from there."""
+        text = self.chat_edit.text().strip()
+        if text.lower().endswith(".jsonl") and kind_of(text) == "session":
+            self.chat_edit.clear()
+            self.session_edit.setText(text)
+            if not self.busy:
+                self.status.setText(tr("세션 파일을 세션 칸으로 옮겼습니다."))
+
+    def _on_session_changed(self) -> None:
+        given = bool(self.session_edit.text().strip())
+        self.session_row.setVisible(given)
+        for widget in (self.origin_combo, self.offset_spin, self.skip_scene_edit, self.motion_check):
+            widget.setEnabled(given)
+        button = getattr(self, "session_avatar_button", None)  # the export card is built after this one
+        if button is not None:
+            button.setEnabled(given and not self.busy and self.layout_combo.currentData() in AVATAR_LAYOUTS)
+
+    def audio_track(self) -> int | None:
+        """The audio track to listen to, counted from 0, or ``None`` for the file's default (the box counts from 1, as OBS does)."""
+        return self.track_spin.value() - 1 if self.track_spin.value() > 0 else None
+
+    def skipped_scenes(self) -> list[str]:
+        return [name.strip() for name in self.skip_scene_edit.text().split(",") if name.strip()]
+
+    def session_choice(self) -> tuple[str, str, float]:
+        """What the session boxes say: (file, which moment is second 0, seconds to add)."""
+        return self.session_edit.text().strip(), self.origin_combo.currentData(), self.offset_spin.value()
+
+    def load_session(self):
+        """``(session, time 0)`` for the session box, or ``(None, 0.0)``; raises ``ValueError`` with a message for the user."""
+        return open_session(*self.session_choice())
+
+    def session_avatar(self) -> None:
+        """Fill the avatar box from the session's VTube Studio outline during the checked highlights."""
+        video = self.video_edit.text().strip()
+        if self.busy or not video:
+            return
+        try:
+            session, zero = self.load_session()
+            if session is None:
+                raise ValueError(tr("세션 파일을 먼저 고르세요."))
+            if self.source_url() or not Path(video).is_file():
+                raise ValueError(tr("세션의 아바타 위치는 녹화 파일이 있어야 계산합니다."))
+            if not session.of("avatar_outline"):
+                raise ValueError(tr("세션에 VTube Studio 윤곽 기록이 없습니다. 기록기에서 VTube Studio 연결을 켜고 기록하세요."))
+            from ..export import probe
+            from ..session import avatar_region
+
+            kind = self.layout_combo.currentData()
+            frame = VerticalLayout()  # the frame's size and split; a stack layout itself cannot be made before it has its avatar box
+            aspect = 0.8 if kind == "pip" else frame.width / (frame.height * frame.split)  # the pip box: a little taller than wide
+            info = probe(video)
+            spans = [(h.start, h.end) for h in (self.checked_highlights() or self.timeline.highlights)]
+            box = avatar_region(session, (info.width, info.height), aspect=aspect, origin=zero, spans=spans)
+            if box is None and spans:  # no outline during the highlights: go by the whole session
+                box = avatar_region(session, (info.width, info.height), aspect=aspect, origin=zero)
+            if box is None:
+                raise ValueError(tr("윤곽을 영상에 맞출 수 없습니다. 기록할 때 VTube Studio를 보여 주는 OBS 소스 이름을 지정하세요."))
+        except (ValueError, OSError, RuntimeError) as exc:
+            self._on_failed(str(exc))
+            return
+        self.avatar_edit.setText(str(box))
+        self.status.setText(tr("아바타 {0}: 세션의 VTube Studio 윤곽 기준").format(box))
+        self.set_mood("wink")
+        self.refresh_preview()
 
     def _export_card(self) -> QWidget:
         card = QWidget(objectName="Card")
@@ -525,7 +656,14 @@ class HighlightsWindow(QMainWindow):
         self.avatar_button = QPushButton(tr("자동 찾기"))
         self.avatar_button.setToolTip(tr("애니메 얼굴 검출로 아바타 위치를 찾습니다 (처음 한 번 12MB 모델 다운로드)"))
         self.avatar_button.clicked.connect(self.find_avatar)
-        grid.addWidget(self.avatar_button, 1, 2)
+        self.session_avatar_button = QPushButton(tr("세션에서"))
+        self.session_avatar_button.setToolTip(tr("세션에 기록된 VTube Studio 윤곽으로 아바타 위치를 정합니다 (체크한 하이라이트 구간 기준)."))
+        self.session_avatar_button.clicked.connect(self.session_avatar)
+        avatar_buttons = QHBoxLayout()
+        avatar_buttons.setSpacing(6)
+        avatar_buttons.addWidget(self.avatar_button)
+        avatar_buttons.addWidget(self.session_avatar_button)
+        grid.addLayout(avatar_buttons, 1, 2)
 
         grid.addWidget(QLabel(tr("아바타 영상")), 2, 0)
         self.avatar_video_edit = QLineEdit()
@@ -664,18 +802,22 @@ class HighlightsWindow(QMainWindow):
     # ------------------------------------------------------------------ remembered settings
     def _restore(self) -> None:
         saved = load_section("highlights")
-        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence")):
+        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
-        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency")):
+        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
-        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.output_edit, "output")):
+        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.skip_scene_edit, "skip_scenes"), (self.output_edit, "output")):
             if isinstance(saved.get(key), str) and saved[key]:
                 edit.setText(saved[key])
         if isinstance(saved.get("top"), int):
             self.top_spin.setValue(saved["top"])
+        if isinstance(saved.get("audio_track"), int) and not isinstance(saved.get("audio_track"), bool):
+            self.track_spin.setValue(saved["audio_track"])
+        if isinstance(saved.get("session_offset"), (int, float)) and not isinstance(saved.get("session_offset"), bool):
+            self.offset_spin.setValue(float(saved["session_offset"]))
         if isinstance(saved.get("threshold"), (int, float)):
             self.threshold_spin.setValue(float(saved["threshold"]))
         if isinstance(saved.get("translator"), str) and saved["translator"]:
@@ -693,6 +835,8 @@ class HighlightsWindow(QMainWindow):
             "glossary": self.glossary_edit.text().strip(), "bilingual": self.bilingual_check.isChecked(),
             "format": self.format_combo.currentData(), "agency": self.agency_combo.currentData(), "output": self.output_edit.text().strip(),
             "credit": self.credit_edit.text().strip(), "compile": self.compile_check.isChecked(), "trim_silence": self.silence_check.isChecked(),
+            "session_origin": self.origin_combo.currentData(), "session_offset": round(self.offset_spin.value(), 1), "skip_scenes": self.skip_scene_edit.text().strip(),
+            "avatar_motion": self.motion_check.isChecked(), "audio_track": self.track_spin.value(),
             "last_dir": self.last_dir,
         })
 
@@ -706,7 +850,7 @@ class HighlightsWindow(QMainWindow):
         placed = []
         for item in items:
             kind = kind_of(item)
-            edit = {"video": self.video_edit, "chat": self.chat_edit, "info": self.info_edit, "subtitles": self.subs_edit}.get(kind)
+            edit = {"video": self.video_edit, "chat": self.chat_edit, "info": self.info_edit, "subtitles": self.subs_edit, "session": self.session_edit}.get(kind)
             if edit is None:
                 continue
             edit.setText(str(item).strip())
@@ -765,7 +909,8 @@ class HighlightsWindow(QMainWindow):
             self.output_edit.setText(path)
 
     # ------------------------------------------------------------------ helpers
-    def set_paths(self, *, video: str = "", chat: str = "", info: str = "", subtitles: str = "", output: str = "") -> None:
+    def set_paths(self, *, video: str = "", chat: str = "", info: str = "", subtitles: str = "", output: str = "", session: str = "") -> None:
+        self.session_edit.setText(session)
         for edit, value in ((self.video_edit, video), (self.chat_edit, chat), (self.info_edit, info), (self.subs_edit, subtitles), (self.output_edit, output)):
             if value:
                 edit.setText(str(value))
@@ -832,6 +977,7 @@ class HighlightsWindow(QMainWindow):
             self.set_mood("side")  # turned towards the progress bar on its right
         self.analyse_button.setEnabled(not busy)
         self.avatar_button.setEnabled(not busy and self.layout_combo.currentData() in AVATAR_LAYOUTS)
+        self.session_avatar_button.setEnabled(not busy and self.layout_combo.currentData() in AVATAR_LAYOUTS and bool(self.session_edit.text().strip()))
         self.export_button.setEnabled(not busy and bool(self.checked_highlights()))
         self.handoff_button.setEnabled(not busy and bool(self.checked_highlights()))
         if message is not None:
@@ -901,6 +1047,12 @@ class HighlightsWindow(QMainWindow):
         singing = self.singing_combo.currentData() if not url else "off"
         spoken = self.subs_edit.text().strip() if self.snap_check.isChecked() else ""
         folder = self.source_folder(url) if url else None
+        track = self.audio_track()
+        chosen_session = self.session_choice()
+        recorded = bool(chosen_session[0])
+        skipped = self.skipped_scenes() if recorded else []
+        moving = recorded and self.motion_check.isChecked()
+        self.scenes_skipped = 0
         self.remember()
         self._set_busy(True, tr("분석 시작"))
         self.progress.setRange(0, 0)  # busy indicator
@@ -909,10 +1061,11 @@ class HighlightsWindow(QMainWindow):
             from ..pipeline import find_highlights
 
             nonlocal chat, info
-            if url and not (chat and info):  # the video itself comes later, and only the parts that are exported
+            session, zero = open_session(*chosen_session)  # the session's chat and markers stand in for a chat file
+            if url and not ((chat or session is not None) and info):  # the video itself comes later, and only the parts that are exported
                 from .. import sources
 
-                got_info, got_chat = sources.fetch_replay(url, folder, info=not info, chat=not chat, reuse=True, ytdlp=sources.ytdlp_command(), on_stage=self._stage.emit)
+                got_info, got_chat = sources.fetch_replay(url, folder, info=not info, chat=not chat and session is None, reuse=True, ytdlp=sources.ytdlp_command(), on_stage=self._stage.emit)
                 info, chat = info or str(got_info or ""), chat or str(got_chat or "")
                 self._fetched.emit(info, chat)
             source = {}
@@ -923,13 +1076,32 @@ class HighlightsWindow(QMainWindow):
                 source = {"url": src.url, "title": src.title}
             elif url:
                 source = {"url": url}
-            result = find_highlights(None if url else video, chat=chat or None, info=info or None, audio=audio, laughter=laughter, config=config, source=source, on_stage=self._stage.emit)
+            messages = motion = None
+            if session is not None:
+                if not chat:
+                    messages = session.messages(zero, marker_delay=config.chat_delay)
+                if moving:
+                    from ..session import avatar_motion
+
+                    motion = avatar_motion(session, zero, window=config.window, delay=config.chat_delay)
+                    if not motion.any():
+                        raise ValueError(tr("세션에 아바타 움직임 기록이 없습니다. 기록기에서 VTube Studio 연결을 켜고 기록하세요."))
+            result = find_highlights(None if url else video, chat=chat or None, info=info or None, audio=audio, laughter=laughter, config=config, source=source, on_stage=self._stage.emit,
+                                     messages=messages, avatar=motion, audio_track=track)
+            if session is not None and skipped:
+                from ..session import skip_scenes
+
+                kept = sorted(skip_scenes(result.highlights, session.scenes(zero), skipped), key=lambda h: h.rank)
+                self.scenes_skipped = len(result.highlights) - len(kept)
+                for rank, h in enumerate(kept, start=1):
+                    h.rank = rank
+                result.highlights = kept
             if singing != "off":
                 from ..audio import singing_sections
                 from ..highlights import mark_singing
 
                 self._stage.emit("singing")
-                mark_singing(result, [(s.start, s.end) for s in singing_sections(video)], drop=singing == "skip")
+                mark_singing(result, [(s.start, s.end) for s in singing_sections(video, track=track)], drop=singing == "skip")
             if spoken and Path(spoken).is_file():  # before the spans are shown: they can still be dragged afterwards
                 from ..highlights import snap_to_cues
                 from ..subtitles import load_subtitles
@@ -961,6 +1133,8 @@ class HighlightsWindow(QMainWindow):
         chat = tr("채팅 {0:,}개, ").format(result.messages) if result.messages else ""
         hint = "" if count else tr(" (임계값을 낮춰 보세요)")
         sung = tr(", 노래 구간 {0}곳").format(len(result.songs)) if result.songs is not None else ""
+        if self.scenes_skipped:
+            sung += tr(", 장면으로 제외 {0}개").format(self.scenes_skipped)
         self._set_busy(False, tr("{0}{1} 분석, 하이라이트 {2}개{3}{4}").format(chat, _clock(result.duration), count, sung, hint))
         self.set_mood("laugh" if count else "wink")
         self.refresh_preview()
@@ -983,6 +1157,7 @@ class HighlightsWindow(QMainWindow):
         self.avatar_video_edit.setEnabled(stack)
         self.avatar_video_button.setEnabled(stack)
         self.avatar_button.setEnabled(stack and not self.busy)
+        self.session_avatar_button.setEnabled(stack and not self.busy and bool(self.session_edit.text().strip()))
         if self.result is not None:
             self.refresh_preview()
 
@@ -1096,6 +1271,7 @@ class HighlightsWindow(QMainWindow):
         bilingual = self.bilingual_check.isChecked()
         credit = self.credit_edit.text().strip() or None
         trim = 0.7 if self.silence_check.isChecked() else None
+        track = self.audio_track()
         joined = self.compile_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm")
         self.last_compilation = None
         if translator_spec and not subs_path and model is None:
@@ -1131,7 +1307,7 @@ class HighlightsWindow(QMainWindow):
             results = make_clips(
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
-                subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim,
+                subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )

@@ -39,7 +39,8 @@ def _region(text: str) -> Region:
 
 
 def _avatar(text: str) -> "Region | str":
-    return "auto" if text.strip().lower() == "auto" else _region(text)
+    word = text.strip().lower()
+    return word if word in ("auto", "session") else _region(text)
 
 
 def _format_for(path: Path, explicit: str | None) -> str:
@@ -256,7 +257,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("highlight detection")
     g.add_argument("--chat", help="chat archive: yt-dlp live_chat.json, chat-downloader JSON, TwitchDownloader JSON, CHZZK / SOOP replay chat, CSV/JSONL")
-    g.add_argument("--chat-format", choices=["youtube", "chat-downloader", "twitch", "chzzk", "soop", "csv", "jsonl", "json"], help="force the chat format")
+    g.add_argument("--chat-format", choices=["youtube", "chat-downloader", "twitch", "chzzk", "soop", "csv", "jsonl", "json", "session"], help="force the chat format")
     g.add_argument("--info", help="yt-dlp info JSON (most-replayed heatmap, title/URL for descriptions)")
     g.add_argument("--audio", action="store_true", help="also use the video's loudness")
     g.add_argument("--laughter", action="store_true", help="experimental: also score laughter-like bursts in the audio")
@@ -272,8 +273,32 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--min-length", type=float, default=15.0)
     g.add_argument("--max-length", type=float, default=90.0)
     g.add_argument("--keep-greetings", action="store_true", help="count greetings / goodbyes too (they flood the chat when a stream starts and ends)")
+    g.add_argument("--skip-scene", action="append", metavar="NAME", help="with --session: leave out highlights that are mostly in an OBS scene whose name contains NAME (e.g. a waiting or ending screen); repeat for more")
     _add_marker_args(g)
     g.add_argument("--plot", help="also draw the timeline as PNG")
+
+
+def _add_session_args(p: argparse.ArgumentParser, *, detect: bool = True) -> None:
+    g = p.add_argument_group("session file (stream2clip session record)")
+    g.add_argument("--session", metavar="FILE", help="session recorded while streaming: its chat and markers (when --chat is not given), its OBS scenes for --skip-scene, and VTube Studio's outline for --avatar session")
+    g.add_argument("--session-origin", choices=["auto", "stream", "record", "session"], default="auto", help="what time 0 of the video is: when OBS started streaming (a platform's VOD), recording (a local recording), or the session; auto: the first of those")
+    g.add_argument("--session-offset", type=float, default=0.0, metavar="SECONDS", help="seconds the video starts after that time (negative: before)")
+    if detect:  # what highlight detection takes from the session
+        g.add_argument("--avatar-motion", action="store_true", help="experimental: also score how much the VTube Studio avatar moved (its parameters in --session)")
+
+
+def _session(args: argparse.Namespace):
+    """``(session, time 0)`` for ``--session``, or ``(None, 0.0)``."""
+    if not getattr(args, "session", None):
+        return None, 0.0
+    from .session import load_session
+
+    session = load_session(args.session)
+    return session, session.origin(args.session_origin) + args.session_offset
+
+
+def _add_audio_track_arg(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--audio-track", type=int, metavar="N", help="audio track to listen to for subtitles, silences, loudness, laughter and songs: 0 is the first (an OBS recording with the microphone alone on track 2: 1); the clips keep the first track")
 
 
 def _add_marker_args(g) -> None:
@@ -294,18 +319,42 @@ def _detect(args: argparse.Namespace, video: str | None):
     from .highlights import HighlightConfig, render_timeline
     from .pipeline import find_highlights
 
-    if not args.chat and not args.info and not (video and args.audio) and not args.speech:
-        raise ValueError("Give --chat, --info (heatmap), --audio with a video, or --speech with subtitles")
+    session, zero = _session(args)
+    if not args.chat and not args.info and not (video and args.audio) and not args.speech and session is None:
+        raise ValueError("Give --chat, --info (heatmap), --audio with a video, --speech with subtitles, or --session")
+    if args.skip_scene and session is None:
+        raise ValueError("--skip-scene needs the scenes of a --session file")
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
                           min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings, **_markers(args))
     src = _source(args)
+    if getattr(args, "avatar_motion", False) and session is None:
+        raise ValueError("--avatar-motion needs the avatar parameters of a --session file")
+    motion = None
+    if getattr(args, "avatar_motion", False):
+        from .session import avatar_motion
+
+        motion = avatar_motion(session, zero, window=cfg.window, delay=cfg.chat_delay)
+        if not motion.any():
+            raise ValueError(f"{args.session} holds no avatar parameters: record with  stream2clip session record --vts")
+    messages = session.messages(zero, marker_delay=args.delay) if session is not None and not args.chat else None
+    if messages is not None:
+        print(f"session {args.session}: {len(messages):,} chat messages and markers")
     result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), speech=args.speech, config=cfg,
-                             source={"url": src.url, "title": src.title} if src else {})
+                             source={"url": src.url, "title": src.title} if src else {}, messages=messages, avatar=motion, audio_track=args.audio_track)
+    if session is not None and args.skip_scene:
+        from .session import skip_scenes
+
+        before = len(result.highlights)
+        kept = skip_scenes(result.highlights, session.scenes(zero), args.skip_scene)
+        for rank, h in enumerate(sorted(kept, key=lambda h: h.rank), start=1):
+            h.rank = rank
+        result.highlights = sorted(kept, key=lambda h: h.rank)
+        print(f"scenes  {before - len(kept)} highlights left out (in a scene named like {', '.join(args.skip_scene)})")
     if video and (args.mark_singing or args.skip_singing):
         from .audio import singing_sections
         from .highlights import mark_singing
 
-        songs = singing_sections(video)
+        songs = singing_sections(video, track=args.audio_track)
         print(f"singing  {len(songs)} sections" + (": " + ", ".join(f"{_clock(s.start)}-{_clock(s.end)}" for s in songs) if songs else ""))
         mark_singing(result, [(s.start, s.end) for s in songs], drop=args.skip_singing)
     print(f"analysed {result.messages} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
@@ -346,10 +395,11 @@ def cmd_highlights(args: argparse.Namespace) -> int:
 def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("clip output")
     g.add_argument("--layout", default="blur", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default blur): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
-    g.add_argument("--avatar", type=_avatar, help="stack / pip layout: avatar box x,y,w,h in source pixels, or 'auto' to find it with anime face detection")
+    g.add_argument("--avatar", type=_avatar, help="stack / pip layout: avatar box x,y,w,h in source pixels, 'auto' to find it with anime face detection, or 'session' to take it from the VTube Studio outline in --session")
+    g.add_argument("--vts-region", type=_region, metavar="X,Y,W,H", help="--avatar session: where VTube Studio's whole view is in the video, when the session does not know where OBS put it")
     g.add_argument("--avatar-video", metavar="FILE", help="stack / pip layout: take the avatar from its own recording (green screen or alpha) instead of a box in the stream")
     g.add_argument("--avatar-key", default="auto", metavar="COLOR", help="colour removed from --avatar-video: 'auto' (default) uses the file's own transparency when it has one and removes #00FF00 otherwise; 'none' always uses the file's transparency")
-    g.add_argument("--avatar-offset", type=float, default=0.0, metavar="SECONDS", help="--avatar-video: seconds its recording started before the stream's (negative: after)")
+    g.add_argument("--avatar-offset", type=float, default=None, metavar="SECONDS", help="--avatar-video: seconds its recording started before the stream's (negative: after; default: from --session when the recorder started that recording, else 0)")
     g.add_argument("--corner", default="top-right", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="pip layout: where the avatar goes (default top-right)")
     g.add_argument("--inset", type=float, default=0.42, help="pip layout: avatar width as a fraction of the frame (default 0.42)")
     g.add_argument("--face-model", help="--avatar auto: ONNX face model file (default: downloaded once, 12 MB)")
@@ -419,9 +469,11 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     layout = None
     if args.layout != "none":
         avatar = args.avatar
+        aspect = args.size[0] / (args.size[1] * args.split) if args.layout == "stack" else 0.8  # the pip box: a little taller than wide
         if avatar == "auto":
-            aspect = args.size[0] / (args.size[1] * args.split) if args.layout == "stack" else 0.8  # the pip box: a little taller than wide
             avatar = _find_avatar(sample_video, aspect=aspect, model=args.face_model, samples=args.avatar_samples).region if args.layout in ("stack", "pip") else None
+        elif avatar == "session":
+            avatar = _session_avatar(args, sample_video, highlights, aspect) if args.layout in ("stack", "pip") else None
         key = args.avatar_key
         if key.lower() == "auto" and args.avatar_video:
             from .export import has_alpha
@@ -430,7 +482,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             print(f"avatar {args.avatar_video}: " + ("its own transparency is used" if key == "none" else "#00FF00 is removed"))
         layout = VerticalLayout(
             args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split, corner=args.corner, inset=args.inset,
-            avatar_source=args.avatar_video, avatar_key=None if key.lower() == "none" else ("#00FF00" if key.lower() == "auto" else key), avatar_offset=args.avatar_offset,
+            avatar_source=args.avatar_video, avatar_key=None if key.lower() == "none" else ("#00FF00" if key.lower() == "auto" else key), avatar_offset=_avatar_offset(args),
         )
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
@@ -460,7 +512,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         subtitle_style=subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size),
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
-        on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
+        audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
     )
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
@@ -500,6 +552,41 @@ def cmd_compile(args: argparse.Namespace) -> int:
         made = compile_clips(args.clips, args.output, **options)
     _report_compilation(made)
     return 0
+
+
+def _avatar_offset(args: argparse.Namespace) -> float:
+    """``--avatar-offset``, or what the session says about when the avatar's own recording began."""
+    if args.avatar_offset is not None:
+        return float(args.avatar_offset)
+    if not args.avatar_video or not getattr(args, "session", None):
+        return 0.0
+    session, zero = _session(args)
+    offset = session.avatar_offset(zero) if session is not None else None
+    if offset is None:
+        return 0.0
+    print(f"avatar offset {offset:+.2f} s  (when its recording began, from {args.session})")
+    return offset
+
+
+def _session_avatar(args: argparse.Namespace, video: str, highlights, aspect: float) -> Region:
+    """The avatar box from the session's VTube Studio outline during the highlights (``--avatar session``)."""
+    from .export import probe
+    from .session import avatar_region
+
+    session, zero = _session(args)
+    if session is None:
+        raise ValueError("--avatar session needs --session (a session file recorded with --vts)")
+    if not session.of("avatar_outline"):
+        raise ValueError(f"{args.session} holds no VTube Studio outline: record it with  stream2clip session record --vts")
+    info = probe(video)
+    spans = [(h.start, h.end) for h in highlights]
+    box = avatar_region(session, (info.width, info.height), aspect=aspect, origin=zero, spans=spans, vts_region=args.vts_region)
+    if box is None and spans:
+        box = avatar_region(session, (info.width, info.height), aspect=aspect, origin=zero, vts_region=args.vts_region)
+    if box is None:
+        raise ValueError("The outline cannot be placed in the video: record with --vts-source NAME (the OBS source showing VTube Studio), or give --vts-region x,y,w,h")
+    print(f"avatar {box}  (VTube Studio outline from {args.session})")
+    return box
 
 
 def _find_avatar(video: str, *, aspect: float, model: str | None, samples: int):
@@ -606,7 +693,7 @@ def _prepare_from_url(args: argparse.Namespace, out: Path) -> None:
             raise ValueError(f"--{option.replace('_', '-')} needs the whole video. Download it first (stream2clip fetch URL -o DIR --video) and give the file instead of the address.")
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
     info, chat = fetch_replay(
-        args.video, out, info=not args.info, chat=not args.chat, ytdlp=ytdlp,
+        args.video, out, info=not args.info, chat=not (args.chat or args.session), ytdlp=ytdlp,
         on_stage=lambda name: print(f"fetch  {name.removeprefix('fetch-')} ...", flush=True),
         warn=lambda message: print(f"info   (skipped) {message}", file=sys.stderr),
     )
@@ -746,6 +833,125 @@ def cmd_live(args: argparse.Namespace) -> int:
     return 0
 
 
+def _session_recorder(args: argparse.Namespace):
+    """The writer and the recorder ``session record`` runs (the app's recorder window builds the same)."""
+    from .live import LiveConfig, reads_chat_itself
+    from .recorder import build_recorder
+    from .sources import is_url, ytdlp_command
+
+    out = Path(args.output or time.strftime("session-%Y%m%d-%H%M%S.jsonl"))
+    if out.exists() and not args.overwrite:
+        raise ValueError(f"{out} exists already; choose another name or pass --overwrite")
+    ytdlp = None
+    if args.chat and is_url(args.chat) and not reads_chat_itself(args.chat):  # a YouTube live chat comes through yt-dlp
+        ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
+    password = args.password or os.environ.get("OBS_WEBSOCKET_PASSWORD")
+    recorder = build_recorder(
+        out, chat=args.chat, live_config=LiveConfig(**_markers(args)), ytdlp=ytdlp,
+        obs=None if args.no_obs else (args.host, args.port, password), avatar_source=args.vts_source,
+        vts_url=args.vts_url if args.vts else None, outline_every=args.outline_every, parameters=args.parameters,
+        parameters_every=args.parameters_every, vts_hotkeys=args.vts_hotkey or (), replay_on_marker=args.replay_on_marker, record_avatar=args.avatar_record,
+        viewer_votes=args.viewer_votes,
+    )
+    return recorder.writer, recorder
+
+
+def cmd_session_record(args: argparse.Namespace) -> int:
+    import threading
+
+    writer, recorder = _session_recorder(args)
+    print(f"session {writer.path}", flush=True)
+    for name, what in json.loads(writer.path.read_text(encoding="utf-8").splitlines()[0]).get("sources", {}).items():
+        print(f"  {name:5s} {what}", flush=True)
+    if args.widget is not None:
+        print(f"widget  {recorder.serve_widget(args.widget)}  (OBS: Sources > Browser, 400 x 120)", flush=True)
+    print("Press Enter to leave a marker, Ctrl+C to stop.", flush=True)
+
+    def keys() -> None:  # every Enter is a marker
+        for _line in sys.stdin:
+            recorder.mark("enter")
+            print(f"[{time.strftime('%H:%M:%S')}] marker", flush=True)
+
+    if sys.stdin is not None and sys.stdin.isatty():
+        threading.Thread(target=keys, daemon=True).start()
+    shown: dict[str, tuple[str, str]] = {}
+    last = [time.time()]
+
+    def report(rec) -> None:
+        for part in rec.parts:
+            state = (part.status.state, part.status.detail)
+            if shown.get(part.name) != state:
+                shown[part.name] = state
+                print(f"[{time.strftime('%H:%M:%S')}] {part.name:5s} {state[0]}" + (f": {state[1]}" if state[1] else ""), flush=True)
+        if args.verbose and time.time() - last[0] >= 60:
+            last[0] = time.time()
+            print(f"[{time.strftime('%H:%M:%S')}] " + ", ".join(f"{k} {v}" for k, v in sorted(writer.counts.items())), flush=True)
+
+    try:
+        recorder.run(until=time.time() + args.duration if args.duration else None, on_step=report)
+    except KeyboardInterrupt:
+        pass  # run() has written the pending markers and closed the parts and the file
+    print(f"done    {writer.path}: " + ", ".join(f"{k} {v}" for k, v in sorted(writer.counts.items())))
+    return 0
+
+
+def cmd_session_show(args: argparse.Namespace) -> int:
+    from .session import load_session
+
+    session = load_session(args.file)
+    zero = session.origin(args.origin) + args.offset
+    print(f"session {session.path}  ({session.app or 'unknown program'})")
+    print(f"  began   {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(session.started))}, {(session.end - session.started) / 60:.1f} min of events")
+    for name, what in session.sources.items():
+        print(f"  {name:7s} {what}")
+    for output in ("stream", "record"):
+        starts = session.output_starts(output)
+        if starts:
+            print(f"  {output:7s} started " + ", ".join(time.strftime("%H:%M:%S", time.localtime(t)) for t in starts))
+    print(f"  time 0  {time.strftime('%H:%M:%S', time.localtime(zero))} ({args.origin})")
+    counts: dict[str, int] = {}
+    for e in session.events:
+        counts[e.type] = counts.get(e.type, 0) + 1
+    print("  events  " + (", ".join(f"{k} {v}" for k, v in sorted(counts.items())) or "none"))
+    scenes = session.scenes(zero)
+    if scenes:
+        print("scenes")
+        for s in scenes:
+            print(f"  {_clock(s.start)} - {_clock(s.end)}  {s.name}")
+    moments = [(e.t - zero, "marker", e.data.get("label") or e.data.get("by") or "") for e in session.of("marker")]
+    moments += [(e.t - zero, f"surge {float(e.data.get('score') or 0):.1f}", " / ".join(e.data.get("reasons") or [])) for e in session.of("surge")]
+    if moments:
+        print("moments (time in the video)")
+        for t, what, detail in sorted(moments):
+            print(f"  {_clock(t)}  {what}" + (f"  {detail}" if detail else ""))
+    problems = [e for e in session.of("status") if e.data.get("state") == "waiting"]
+    if problems:
+        print(f"connection problems: {len(problems)} (the first: {problems[0].data.get('source')}: {problems[0].data.get('detail', '')})")
+    return 0
+
+
+def cmd_chzzk_login(args: argparse.Namespace) -> int:
+    from .chzzk_api import ChzzkApi, login
+
+    api = ChzzkApi(args.client_id, args.client_secret)
+    print(f"Waiting for CHZZK's sign-in on {args.redirect} (5 minutes) ...", flush=True)
+    login(api, args.redirect, open_browser=(lambda url: None) if args.no_browser else None, on_url=lambda url: print(f"sign in  {url}", flush=True))
+    print(f"signed in; tokens kept in {api.token_file}. Record with:  stream2clip session record --chat chzzk-api")
+    return 0
+
+
+def cmd_chzzk_logout(args: argparse.Namespace) -> int:
+    from .chzzk_api import token_path
+
+    path = token_path()
+    if path.exists():
+        path.unlink()
+        print(f"removed {path}")
+    else:
+        print("not signed in")
+    return 0
+
+
 def cmd_language(args: argparse.Namespace) -> int:
     from . import i18n
 
@@ -878,7 +1084,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
 def cmd_singing(args: argparse.Namespace) -> int:
     from .audio import singing_sections
 
-    songs = singing_sections(args.video, min_length=args.min_length)
+    songs = singing_sections(args.video, min_length=args.min_length, track=args.audio_track)
     for index, song in enumerate(songs, start=1):
         print(f"  #{index:02d}  {_clock(song.start)} - {_clock(song.end)}  ({song.duration:.0f}s, held pitch {song.score:.0%})")
     print(f"{len(songs)} singing sections, {sum(s.duration for s in songs) / 60:.1f} min in total")
@@ -1011,6 +1217,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--video", help="VOD file (duration, and loudness with --audio)")
     p.add_argument("-o", "--output", help="write highlights JSON")
     _add_highlight_args(p)
+    _add_session_args(p)
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_highlights)
 
     p = sub.add_parser("compile", help="join finished clips into one video with a chapter list")
@@ -1043,6 +1251,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--info", help="yt-dlp info JSON (source title / URL)")
     p.add_argument("--strict", action="store_true", help="exit 1 when the guideline check finds errors")
     _add_clip_args(p)
+    _add_session_args(p, detect=False)
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_clips)
 
     p = sub.add_parser("auto", help="VOD + chat -> highlights -> clips in one go")
@@ -1051,6 +1261,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--strict", action="store_true", help="exit 1 when the guideline check finds errors")
     _add_highlight_args(p)
     _add_clip_args(p)
+    _add_session_args(p)
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_auto)
 
     p = sub.add_parser("avatar", help="suggest the avatar box for --layout stack (anime face detection)")
@@ -1103,6 +1315,53 @@ def build_parser() -> argparse.ArgumentParser:
     _add_export_args(p)
     p.set_defaults(func=cmd_live)
 
+    p = sub.add_parser("session", help="record what happens while you stream (chat, markers, OBS scenes, the VTube Studio avatar) for clipping afterwards")
+    ss = p.add_subparsers(dest="session_command", required=True)
+    r = ss.add_parser("record", help="record a session file until Ctrl+C (Enter leaves a marker)")
+    r.add_argument("-o", "--output", help="session file to write (default: session-<date>-<time>.jsonl)")
+    r.add_argument("--overwrite", action="store_true", help="replace an existing file")
+    r.add_argument("--chat", metavar="SOURCE", help="your channel: a Twitch, CHZZK or SOOP channel address, a YouTube live address (yt-dlp), 'chzzk-api' (CHZZK's Open API, after  stream2clip chzzk login), or a chat file a collector appends to")
+    r.add_argument("--viewer-votes", type=int, default=0, metavar="N", help="N different viewers typing a marker word (!clip ...) within 30 s leave a marker (default 0: off)")
+    r.add_argument("--widget", type=int, nargs="?", const=8790, metavar="PORT", help="serve an OBS browser source showing the votes and markers on 127.0.0.1 (default port 8790)")
+    r.add_argument("--duration", type=float, help="stop after this many seconds")
+    r.add_argument("-v", "--verbose", action="store_true", help="print the event counts every minute")
+    _add_marker_args(r)
+    o = r.add_argument_group("OBS")
+    o.add_argument("--no-obs", action="store_true", help="do not connect to OBS")
+    o.add_argument("--host", default="127.0.0.1")
+    o.add_argument("--port", type=int, default=4455)
+    o.add_argument("--password", help="WebSocket server password (default: OBS_WEBSOCKET_PASSWORD)")
+    o.add_argument("--vts-source", metavar="NAME", help="name of the OBS source that shows VTube Studio: its place on the canvas is recorded, so the avatar box can be found later")
+    o.add_argument("--replay-on-marker", action="store_true", help="also save OBS's replay buffer at every marker")
+    o.add_argument("--avatar-record", action="store_true", help="start and stop the Source Record filter (an OBS plugin) on the --vts-source source with the session; its start is written, so clips find --avatar-offset")
+    v = r.add_argument_group("VTube Studio")
+    v.add_argument("--vts", action="store_true", help="record the model's outline and parameters (VTube Studio > Settings > Start API; allow the plugin in the popup once)")
+    v.add_argument("--vts-url", default="ws://127.0.0.1:8001", help="VTube Studio API address (default ws://127.0.0.1:8001)")
+    v.add_argument("--outline-every", type=float, default=0.5, metavar="SECONDS", help="seconds between two recorded outlines (default 0.5; VTube Studio sends 15 a second)")
+    v.add_argument("--parameters", choices=["default", "all", "none"], default="default", help="which model parameters to record: the standard face and head ones (default), all, or none")
+    v.add_argument("--parameters-every", type=float, default=0.2, metavar="SECONDS", help="seconds between two parameter readings (default 0.2)")
+    v.add_argument("--vts-hotkey", action="append", metavar="NAME", help="a VTube Studio hotkey whose name makes it a marker; repeat for more")
+    y = r.add_argument_group("yt-dlp (YouTube chat)")
+    y.add_argument("--cookies", help="cookies file for yt-dlp")
+    y.add_argument("--cookies-from-browser", help="browser to take cookies from (yt-dlp)")
+    r.set_defaults(func=cmd_session_record)
+    s = ss.add_parser("show", help="what a session file holds: scenes, markers and surges at their time in the video")
+    s.add_argument("file", help="session file (.jsonl)")
+    s.add_argument("--origin", choices=["auto", "stream", "record", "session"], default="auto", help="what time 0 of the video is: when OBS started streaming (a platform's VOD), recording (a local recording), or the session; auto: the first of those")
+    s.add_argument("--offset", type=float, default=0.0, metavar="SECONDS", help="seconds the video starts after that time (negative: before)")
+    s.set_defaults(func=cmd_session_show)
+
+    p = sub.add_parser("chzzk", help="CHZZK's official Open API for your own channel: sign in once, then  session record --chat chzzk-api")
+    cs = p.add_subparsers(dest="chzzk_command", required=True)
+    c = cs.add_parser("login", help="sign in in the browser (the application's client id and secret: --client-id/--client-secret or CHZZK_CLIENT_ID/CHZZK_CLIENT_SECRET)")
+    c.add_argument("--client-id", help="the application's client id (CHZZK developer center)")
+    c.add_argument("--client-secret", help="the application's client secret")
+    c.add_argument("--redirect", default="http://localhost:8765/callback", help="the login redirect URL registered with the application (a local address; default http://localhost:8765/callback)")
+    c.add_argument("--no-browser", action="store_true", help="print the sign-in address instead of opening the browser")
+    c.set_defaults(func=cmd_chzzk_login)
+    c = cs.add_parser("logout", help="forget the CHZZK tokens kept on this PC")
+    c.set_defaults(func=cmd_chzzk_logout)
+
     p = sub.add_parser("language", help="show the interface language the app starts in (before a choice made in the app itself)")
     p.add_argument("-v", "--verbose", action="store_true", help="also show where it could come from")
     p.set_defaults(func=cmd_language)
@@ -1139,6 +1398,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("video")
     p.add_argument("-o", "--output", help="write the sections as JSON")
     p.add_argument("--min-length", type=float, default=60.0, help="shortest section in seconds (default 60)")
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_singing)
 
     p = sub.add_parser("glossary", help="name glossary for subtitle translation (draft one from Holodex, or check a file)")

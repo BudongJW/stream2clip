@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/BudongJW/stream2clip/schemas/session.v1.schema.json",
+  "title": "stream2clip session file v1 (one line)",
+  "description": "A session file is JSON Lines written while a stream is on air: the first line is the header, every other line one event. Times are wall-clock UNIX seconds. Readers skip event types they do not know, so new types can be added without a new version.",
+  "oneOf": [{"$ref": "#/$defs/header"}, {"$ref": "#/$defs/event"}],
+  "$defs": {
+    "header": {
+      "type": "object",
+      "required": ["schema", "started"],
+      "properties": {
+        "schema": {"const": "stream2clip.session/v1"},
+        "started": {"type": "number", "description": "when the recording of events began (UNIX seconds)"},
+        "app": {"type": "string", "description": "the program and version that wrote the file"},
+        "sources": {
+          "type": "object",
+          "description": "what was connected, in a few words each (chat address, OBS and VTube Studio addresses)",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "point": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+    "size": {"type": "array", "items": {"type": "number", "minimum": 0}, "minItems": 2, "maxItems": 2},
+    "event": {
+      "type": "object",
+      "required": ["t", "type"],
+      "properties": {
+        "t": {"type": "number", "description": "when it happened (UNIX seconds)"},
+        "type": {"type": "string", "pattern": "^[a-z_]+$"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "chat"}}},
+          "then": {
+            "required": ["text"],
+            "properties": {
+              "text": {"type": "string"},
+              "author": {"type": "string", "description": "anonymous id (hash), never a name"},
+              "kind": {"enum": ["text", "paid", "member", "gift", "sticker"]},
+              "amount": {"type": "number", "minimum": 0},
+              "currency": {"type": ["string", "null"]},
+              "emotes": {"type": "array", "items": {"type": "string"}},
+              "role": {"enum": ["", "owner", "moderator"]}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "marker"}}},
+          "then": {
+            "required": ["by"],
+            "properties": {
+              "by": {"type": "string", "description": "what left the marker: hotkey, button, vts_hotkey ..."},
+              "label": {"type": "string"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "surge"}}},
+          "then": {"required": ["score"], "properties": {"score": {"type": "number"}, "reasons": {"type": "array", "items": {"type": "string"}}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "scene"}}},
+          "then": {"required": ["name"], "properties": {"name": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "output"}}},
+          "then": {
+            "required": ["output", "active"],
+            "properties": {"output": {"enum": ["stream", "record", "replay_buffer"]}, "active": {"type": "boolean"}}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "replay_saved"}}},
+          "then": {"required": ["path"], "properties": {"path": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "avatar_record"}}},
+          "then": {"required": ["active"], "properties": {"active": {"type": "boolean"}, "source": {"type": "string"}, "by": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "obs_video"}}},
+          "then": {
+            "required": ["base", "output"],
+            "properties": {"base": {"$ref": "#/$defs/size"}, "output": {"$ref": "#/$defs/size"}}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "avatar_source"}}},
+          "then": {
+            "required": ["source", "transform"],
+            "properties": {
+              "source": {"type": "string", "description": "the OBS source that shows VTube Studio"},
+              "scene": {"type": "string"},
+              "transform": {"type": "object", "description": "obs-websocket's sceneItemTransform of that source"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "avatar_outline"}}},
+          "then": {
+            "required": ["hull"],
+            "properties": {
+              "hull": {"type": "array", "items": {"$ref": "#/$defs/point"}, "minItems": 3, "description": "VTube Studio's model outline: x from -1 (left) to 1 (right), y from -1 (bottom) to 1 (top) of its window"},
+              "window": {"$ref": "#/$defs/size"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "avatar_params"}}},
+          "then": {
+            "required": ["values"],
+            "properties": {"values": {"type": "object", "additionalProperties": {"type": "number"}}}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "avatar_model"}}},
+          "then": {"required": ["name"], "properties": {"name": {"type": "string"}, "id": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "status"}}},
+          "then": {
+            "required": ["source", "state"],
+            "properties": {"source": {"type": "string"}, "state": {"type": "string"}, "detail": {"type": "string"}}
+          }
+        }
+      ]
+    }
+  }
+}

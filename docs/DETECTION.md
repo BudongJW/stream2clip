@@ -16,7 +16,7 @@
 
 방송을 `--window`(기본 5초) 단위로 분할하고, 신호별로 해당 방송의 평소 수준(중앙값, MAD)과 비교한 robust z-점수를 가중합. 채팅이 적은 채널과 많은 채널에 동일 기준 적용 가능
 
-| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;신&NoBreak;호&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 의미 | 가중치 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;신&NoBreak;호&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 의미 | 가중치 |
 |:---:|---|:---:|
 | 채팅 속도 | 구간당 메시지 수 | 0.30 |
 | 고유 채터 | 1명의 도배보다 여러 명의 반응을 반영 | 0.20 |
@@ -24,6 +24,7 @@
 | 후원 | 슈퍼챗, 비트, 멤버십, 선물 | 0.10 |
 | 음량 | `--audio` 지정 시 영상 소리의 RMS(dB) | 0.15 |
 | 많이 다시 본 구간 | `--info` 지정 시 YouTube heatmap | 0.15 |
+| 아바타 움직임(실험) | `--avatar-motion`, `--session` 지정 시 VTube Studio 파라미터의 구간별 변화량. 파라미터마다 평소 1회 변화량(변화량 중앙값) 단위로 환산하고 1회 최대 10배까지 반영. 다른 신호를 깎지 않는 보조 신호 | 0.15 |
 
 점수 계산 이후의 처리 순서:
 

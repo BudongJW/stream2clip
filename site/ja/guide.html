@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 取扱説明書</h1>
   <dl>
-    <dt>対象バージョン</dt><dd>v0.13</dd>
+    <dt>対象バージョン</dt><dd>v0.14</dd>
     <dt>対象</dt><dd>Windows用インストーラー、実行ファイルおよびPythonパッケージの利用者</dd>
     <dt>配布元</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -68,6 +68,7 @@
       <li><a href="#subtitles">字幕と翻訳</a></li>
       <li><a href="#obs">OBSリプレイの保存</a></li>
       <li><a href="#live">ライブモード</a></li>
+      <li><a href="#recorder">配信レコーダー</a></li>
       <li><a href="#cli">コマンドライン</a></li>
       <li><a href="#troubleshooting">トラブルシューティング</a></li>
       <li><a href="#notice">著作権とガイドライン</a></li>
@@ -351,6 +352,39 @@
         </tbody>
       </table>
     </div>
+
+    <h2 id="recorder">配信レコーダー</h2>
+    <p>配信中のチャット、マーク、OBSのシーン、VTube Studioのアバターの位置と表情をセッションファイルに記録し、配信後の切り抜き制作に使用。映像はOBSが録画。</p>
+    <h3>使い方</h3>
+    <ol>
+      <li>スタート画面のクリップ欄で<strong>配信レコーダー</strong>を開く</li>
+      <li>自分のチャンネルの配信URLを入力し、OBSとVTube Studioの使用を選択。VTube Studioは設定でAPIをオンにし、初回接続時にVTube Studioに表示されるプラグイン許可画面で許可</li>
+      <li>OBSでVTube Studioを表示しているソース名を入力。切り抜き制作時のアバター領域の自動指定に使用</li>
+      <li><strong>記録開始</strong>を実行。残したい場面で<strong>今をマーク</strong>またはF11(オン時)</li>
+      <li>配信終了後に<strong>記録停止</strong>、<strong>ハイライトを探す</strong>でハイライト画面にセッションファイルを入力</li>
+    </ol>
+    <h3>記録内容と用途</h3>
+    <ul>
+      <li>チャットとマーク: チャットリプレイを取得せずにハイライト検出。マークした場面は必ずクリップに含む</li>
+      <li>OBSのシーン: 待機画面、エンディングなど指定したシーンのハイライトを除外</li>
+      <li>VTube Studioの輪郭とOBSでの配置: 縦型クリップのアバター領域を指定</li>
+      <li>映像の0秒はOBSの配信開始時点。配信の記録がなければ録画開始時点</li>
+      <li>視聴者投票: 視聴者3人が30秒以内に<code>!clip</code>を入力するとマークとして記録</li>
+      <li>OBSウィジェット: OBSのブラウザソースに<code>http://127.0.0.1:8790/widget</code>を追加すると投票状況とマークを配信画面に表示</li>
+      <li>チャットの投稿者は識別できない値でのみ記録し、ファイルはこのPCにのみ保存</li>
+    </ul>
+    <h3>ハイライト画面の設定</h3>
+    <ul>
+      <li><strong>セッション</strong>欄にセッションファイルを入力。チャット欄に入れた場合や画面にドロップした場合もセッション欄に移動。チャット欄が空の場合はセッションのチャットとマークで検出</li>
+      <li><strong>0 秒の基準</strong>: プラットフォームのアーカイブはOBS配信開始、OBSの録画ファイルはOBS録画開始を選択。動画が基準より遅く始まる場合はその差を秒単位で入力</li>
+      <li><strong>除外シーン</strong>: シーン名の一部をカンマ区切りで入力。半分以上がそのシーンに含まれるハイライトを除外</li>
+      <li><strong>アバターの動き (実験)</strong>: アバターの動きが大きい場面に点数を追加</li>
+      <li>書き出し設定のアバター行の<strong>セッションから</strong>: チェックしたハイライト区間の輪郭でアバター領域を入力</li>
+      <li><strong>音声トラック</strong>: OBSでマイクを別トラックに録音した場合はそのトラック番号を選択。字幕認識、無音区間、音量の判定に使用し、クリップの音声は変更なし</li>
+    </ul>
+    <h3>コマンドライン</h3>
+    <pre><code>stream2clip.exe session record --chat "https://chzzk.naver.com/live/CHANNEL_ID" --vts --vts-source "VTube Studio"</code></pre>
+    <pre><code>stream2clip.exe auto vod.mp4 -o clips --session session.jsonl --skip-scene 待機 --layout stack --avatar session</code></pre>
 
     <h2 id="cli">コマンドライン</h2>
     <p>アプリの全機能は <code>stream2clip.exe</code> で実行可能。複数の配信の一括処理に使用。</p>
