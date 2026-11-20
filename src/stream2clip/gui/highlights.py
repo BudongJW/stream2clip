@@ -821,7 +821,7 @@ class HighlightsWindow(QMainWindow):
         return got
 
     def set_mood(self, mood: str) -> None:
-        """Kiri next to the status line: wink = ready, focus = working, cut = clips done, surprised = failed."""
+        """Kiri next to the status line: wink = ready, side (looking at the progress bar) = working, cut = clips done, surprised = failed."""
         if mood != self.mood:
             self.mood = mood
             self.mascot_label.setPixmap(mascot(mood, 44))
@@ -829,7 +829,7 @@ class HighlightsWindow(QMainWindow):
     def _set_busy(self, busy: bool, message: str | None = None) -> None:
         self.busy = busy
         if busy:
-            self.set_mood("focus")
+            self.set_mood("side")  # turned towards the progress bar on its right
         self.analyse_button.setEnabled(not busy)
         self.avatar_button.setEnabled(not busy and self.layout_combo.currentData() in AVATAR_LAYOUTS)
         self.export_button.setEnabled(not busy and bool(self.checked_highlights()))

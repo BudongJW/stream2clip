@@ -197,5 +197,5 @@ def test_real_model_finds_the_faces_in_the_key_visual():
 
     image = np.asarray(Image.open(Path(__file__).parents[1] / "assets/brand/02_concept-image_keyvisual_1920x1080.png").convert("RGB"))
     faces = detect.OnnxFaceDetector(model).detect(image)
-    assert faces and faces[0].score > 0.6
-    assert faces[0].region.x == pytest.approx(1096, abs=20) and faces[0].region.width == pytest.approx(172, abs=20)
+    assert len(faces) == 4 and faces[0].score > 0.6  # the mascot in the stream frame and on the three clip cards
+    assert faces[0].region.x == pytest.approx(1087, abs=20) and faces[0].region.width == pytest.approx(175, abs=20)

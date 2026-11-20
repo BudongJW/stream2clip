@@ -256,12 +256,17 @@ def test_the_projects_mascot_files_are_what_their_masters_give(mascot):
     assert data["character"] == "kiri" and data["sizes"] == [512, 112, 56, 28] and data["app_sizes"] == [112, 56]
     from stream2clip.gui import qt
 
-    assert set(data["emotes"]) == set(qt.MOODS)  # every mood the app shows has a master, and nothing else is built
+    assert set(data["emotes"]) == set(qt.MOODS) | set(qt.VIEWS)  # every mood and view the app shows has a master, and nothing else is built
+    assert not set(qt.MOODS) & set(qt.VIEWS)
     for entry in data["emotes"].values():
         assert entry["generator"] and "prompt" in entry and "seed" in entry  # how a picture was made stays with it
     assert mascot.stale() == [], "run: python packaging/build_mascot.py"
-    for name in data["emotes"]:
-        assert mascot.fringe(Image.open(mascot.MASCOT / f"kiri_{name}_512.png")) < 0.02
+    for name, entry in data["emotes"].items():
+        # measured on the master as it is cut out, before scaling: no background left in its rim
+        cut = mascot.cut_out(Image.open(mascot.SOURCE / entry["file"]), entry.get("background", "auto"), shrink=int(entry.get("shrink", 0)))
+        assert mascot.fringe(cut) < 0.02, name
+        with Image.open(mascot.MASCOT / f"kiri_{name}_512.png") as built:
+            assert built.size == (512, 512) and built.getpixel((0, 0))[3] == 0  # the corner is empty: the background is gone
         for size in data["app_sizes"]:
             file = f"kiri_{name}_{size}.png"
             assert (mascot.MASCOT / file).read_bytes() == (mascot.APP_ASSETS / file).read_bytes()

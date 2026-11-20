@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-556-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-562-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -685,7 +685,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 556개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 562개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -1177,7 +1177,8 @@ src/stream2clip/
 | [`02_concept-image_keyvisual_1920x1080.png`](assets/brand/02_concept-image_keyvisual_1920x1080.png) | 키 비주얼(FHD, `@2x`) |
 | [`03_github-social-preview_1280x640.png`](assets/brand/03_github-social-preview_1280x640.png) | GitHub 소셜 프리뷰 |
 | [`app-icons/`](assets/brand/app-icons) | 앱 아이콘: Windows `.ico`, macOS `.icns`, Linux PNG, 웹 파비콘(심볼형, 키리형) |
-| [`mascot/`](assets/brand/mascot) | 마스코트 키리 이모트 5종(512, 112, 56, 28px) |
+| [`mascot/`](assets/brand/mascot) | 마스코트 키리 이모트 5종과 각도 3종(512, 112, 56, 28px) |
+| [`source/`](assets/brand/source) | 키 비주얼과 소셜 프리뷰의 원본 페이지(`keyvisual.html`, `social.html`, `brand.css`). 문구와 배치 수정 위치 |
 | [`mascot/source/`](assets/brand/mascot/source) | 이모트별 원본 1장과 제작 기록(`manifest.json`: 생성 도구, 프롬프트, 시드, 배경 처리) |
 
 ### 앱 아이콘
@@ -1200,10 +1201,20 @@ src/stream2clip/
 </tr>
 </table>
 
-| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;사&NoBreak;용&nbsp;위&NoBreak;치&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 표시 |
+<table>
+<tr>
+<td align="center"><img src="assets/brand/mascot/kiri_turn_left_112.png" alt="키리 왼쪽 45도" width="84"><br><sub><b>turn_left</b><br>왼쪽을 바라봄</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_turn_right_112.png" alt="키리 오른쪽 45도" width="84"><br><sub><b>turn_right</b><br>오른쪽을 바라봄</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_side_112.png" alt="키리 옆모습" width="84"><br><sub><b>side</b><br>옆모습, 진행 중</sub></td>
+</tr>
+</table>
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;사&NoBreak;용&nbsp;위&NoBreak;치&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 표시 |
 |:---:|---|
-| 하이라이트 창 상태 줄 | 준비 wink, 분석 및 내보내기 중 focus, 하이라이트 검출 laugh, 클립 완성 cut, 실패 surprised |
+| 하이라이트 창 상태 줄 | 준비 wink, 분석 및 내보내기 중 side(진행 표시줄 쪽을 바라봄), 하이라이트 검출 laugh, 클립 완성 cut, 실패 surprised |
 | 하이라이트 창 구간 목록 | 해당 장면에서 가장 많이 나온 채팅 반응에 따라 표시. 웃음 laugh, 놀람 surprised, 귀여움 wink, 환호 cut |
+| 런처의 안내(ffmpeg, 새 버전), 구성요소 점검 창 | turn_right. 안내 문구 쪽을 바라보도록 문구 앞에 배치 |
+| 홈페이지 메인 화면 | 다운로드 구역 제목 끝에 turn_left, 사용 설명서 구역에 turn_right. 글 쪽을 바라보는 방향 |
 
 **제작 절차**: 이모트 PNG는 원본에서 스크립트로 생성하며 직접 수정하지 않음
 
@@ -1224,6 +1235,28 @@ python packaging/build_mascot.py --sheet sheet.png
 - 이 PC와 같이 GPU가 없는 환경에서도 생성 이후의 모든 단계 수행 가능(numpy, Pillow만 사용, 5종 전체 약 2초)
 - 흰색, 크림색 배경의 원본은 후드와 구분되지 않아 함께 지워지므로 등록 단계에서 거부
 - 새 이모트 추가 방법과 캐릭터 기준: [mascot/README.txt](assets/brand/mascot/README.txt)
+
+**캐릭터 적용 위치**: 캐릭터가 바뀌면 원본 교체 후 아래 순서로 실행
+
+```bash
+python packaging/build_mascot.py
+```
+
+```bash
+python packaging/build_brand.py
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;위&NoBreak;치&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 사용하는 그림 | 갱신 방법 |
+|:---:|---|---|
+| 앱(런처, 하이라이트 창) | 이모트 112, 56px | `build_mascot.py`가 패키지에 복사 |
+| README 최상단 | 키 비주얼. 방송 화면과 클립 카드 3장에 이모트 사용 | `build_brand.py` |
+| GitHub 소셜 프리뷰, 홈페이지 링크 미리보기 | 소셜 프리뷰. 클립 카드 3장에 이모트 사용 | `build_brand.py`. GitHub 저장소 설정에는 직접 업로드 |
+| 홈페이지 메인 화면, 사용 설명서 | 이모트 512, 112px | `build_site.py`가 빌드 시 복사(main 반영 시 자동 배포) |
+| README 브랜드 항목 | 이모트 112px | 파일을 직접 참조하므로 별도 작업 없음 |
+| 키리형 앱 아이콘 | `app-icons`의 아이콘 파일 | 스크립트 없음. 캐릭터 변경 시 다시 제작 필요 |
+
+- 키 비주얼과 소셜 프리뷰는 저장소의 페이지를 브라우저(Chrome 또는 Edge)로 그린 결과이며 이모트 파일을 그대로 사용. 외부 자료는 불러오지 않음
+- 그리는 PC에 설치된 글꼴 사용: Noto Sans KR, 고정폭 글꼴(JetBrains Mono, 없으면 Cascadia Mono 또는 Consolas). 결과는 눈으로 확인한 후 반영
 
 유의 사항:
 

@@ -208,6 +208,7 @@ class LauncherWindow(QMainWindow):
         row.setSpacing(10)
         self.update_version, self.update_url = "", ""
         self._update_thread: threading.Thread | None = None
+        row.addWidget(self._notice_mascot())
         self.update_label = QLabel()
         self.update_label.setWordWrap(True)
         row.addWidget(self.update_label, 1)
@@ -311,6 +312,7 @@ class LauncherWindow(QMainWindow):
         row = QHBoxLayout(card)
         row.setContentsMargins(14, 10, 14, 10)
         row.setSpacing(10)
+        row.addWidget(self._notice_mascot())
         self.ffmpeg_label = QLabel()
         self.ffmpeg_label.setWordWrap(True)
         row.addWidget(self.ffmpeg_label, 1)
@@ -324,6 +326,13 @@ class LauncherWindow(QMainWindow):
         self.ffmpeg_again.clicked.connect(self.check_ffmpeg)
         row.addWidget(self.ffmpeg_again)
         return card
+
+    @staticmethod
+    def _notice_mascot() -> QLabel:
+        """Kiri at the start of a notice, turned towards its text."""
+        label = QLabel(objectName="NoticeMascot")
+        label.setPixmap(mascot("turn_right", 36))
+        return label
 
     def ffmpeg_ready(self) -> bool:
         """Whether ffmpeg and ffprobe are found (tests replace this)."""

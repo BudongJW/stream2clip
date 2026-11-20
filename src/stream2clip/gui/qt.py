@@ -21,6 +21,9 @@ ICON_SIZES = (16, 24, 32, 48, 64, 128, 256)
 #: Kiri, the mascot: wink (default), laugh (funny scene), surprised (twist / something went
 #: wrong), cut (clip finished), focus (working).
 MOODS = ("wink", "laugh", "surprised", "cut", "focus")
+#: The same character from other angles: turned 45 degrees to either side (it looks at what is beside it),
+#: and from the side, looking right (something is in progress over there).
+VIEWS = ("turn_left", "turn_right", "side")
 
 
 def app_icon() -> QIcon:
@@ -31,8 +34,8 @@ def app_icon() -> QIcon:
 
 
 def mascot(mood: str = "wink", size: int = 56) -> QPixmap:
-    """Kiri in the given mood, ``size`` logical pixels tall (sharp on HiDPI screens)."""
-    name = mood if mood in MOODS else "wink"
+    """Kiri in the given mood (or view), ``size`` logical pixels tall (sharp on HiDPI screens)."""
+    name = mood if mood in MOODS or mood in VIEWS else "wink"
     screen = QGuiApplication.primaryScreen()
     ratio = screen.devicePixelRatio() if screen is not None else 1.0
     source = QPixmap(asset(f"kiri_{name}_112.png"))

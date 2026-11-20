@@ -1,0 +1,79 @@
+/* Shared by keyvisual.html and social.html. Rendered by packaging/build_brand.py with a headless browser:
+   every length is in CSS pixels of the picture (1920x1080 / 1280x640), the @2x files are the same page at twice the density. */
+:root {
+  --ink: #15131F;
+  --paper: #F7F4FA;
+  --pink: #FF4F8B;
+  --yellow: #FFD84D;
+  --muted: #A39DB3;
+  --surface: #1D1A29;
+  --surface-2: #26223A;
+  --border: #332E48;
+  --bar: #3A3454;
+  --text: "Noto Sans KR", "Pretendard", "Malgun Gothic", sans-serif;
+  --code: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body {
+  position: relative;
+  background-color: var(--ink);
+  background-image: radial-gradient(rgba(255, 255, 255, .045) 1.5px, transparent 1.6px);
+  background-size: 40px 40px;
+  background-position: 12px 12px;
+  color: var(--paper);
+  font-family: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+.abs { position: absolute; }
+.code { font-family: var(--code); }
+em { font-style: normal; color: var(--pink); }
+
+/* ---------------------------------------------------------------- clip cards */
+.card {
+  position: absolute;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, .42);
+  display: flex;
+  flex-direction: column;
+}
+.card .tag {
+  align-self: flex-start;
+  margin: 18px 0 0 18px;
+  padding: 7px 11px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 700 15px/1 var(--code);
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.card .say {
+  align-self: center;
+  margin-top: 16px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.card img { margin-top: auto; width: 100%; display: block; }
+.card.dark { background: #2A2542; }
+.card.dark .tag, .card.dark .say { background: #15131F; }
+.card.yellow { background: var(--yellow); }
+.card.pink { background: #FFC4D9; }
+
+/* ---------------------------------------------------------------- timeline */
+.bars { position: absolute; display: flex; align-items: flex-end; gap: 4px; }
+.bars i { display: block; width: 6px; border-radius: 2px 2px 0 0; background: var(--bar); }
+.bars i.hit { background: var(--pink); }
+.bracket { position: absolute; border: 3px solid var(--pink); border-radius: 6px; }
+.bracket::after { content: ""; position: absolute; left: 12px; right: 12px; top: -3px; bottom: -3px; background: var(--ink); z-index: 0; }
+.mark { position: absolute; color: var(--pink); font: 700 13px/1 var(--code); }
+.axis { position: absolute; color: #6E6880; font: 500 14px/1 var(--code); letter-spacing: .04em; }
+svg.links { position: absolute; left: 0; top: 0; overflow: visible; }
+svg.links path { fill: none; stroke: var(--pink); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 9; }

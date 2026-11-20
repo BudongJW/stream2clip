@@ -1,6 +1,6 @@
 {
   "character": "kiri",
-  "version": "0.2",
+  "version": "0.3",
   "sizes": [
     512,
     112,
@@ -56,6 +56,36 @@
       "prompt": "미기록",
       "seed": "미기록",
       "shrink": 2
+    },
+    "turn_right": {
+      "file": "kiri_turn_right.png",
+      "background": "#0CEB0C",
+      "shrink": 3,
+      "use": "45도, 오른쪽을 바라봄: 글이 오른쪽에 있는 자리",
+      "generator": "Hugging Face Space mcp-tools/Qwen-Image-Edit-Angles: Qwen-Image-Edit-2509 + dx8152/Qwen-Edit-2509-Multiple-angles LoRA, 4 steps",
+      "prompt": "Rotate the camera 45 degrees to the left.",
+      "seed": "7",
+      "input": "reference/kiri_wink_green.png"
+    },
+    "turn_left": {
+      "file": "kiri_turn_left.png",
+      "background": "#0CE90C",
+      "shrink": 3,
+      "use": "45도, 왼쪽을 바라봄: 글이 왼쪽에 있는 자리",
+      "generator": "Hugging Face Space mcp-tools/Qwen-Image-Edit-Angles: Qwen-Image-Edit-2509 + dx8152/Qwen-Edit-2509-Multiple-angles LoRA, 4 steps",
+      "prompt": "Rotate the camera 45 degrees to the right.",
+      "seed": "7",
+      "input": "reference/kiri_wink_green.png"
+    },
+    "side": {
+      "file": "kiri_side.png",
+      "background": "#0EE60C",
+      "shrink": 3,
+      "use": "옆모습, 오른쪽을 바라봄: 진행 중 표시",
+      "generator": "Hugging Face Space mcp-tools/Qwen-Image-Edit-Angles: Qwen-Image-Edit-2509 + dx8152/Qwen-Edit-2509-Multiple-angles LoRA, 4 steps",
+      "prompt": "Rotate the camera 90 degrees to the left.",
+      "seed": "7",
+      "input": "reference/kiri_wink_green.png"
     }
   }
 }

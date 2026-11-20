@@ -263,7 +263,12 @@ def test_mascot_follows_the_state(app, window):
 
     assert window.mood == "wink" and not window.mascot_label.pixmap().isNull()
     window._set_busy(True, "busy")
-    assert window.mood == "focus"
+    assert window.mood == "side"  # turned towards the progress bar while something runs
+    from stream2clip.gui import qt
+
+    wink, side = qt.mascot("wink", 44).toImage(), qt.mascot("side", 44).toImage()
+    assert side != wink and qt.mascot("no such picture", 44).toImage() == wink  # an unknown name falls back to the default
+    assert all(not qt.mascot(name, 44).isNull() for name in (*qt.MOODS, *qt.VIEWS))
     window._on_analysed(synthetic_result())  # two planted "草" moments
     assert window.mood == "laugh" and not window.list.item(0).icon().isNull()
     window._on_exported(("clips", []))
