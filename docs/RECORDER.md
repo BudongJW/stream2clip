@@ -41,7 +41,7 @@ JSON Lines. 첫 줄은 헤더, 이후 한 줄에 사건 1개. 시각은 UNIX 초
 {"t":1763600401.2,"type":"avatar_outline","hull":[[-0.4,0.9],[0.5,0.9],[0.5,-1.2],[-0.4,-1.2]],"window":[1920,1080]}
 ```
 
-| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 사건 종류 | `chat`, `marker`, `surge`, `scene`, `output`, `replay_saved`, `obs_video`, `avatar_source`, `avatar_outline`, `avatar_params`, `avatar_model`, `status` |
 | 호환 | 읽는 쪽은 모르는 사건 종류를 건너뜀. 새 종류 추가는 버전 변경 없이 가능 |
@@ -49,6 +49,7 @@ JSON Lines. 첫 줄은 헤더, 이후 한 줄에 사건 1개. 시각은 UNIX 초
 | 개인정보 | 채팅 작성자는 해시(SHA-1 앞 12자리)로만 기록, 닉네임 미기록. 파일은 로컬에만 저장 |
 | 값 정리 | NaN, 무한대 값은 JSON이 아니므로 해당 항목 제외 |
 | 크기 | 외곽선 0.5초, 파라미터 0.2초 간격 기준으로 1시간에 외곽선 7,200줄, 파라미터 18,000줄 |
+| 마이크 트랙 | 영상은 OBS가 녹화하므로 기록기는 소리를 다루지 않음. OBS 녹화의 오디오 트랙 설정에서 마이크만 별도 트랙에 두면 클립 제작 시 `--audio-track`으로 자막 인식과 무음 판정에 사용 가능 |
 
 ## 영상의 0초
 

@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-555-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-556-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -405,6 +405,7 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VID
 | `--trim-silence` | 0.7초 이상 조용한 부분을 앞뒤 0.25초씩만 남기고 제거 |
 | `--trim-silence 초` | 지정한 길이 이상 조용한 부분만 제거 |
 | `--silence-level dB` | 조용함의 기준. 클립의 큰 소리보다 이 값 이상 작은 부분이 대상(기본값 24). 값이 작을수록 더 많이 제거 |
+| `--audio-track N` | 판정에 쓸 오디오 트랙(0부터). OBS 녹화에서 마이크만 별도 트랙에 둔 경우 게임 소리, 배경 음악과 무관하게 판정. 자막 인식, 음량, 웃음소리, 노래 구간 검출에도 적용. 클립의 소리는 첫 번째 트랙 유지 |
 
 | &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
@@ -684,7 +685,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 555개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 556개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |

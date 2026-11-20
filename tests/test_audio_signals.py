@@ -163,3 +163,36 @@ def test_cli_singing_and_mark(tmp_path, capsys):
     assert "1 singing sections" in capsys.readouterr().out
     section = json.loads(out.read_text(encoding="utf-8"))["sections"][0]
     assert section["start"] == pytest.approx(30, abs=10) and section["end"] == pytest.approx(120, abs=10)
+
+
+# ----------------------------------------------------------------------------- a chosen audio track
+
+
+@needs_ffmpeg
+def test_the_chosen_audio_track_is_the_one_heard(tmp_path):
+    import subprocess
+
+    from stream2clip.audio import audio_levels, decode_pcm, track_map
+    from stream2clip.cli import main
+    from stream2clip.pipeline import _sound_parts
+
+    video = tmp_path / "two_tracks.mkv"
+    # track 0: a steady tone all along (game and music); track 1: silence, then 2 s of tone (the microphone)
+    subprocess.run([
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x36:r=10:d=6",
+        "-f", "lavfi", "-i", "sine=frequency=300:duration=6", "-f", "lavfi", "-i", "sine=frequency=500:duration=6",
+        "-filter_complex", "[2]volume=enable='lt(t,3)':volume=0[mic]", "-map", "0:v", "-map", "1:a", "-map", "[mic]",
+        "-c:v", "libx264", "-c:a", "pcm_s16le", str(video),
+    ], check=True)
+    game, mic = audio_levels(video, window=1.0), audio_levels(video, window=1.0, track=1)
+    assert game.min() > -40 and mic[:3].max() < -60 and mic[4] > -40
+    assert len(decode_pcm(video, sample_rate=8000, track=1)) == len(decode_pcm(video, sample_rate=8000))
+    assert track_map(None) == [] and track_map(1) == ["-map", "0:a:1"]
+    with pytest.raises(ValueError):
+        track_map(-1)
+    # silences are judged on the microphone: the first three seconds are quiet there, not on the game track
+    assert _sound_parts(video, 0.0, 6.0, min_silence=0.7, level=24.0, track=1)[0][0] > 2.0
+    assert _sound_parts(video, 0.0, 6.0, min_silence=0.7, level=24.0) == [(0.0, 6.0)]
+    with pytest.raises(RuntimeError, match="could not decode"):
+        audio_levels(video, track=5)
+    assert main(["highlights", "--video", str(video), "--audio", "--audio-track", "5", "-o", str(tmp_path / "h.json")]) == 1

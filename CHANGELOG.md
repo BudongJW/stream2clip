@@ -20,6 +20,7 @@
 - `--skip-scene`: 이름에 지정 문자열이 포함된 OBS 장면에 절반 이상 걸친 하이라이트 제외
 - `--avatar session`: VTube Studio 외곽선을 OBS 배치와 캔버스 크기로 영상 좌표로 변환하여 아바타 영역 지정. `--vts-region`으로 VTube Studio 화면 위치 직접 지정 가능
 - `--session-origin`, `--session-offset`: 영상의 0초 기준(송출 시작, 녹화 시작, 기록 시작)과 차이 지정
+- `--audio-track N`: 자막 인식, 무음 구간 판정, 음량, 웃음소리, 노래 구간 검출에 쓸 오디오 트랙 지정(`highlights`, `clips`, `auto`, `singing`). OBS 녹화에서 마이크만 별도 트랙에 둔 경우 사용. 클립의 소리는 첫 번째 트랙 유지
 - `--avatar-motion`(실험): 기록된 VTube Studio 파라미터의 구간별 변화량을 하이라이트 점수의 보조 신호로 사용(가중치 0.15, 다른 신호를 깎지 않음). 근거 문구 **아바타 움직임 큼 (실험)**
 
 ### 확인 내용

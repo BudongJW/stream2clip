@@ -297,6 +297,10 @@ def _session(args: argparse.Namespace):
     return session, session.origin(args.session_origin) + args.session_offset
 
 
+def _add_audio_track_arg(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--audio-track", type=int, metavar="N", help="audio track to listen to for subtitles, silences, loudness, laughter and songs: 0 is the first (an OBS recording with the microphone alone on track 2: 1); the clips keep the first track")
+
+
 def _add_marker_args(g) -> None:
     g.add_argument("--marker", action="append", metavar="WORD", help="chat command of the streamer or a moderator that always makes a clip; repeat for more (default: !clip !클립 !切り抜き !ts !mark)")
     g.add_argument("--marker-anyone", action="store_true", help="take the marker from every chatter, not only the streamer and moderators")
@@ -336,7 +340,7 @@ def _detect(args: argparse.Namespace, video: str | None):
     if messages is not None:
         print(f"session {args.session}: {len(messages):,} chat messages and markers")
     result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), speech=args.speech, config=cfg,
-                             source={"url": src.url, "title": src.title} if src else {}, messages=messages, avatar=motion)
+                             source={"url": src.url, "title": src.title} if src else {}, messages=messages, avatar=motion, audio_track=args.audio_track)
     if session is not None and args.skip_scene:
         from .session import skip_scenes
 
@@ -350,7 +354,7 @@ def _detect(args: argparse.Namespace, video: str | None):
         from .audio import singing_sections
         from .highlights import mark_singing
 
-        songs = singing_sections(video)
+        songs = singing_sections(video, track=args.audio_track)
         print(f"singing  {len(songs)} sections" + (": " + ", ".join(f"{_clock(s.start)}-{_clock(s.end)}" for s in songs) if songs else ""))
         mark_singing(result, [(s.start, s.end) for s in songs], drop=args.skip_singing)
     print(f"analysed {result.messages} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
@@ -508,7 +512,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         subtitle_style=subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size),
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
-        on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
+        audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
     )
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
@@ -1066,7 +1070,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
 def cmd_singing(args: argparse.Namespace) -> int:
     from .audio import singing_sections
 
-    songs = singing_sections(args.video, min_length=args.min_length)
+    songs = singing_sections(args.video, min_length=args.min_length, track=args.audio_track)
     for index, song in enumerate(songs, start=1):
         print(f"  #{index:02d}  {_clock(song.start)} - {_clock(song.end)}  ({song.duration:.0f}s, held pitch {song.score:.0%})")
     print(f"{len(songs)} singing sections, {sum(s.duration for s in songs) / 60:.1f} min in total")
@@ -1200,6 +1204,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", help="write highlights JSON")
     _add_highlight_args(p)
     _add_session_args(p)
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_highlights)
 
     p = sub.add_parser("compile", help="join finished clips into one video with a chapter list")
@@ -1233,6 +1238,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--strict", action="store_true", help="exit 1 when the guideline check finds errors")
     _add_clip_args(p)
     _add_session_args(p, detect=False)
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_clips)
 
     p = sub.add_parser("auto", help="VOD + chat -> highlights -> clips in one go")
@@ -1242,6 +1248,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_highlight_args(p)
     _add_clip_args(p)
     _add_session_args(p)
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_auto)
 
     p = sub.add_parser("avatar", help="suggest the avatar box for --layout stack (anime face detection)")
@@ -1376,6 +1383,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("video")
     p.add_argument("-o", "--output", help="write the sections as JSON")
     p.add_argument("--min-length", type=float, default=60.0, help="shortest section in seconds (default 60)")
+    _add_audio_track_arg(p)
     p.set_defaults(func=cmd_singing)
 
     p = sub.add_parser("glossary", help="name glossary for subtitle translation (draft one from Holodex, or check a file)")

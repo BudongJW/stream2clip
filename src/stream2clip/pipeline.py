@@ -63,6 +63,7 @@ def find_highlights(
     on_stage: Callable[[str], None] | None = None,
     messages: Sequence[ChatMessage] | None = None,
     avatar: np.ndarray | None = None,
+    audio_track: int | None = None,
 ) -> HighlightResult:
     """Load the chat archive / info JSON / loudness curve and detect highlights.
 
@@ -90,10 +91,10 @@ def find_highlights(
         duration = probe(video).duration
         if audio:
             stage("audio")
-            levels = audio_levels(video, window=cfg.window)
+            levels = audio_levels(video, window=cfg.window, track=audio_track)
         if laughter:
             stage("laughter")
-            bursts = laughter_levels(video, window=cfg.window)
+            bursts = laughter_levels(video, window=cfg.window, track=audio_track)
     said = None
     if speech:  # experimental: reaction words in the subtitles, for a stream without chat
         from .highlights import speech_levels
@@ -258,21 +259,23 @@ def _output_size(video: str | os.PathLike[str], options: ExportOptions) -> tuple
     return w, h
 
 
-def _extract_audio(video: str | os.PathLike[str], start: float, end: float, out: Path) -> Path:
+def _extract_audio(video: str | os.PathLike[str], start: float, end: float, out: Path, track: int | None = None) -> Path:
+    from .audio import track_map
+
     cmd = [find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-ss", f"{start:.3f}", "-t", f"{end - start:.3f}",
-           "-i", os.fspath(video), "-vn", "-ac", "1", "-ar", "16000", os.fspath(out)]
+           "-i", os.fspath(video), *track_map(track), "-vn", "-ac", "1", "-ar", "16000", os.fspath(out)]
     subprocess.run(cmd, check=True, capture_output=True)
     return out
 
 
-def _sound_parts(video: str | os.PathLike[str], start: float, length: float, *, min_silence: float, level: float) -> list[tuple[float, float]]:
+def _sound_parts(video: str | os.PathLike[str], start: float, length: float, *, min_silence: float, level: float, track: int | None = None) -> list[tuple[float, float]]:
     """What stays of one cut when its silences are shortened; empty when it has no sound to go by."""
     from .audio import decode_pcm, sound_parts
 
     if not probe(video).has_audio:
         return []
     rate = 16000
-    samples = decode_pcm(video, sample_rate=rate, start=start, duration=length)
+    samples = decode_pcm(video, sample_rate=rate, start=start, duration=length, track=track)
     return sound_parts(samples, rate, min_silence=min_silence, level=level)
 
 
@@ -302,6 +305,7 @@ def make_clips(
     credit_position: str = "top-left",
     trim_silence: float | None = None,
     silence_level: float = 24.0,
+    audio_track: int | None = None,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -348,7 +352,7 @@ def make_clips(
         clip_cues: list[Cue] | None = slice_cues(cues, h.start, h.end) if cues is not None else None
         if clip_cues is None and transcriber is not None:
             with tempfile.TemporaryDirectory(prefix="stream2clip-asr-") as tmp:
-                wav = _extract_audio(clip_video, max(0.0, h.start - offset), h.end - offset, Path(tmp) / "clip.wav")
+                wav = _extract_audio(clip_video, max(0.0, h.start - offset), h.end - offset, Path(tmp) / "clip.wav", track=audio_track)
                 clip_cues = transcriber.transcribe(wav, language=language)
         if clip_cues and subtitle_translator is not None:
             from .translation import translate_cues
@@ -356,7 +360,7 @@ def make_clips(
             clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
         length, removed = h.end - h.start, 0.0
         if trim_silence and trim_silence > 0:
-            keep = _sound_parts(clip_video, opts.start or 0.0, length, min_silence=trim_silence, level=silence_level)
+            keep = _sound_parts(clip_video, opts.start or 0.0, length, min_silence=trim_silence, level=silence_level, track=audio_track)
             left = sum(b - a for a, b in keep)
             if keep and length - left >= 0.3:  # a few frames are not worth another cut
                 removed, length = length - left, left
