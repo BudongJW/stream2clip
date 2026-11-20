@@ -8,6 +8,7 @@ Supported inputs (auto-detected by :func:`load_chat`):
 * TwitchDownloader chat JSON (``{"comments": [...]}``)
 * CHZZK replay chat (the ``videoChats`` pages of its API) and SOOP replay chat XML -
   ``stream2clip fetch`` collects both and saves them already normalized
+* a session file written while the stream was on air (:mod:`stream2clip.session`)
 * generic CSV / JSONL with at least ``time`` and ``text`` columns
   (``author``, ``amount``, ``currency``, ``kind`` optional) - handy for CHZZK /
   SOOP collectors or any custom scraper.
@@ -504,8 +505,9 @@ def load_chat(path: str | os.PathLike[str], *, format: str | None = None) -> lis
     """Load and normalize a chat archive; messages are returned sorted by time.
 
     ``format``: ``"youtube"`` (yt-dlp live_chat), ``"chat-downloader"``,
-    ``"twitch"`` (TwitchDownloader), ``"chzzk"``, ``"soop"``, ``"csv"``, ``"jsonl"``
-    or ``None`` to detect.
+    ``"twitch"`` (TwitchDownloader), ``"chzzk"``, ``"soop"``, ``"csv"``, ``"jsonl"``,
+    ``"session"`` (a session file of :mod:`stream2clip.recorder`: its chat and markers, timed
+    from when OBS started streaming) or ``None`` to detect.
     """
     p = Path(path)
     text = p.read_text(encoding="utf-8-sig")
@@ -526,6 +528,10 @@ def load_chat(path: str | os.PathLike[str], *, format: str | None = None) -> lis
         msgs = _load_generic(json.loads(line) for line in text.splitlines() if line.strip())
     elif fmt == "json":
         msgs = _load_generic(json.loads(text))
+    elif fmt == "session":  # what the session recorder wrote while the stream was on air
+        from .session import load_session
+
+        msgs = load_session(p).messages()
     else:
         raise ValueError(f"Unknown chat format {fmt!r}")
     msgs.sort(key=lambda m: m.time)
@@ -546,6 +552,8 @@ def _detect(path: Path, text: str) -> str:
         return "twitch"
     if head.startswith("["):
         return "chat-downloader" if "time_in_seconds" in head else "json"
+    if head.startswith("{") and '"stream2clip.session/v1"' in head.split("\n", 1)[0]:
+        return "session"
     if head.startswith("{"):
         return "jsonl"
     return "csv"

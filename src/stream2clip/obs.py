@@ -28,6 +28,8 @@ from .ffmpeg import ExportOptions
 __all__ = ["ObsClient", "ObsError", "auth_string", "replay_to_clip"]
 
 OP_HELLO, OP_IDENTIFY, OP_IDENTIFIED, OP_EVENT, OP_REQUEST, OP_RESPONSE = 0, 1, 2, 5, 6, 7
+EVENTS_GENERAL = 1 << 0  # EventSubscription::General - ExitStarted ...
+EVENTS_SCENES = 1 << 2  # EventSubscription::Scenes - CurrentProgramSceneChanged
 EVENTS_OUTPUTS = 1 << 6  # EventSubscription::Outputs - where ReplayBufferSaved is sent
 RPC_VERSION = 1
 
@@ -77,6 +79,7 @@ class ObsClient:
         *,
         timeout: float = 10.0,
         connect: Callable[[str, float], Connection] | None = None,
+        events: int = EVENTS_OUTPUTS,
     ) -> None:
         self.url = f"ws://{host}:{port}"
         self.timeout = timeout
@@ -87,7 +90,7 @@ class ObsClient:
             hello = self._read()
             if hello.get("op") != OP_HELLO:
                 raise ObsError(f"Unexpected first message from {self.url} (not an obs-websocket 5 server?)")
-            identify: dict[str, Any] = {"rpcVersion": RPC_VERSION, "eventSubscriptions": EVENTS_OUTPUTS}
+            identify: dict[str, Any] = {"rpcVersion": RPC_VERSION, "eventSubscriptions": events}
             auth = hello["d"].get("authentication")
             if auth:
                 if not password:
@@ -145,6 +148,34 @@ class ObsClient:
                 if not status.get("result"):
                     raise ObsError(f"{request_type} failed ({status.get('code')}): {status.get('comment') or 'no details'}", status.get("code"))
                 return body.get("responseData") or {}
+
+    def poll(self, wait: float = 0.0) -> list[dict[str, Any]]:
+        """The events that have arrived (``{"eventType": ..., "eventData": ...}``), waiting at most ``wait`` seconds for the first."""
+        found, self.events = self.events, []
+        patience = 0.001 if found else wait
+        try:
+            while True:
+                try:
+                    self._ws.settimeout(max(patience, 0.001))  # type: ignore[attr-defined]
+                except AttributeError:
+                    pass
+                try:
+                    raw = self._ws.recv()
+                except Exception as exc:
+                    if isinstance(exc, (TimeoutError, BlockingIOError)) or "Timeout" in type(exc).__name__:
+                        return found  # nothing more for now
+                    raise ObsError(f"Lost the connection to OBS: {exc}") from exc
+                if not raw:
+                    raise ObsError("OBS closed the connection")
+                message = json.loads(raw)
+                if message.get("op") == OP_EVENT:
+                    found.append(message.get("d", {}))
+                patience = 0.001  # after the first, only what is already there
+        finally:
+            try:
+                self._ws.settimeout(self.timeout)  # type: ignore[attr-defined]
+            except AttributeError:
+                pass
 
     def wait_event(self, event_type: str, timeout: float) -> dict[str, Any] | None:
         """The data of the next ``event_type`` event, or ``None`` after ``timeout`` seconds."""

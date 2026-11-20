@@ -1,5 +1,28 @@
 # 변경 내역
 
+## v0.14.0: 2026-11-20
+
+### 방송 기록기
+- 방송 중에만 얻을 수 있는 신호를 세션 파일(`stream2clip.session/v1`, JSON Lines)로 기록하는 기능 추가. 영상은 녹화하지 않음
+- 기록 신호: 채팅과 급증, 스트리머 표시(버튼, F11, 명령줄의 Enter, VTube Studio 단축키, 채팅 `!clip`), OBS 프로그램 장면, 송출, 녹화, 리플레이 버퍼의 시작과 종료, 저장된 리플레이, 캔버스 크기, VTube Studio 소스의 OBS 배치, VTube Studio 모델 외곽선과 파라미터
+- 명령: `stream2clip session record`(Ctrl+C까지 기록), `stream2clip session show`(장면, 표시, 급증 시점을 영상 시각으로 표시)
+- 앱: 시작 화면 클립 영역의 **방송 기록기** 창. 연결 상태와 기록 개수 표시, 종료 후 하이라이트 창으로 열기. 단독 실행 명령 `stream2clip-recorder`
+- 채팅, OBS, VTube Studio는 각각 독립적으로 연결하고 실패 시 일정 간격으로 재연결. 한 부분의 실패가 다른 부분을 멈추지 않음
+- VTube Studio 공개 API 클라이언트(`stream2clip.vts`): 첫 연결 시 플러그인 허용 창으로 토큰 발급, 이후 저장된 토큰으로 자동 인증
+- obs-websocket 클라이언트에 이벤트 구독 범위 지정과 대기 없는 이벤트 읽기(`ObsClient.poll`) 추가
+
+### 클립 제작
+- `--session`: 세션의 채팅과 표시로 하이라이트 검출(`highlights`, `auto`, `clips`). 주소로 실행한 `auto`는 채팅 다시보기를 받지 않음. 하이라이트 창의 채팅 칸에도 세션 파일 입력 가능
+- 단축키 표시는 누른 순간을 장면 시점으로 처리
+- `--skip-scene`: 이름에 지정 문자열이 포함된 OBS 장면에 절반 이상 걸친 하이라이트 제외
+- `--avatar session`: VTube Studio 외곽선을 OBS 배치와 캔버스 크기로 영상 좌표로 변환하여 아바타 영역 지정. `--vts-region`으로 VTube Studio 화면 위치 직접 지정 가능
+- `--session-origin`, `--session-offset`: 영상의 0초 기준(송출 시작, 녹화 시작, 기록 시작)과 차이 지정
+
+### 확인 내용
+- OBS와 VTube Studio는 공개 프로토콜 문서(obs-websocket 5, VTube Studio 공개 API의 인증, 이벤트, 좌표계) 기준으로 작성하고 가짜 서버로 테스트
+- 합성 영상과 합성 외곽선으로 `--avatar session` 세로 클립 제작까지 확인
+- 미검증: 실제 OBS, VTube Studio, 방송 채팅과의 연결, 실제 방송 외곽선으로 계산한 아바타 영역의 품질
+
 ## v0.13.1: 2026-11-20
 
 ### 브랜드

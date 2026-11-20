@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Sequence
 
+from .chat import ChatMessage
 from .compliance import AgencyProfile, Issue, build_description, check_upload
 from .export import export, probe
 from .ffmpeg import ExportOptions, extension_for, find_ffmpeg
@@ -58,12 +59,14 @@ def find_highlights(
     config: HighlightConfig | None = None,
     source: dict | None = None,
     on_stage: Callable[[str], None] | None = None,
+    messages: Sequence[ChatMessage] | None = None,
 ) -> HighlightResult:
     """Load the chat archive / info JSON / loudness curve and detect highlights.
 
     This is the first half of ``stream2clip auto``; ``on_stage`` is told which step
     starts ("chat", "audio", "detect") so a UI can show what it is waiting for.
     ``speech`` is a subtitle file whose reaction lines are scored too (experimental).
+    ``messages`` are chat messages already loaded (a session file's, for one), used instead of ``chat``.
     """
     from .audio import audio_levels, laughter_levels
     from .chat import load_chat
@@ -71,10 +74,10 @@ def find_highlights(
 
     cfg = config or HighlightConfig()
     stage = on_stage or (lambda _name: None)
-    messages = []
     if chat:
         stage("chat")
         messages = load_chat(chat, format=chat_format)
+    messages = list(messages or [])
     heatmap = heatmap_from_info(load_info(info)) if info else []
     duration = None
     levels = None
