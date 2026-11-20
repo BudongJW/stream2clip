@@ -55,6 +55,7 @@ pytest -q
 
 - `main`에 직접 푸시 금지. `feature/<주제>` 브랜치에서 작업 후 PR 제출
 - 커밋 메시지는 영어, 제목은 명령형(예: `Add CHZZK replay chat fetcher`). 본문에는 변경 내용과 사유 기재
+- 커밋 작성자는 작업자 본인의 계정으로 지정(`git config user.name`, `git config user.email`). 도구 명의의 작성자, 도구를 가리키는 `Co-Authored-By` 서명, 세션 주소 꼬리표 사용 금지. PR 검사(`packaging/check_commits.py`)에서 확인
 - PR 설명은 바뀐 것, 확인한 것, 확인하지 못한 것으로 구분하여 기재
 
 ## 버그 제보 기재 사항

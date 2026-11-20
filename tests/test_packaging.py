@@ -205,3 +205,29 @@ def test_installer_asks_for_the_language_and_tells_the_app(build, tmp_path, monk
     assert build.find_iscc() is None
     with pytest.raises(FileNotFoundError, match="Inno Setup 6"):
         build.make_installer(folder, dist, "0.5.1")
+
+
+def test_commits_signed_by_a_tool_are_found(capsys):
+    import importlib.util
+    import types
+
+    spec = importlib.util.spec_from_file_location("check_commits", ROOT / "packaging" / "check_commits.py")
+    check = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(check)
+
+    person = "1234+someone@users.noreply.github.com"
+    assert check.problems(person, person, "Add a thing\n\nWhy it is needed.") == []
+    assert check.problems(person, "noreply@github.com", "Merge pull request #1: a thing") == []  # merged on the website
+    assert check.problems(person, person, "Add a thing\n\nCo-Authored-By: A Friend <friend@example.com>") == []  # two people
+    found = check.problems("noreply@tool.example", "noreply@tool.example", "Add a thing\n\nCo-authored-by: Some Tool <noreply@tool.example>\nTool-Session: https://tool.example/session_1")
+    assert len(found) == 4 and "author" in found[0] and "committer" in found[1] and "Co-Authored-By" in found[2] and "Tool-Session" in found[3]
+
+    log = "\x1e".join(["a" * 40 + "\x1f" + person + "\x1f" + person + "\x1fGood one\n\nBody.\n", "b" * 40 + "\x1fnoreply@tool.example\x1f" + person + "\x1fSigned by a tool\n"]) + "\x1e"
+    asked = []
+    run = lambda cmd, **kwargs: asked.append(cmd) or types.SimpleNamespace(stdout=log)  # noqa: E731
+    assert check.main(["main..HEAD"], run=run) == 1 and asked[0][:2] == ["git", "log"] and asked[0][-1] == "main..HEAD"
+    out = capsys.readouterr().out
+    assert "bbbbbbb Signed by a tool: the author is a tool's address" in out and "aaaaaaa" not in out
+    assert check.main(["main..HEAD"], run=lambda cmd, **kwargs: types.SimpleNamespace(stdout=log.split("\x1e")[0] + "\x1e")) == 0
+    assert check.main([]) == 2
+
