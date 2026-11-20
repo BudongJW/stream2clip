@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import random
 import subprocess
@@ -493,4 +494,181 @@ def test_quiet_parts_are_shortened_when_asked(app, window, tmp_path):
     again = HighlightsWindow()
     assert again.silence_check.isChecked()
     again.close()
+
+
+# ----------------------------------------------------------------------------- session files
+
+
+def write_session(path, events, started=1000.0):
+    """A session file with the given (time, type, data) events."""
+    from stream2clip.session import SCHEMA
+
+    lines = [json.dumps({"schema": SCHEMA, "started": started})] + [json.dumps({"t": t, "type": kind, **data}) for t, kind, data in events]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def recorded_session(path):
+    """Recorded from 1000: OBS records from 1010. A waiting scene for the first 20 s of the recording, then a game scene with a chat burst at 0:45."""
+    events = [(1000, "scene", {"name": "대기 화면"}), (1010, "output", {"output": "record", "active": True}), (1030, "scene", {"name": "Game"})]
+    events += [(1010 + second + 0.5, "chat", {"text": "hi", "author": f"a{second}"}) for second in range(0, 60, 2)]
+    events += [(1055 + i * 0.07, "chat", {"text": "ㅋㅋㅋㅋ", "author": f"w{i}"}) for i in range(80)]
+    return write_session(path, events)
+
+
+def test_a_session_file_is_told_from_a_chat_log_and_put_in_its_box(app, window, tmp_path):
+    from stream2clip.gui.highlights import kind_of
+
+    session = recorded_session(tmp_path / "stream.jsonl")
+    plain = tmp_path / "chat.jsonl"
+    plain.write_text(json.dumps({"time": 1.0, "author": "a", "text": "hi"}) + "\n", encoding="utf-8")
+    assert kind_of(str(session)) == "session" and kind_of(str(plain)) == "chat" and kind_of(str(tmp_path / "missing.jsonl")) == "chat"
+
+    for widget in (window.origin_combo, window.offset_spin, window.skip_scene_edit, window.motion_check):
+        assert not widget.isEnabled()  # nothing to set without a session
+    assert window.take_files([str(session), str(plain)]) == ["session", "chat"]
+    assert window.session_edit.text() == str(session) and window.chat_edit.text() == str(plain)
+    assert window.origin_combo.isEnabled() and window.skip_scene_edit.isEnabled() and window.motion_check.isEnabled()
+
+    window.set_paths()
+    window.chat_edit.setText(str(session))  # the box people know: a session put there moves to its own
+    assert window.chat_edit.text() == "" and window.session_edit.text() == str(session) and "세션 칸으로" in window.status.text()
+    window.chat_edit.setText(str(plain))
+    assert window.chat_edit.text() == str(plain)
+    assert [window.origin_combo.itemData(i) for i in range(window.origin_combo.count())] == ["auto", "stream", "record", "session"]
+    assert window.audio_track() is None and window.track_spin.text() == "기본"
+    window.track_spin.setValue(2)
+    assert window.audio_track() == 1  # the box counts from 1 like OBS, ffmpeg from 0
+    window.skip_scene_edit.setText(" 대기 , ,휴식")
+    assert window.skipped_scenes() == ["대기", "휴식"]
+
+
+@needs_ffmpeg
+def test_session_stands_in_for_the_chat_and_its_scenes_leave_highlights_out(app, window, stream_files, tmp_path):
+    video, _chat = stream_files
+    session = recorded_session(tmp_path / "stream.jsonl")
+    window.set_paths(video=str(video), session=str(session), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    found = [(h.start, h.end) for h in window.timeline.highlights]
+    assert len(found) == 1 and "채팅 110개" in window.status.text(), window.status.text()  # 30 + 80 lines of the session
+    assert found[0][0] < 37 < found[0][1]  # the burst at 0:45 of the recording, less the chat delay: second 0 is the recording's start, not the session's
+
+    window.skip_scene_edit.setText("대기")  # the highlight is in the game scene: it stays
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert len(window.timeline.highlights) == 1 and window.scenes_skipped == 0 and "장면으로 제외" not in window.status.text()
+    window.skip_scene_edit.setText("휴식, game")
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert not window.timeline.highlights and window.scenes_skipped == 1 and "장면으로 제외 1개" in window.status.text(), window.status.text()
+
+    window.skip_scene_edit.clear()
+    window.offset_spin.setValue(10.0)  # the video starts ten seconds after the recording began: everything is that much earlier in it
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    shifted = [(h.start, h.end) for h in window.timeline.highlights]
+    assert len(shifted) == 1 and shifted[0][1] == pytest.approx(found[0][1] - 10.0, abs=5.5), (found, shifted)
+    assert window.scenes_skipped == 0 and "채팅 105개" in window.status.text()  # five lines came before the video began
+
+    window.origin_combo.setCurrentIndex(window.origin_combo.findData("stream"))
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert window.status.text() == "실패: 세션에 OBS 송출 시작 기록이 없습니다. 다른 0초 기준을 고르세요."
+    window.origin_combo.setCurrentIndex(window.origin_combo.findData("auto"))
+    window.session_edit.setText(str(tmp_path / "gone.jsonl"))
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert window.status.text().startswith("실패: 세션 파일을 찾을 수 없습니다")
+
+
+@needs_ffmpeg
+def test_avatar_motion_and_audio_track_reach_the_detector_and_the_clips(app, window, stream_files, tmp_path, monkeypatch):
+    from stream2clip import pipeline
+
+    video, _chat = stream_files
+    events = [(1000, "output", {"output": "record", "active": True})]
+    events += [(1000 + second + 0.5, "chat", {"text": "hi", "author": f"a{second}"}) for second in range(0, 60, 2)]
+    events += [(1036 + i * 0.07, "chat", {"text": "ㅋㅋㅋㅋ", "author": f"w{i}"}) for i in range(80)]
+    quiet = write_session(tmp_path / "quiet.jsonl", events)
+    moving = write_session(tmp_path / "moving.jsonl", events + [(1000 + i * 0.2, "avatar_params", {"values": {"ParamAngleX": 30.0 if 150 <= i < 175 and i % 2 else 0.0}}) for i in range(300)])
+    seen = {}
+    find, make = pipeline.find_highlights, pipeline.make_clips
+    monkeypatch.setattr(pipeline, "find_highlights", lambda *args, **kwargs: seen.update(find=kwargs) or find(*args, **kwargs))
+    monkeypatch.setattr(pipeline, "make_clips", lambda *args, **kwargs: seen.update(make=kwargs) or make(*args, **kwargs))
+
+    window.set_paths(video=str(video), session=str(quiet), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.motion_check.setChecked(True)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert window.status.text().startswith("실패: 세션에 아바타 움직임 기록이 없습니다")  # asked for, but this session has none
+
+    window.session_edit.setText(str(moving))
+    window.track_spin.setValue(1)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert seen["find"]["avatar"] is not None and seen["find"]["avatar"].any() and seen["find"]["audio_track"] == 0
+    assert len(seen["find"]["messages"]) == 110 and seen["find"]["chat"] is None
+    assert window.list.count() >= 1
+
+    window.motion_check.setChecked(False)
+    window.track_spin.setValue(0)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    assert seen["find"]["avatar"] is None and seen["find"]["audio_track"] is None
+
+    window.track_spin.setValue(1)
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    window.export()
+    wait(app, lambda: not window.busy)
+    assert seen["make"]["audio_track"] == 0 and window.last_results
+
+    window.origin_combo.setCurrentIndex(window.origin_combo.findData("record"))
+    window.offset_spin.setValue(-2.5)
+    window.skip_scene_edit.setText("대기")
+    window.motion_check.setChecked(True)
+    window.track_spin.setValue(2)
+    window.remember()
+    again = HighlightsWindow()
+    assert (again.origin_combo.currentData(), again.offset_spin.value(), again.skip_scene_edit.text(), again.motion_check.isChecked(), again.track_spin.value()) == ("record", -2.5, "대기", True, 2)
+    assert again.session_edit.text() == ""  # which file is not remembered, like the video and the chat
+    again.close()
+
+
+@needs_ffmpeg
+def test_avatar_box_comes_from_the_sessions_outline(app, window, stream_files, tmp_path):
+    video, _chat = stream_files  # 160 x 90
+    # VTube Studio fills the right half of a 1920 x 1080 canvas; the model stands in the middle of its window.
+    transform = {"sourceWidth": 1920, "sourceHeight": 1080, "positionX": 960, "positionY": 0, "scaleX": 0.5, "scaleY": 1.0, "alignment": 5}
+    events = [(1000, "output", {"output": "record", "active": True}), (1000, "obs_video", {"base": [1920, 1080], "output": [160, 90]}),
+              (1000, "avatar_source", {"source": "VTS", "scene": "Game", "transform": transform})]
+    events += [(1001 + i, "avatar_outline", {"hull": [[-0.5, 0.8], [0.5, 0.8], [0.5, -1.4], [-0.5, -1.4]], "window": [1920, 1080]}) for i in range(40)]
+    with_outline = write_session(tmp_path / "vts.jsonl", events)
+    without = write_session(tmp_path / "plain.jsonl", events[:1])
+
+    assert not window.session_avatar_button.isEnabled()  # no session, and the default layout takes no avatar
+    window.set_paths(video=str(video), session=str(with_outline))
+    assert not window.session_avatar_button.isEnabled()
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("stack"))
+    assert window.session_avatar_button.isEnabled()
+    window.session_avatar_button.click()
+    assert window.avatar_edit.text(), window.status.text()
+    box = Region.parse(window.avatar_edit.text())
+    # the model on the canvas: x 960 + (0.25..0.75) x 960 = 1200..1680; in the 160 px wide video 100..140
+    assert box.x <= 100 and box.x + box.width >= 140 and box.x >= 80 and "세션의 VTube Studio 윤곽" in window.status.text()
+
+    window.avatar_edit.clear()
+    window.session_edit.setText(str(without))
+    window.session_avatar_button.click()
+    assert window.avatar_edit.text() == "" and window.status.text().startswith("실패: 세션에 VTube Studio 윤곽 기록이 없습니다")
+    window.session_edit.setText(str(with_outline))
+    window.video_edit.setText("https://www.youtube.com/watch?v=abc")
+    window.session_avatar()
+    assert window.status.text().startswith("실패: 세션의 아바타 위치는 녹화 파일이 있어야")
+    window.video_edit.setText(str(video))
+    window.session_edit.clear()
+    assert not window.session_avatar_button.isEnabled()
 

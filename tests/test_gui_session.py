@@ -79,7 +79,8 @@ def test_record_mark_stop_and_open_in_the_highlights_window(app, tmp_path):
 
     highlights = window.open_highlights()
     assert highlights is launcher.highlights_window
-    assert highlights.chat_edit.text() == os.fspath(window.last_path)
+    assert highlights.session_edit.text() == os.fspath(window.last_path) and highlights.chat_edit.text() == ""
+    assert highlights.origin_combo.isEnabled()  # the session's options come with it
     highlights.close()
     launcher.close()
     assert not window.isVisible()

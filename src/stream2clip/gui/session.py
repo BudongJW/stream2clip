@@ -342,7 +342,7 @@ class SessionWindow(QWidget):
             QMessageBox.warning(self, tr("방송 기록기"), message)
 
     def open_highlights(self):
-        """The highlights window with the session as the stream's chat."""
+        """The highlights window with the session in its session box: chat, markers, scenes and avatar come from it."""
         if self.last_path is None:
             return None
         if self.host is not None and hasattr(self.host, "open_highlights"):
@@ -353,7 +353,7 @@ class SessionWindow(QWidget):
             window = HighlightsWindow()
             window.show()
             self._highlights = window
-        window.set_paths(chat=os.fspath(self.last_path))
+        window.set_paths(session=os.fspath(self.last_path))
         return window
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802

@@ -373,6 +373,15 @@
       <li>OBS widget: <code>http://127.0.0.1:8790/widget</code> added as an OBS browser source shows the votes and markers on stream</li>
       <li>Chatters are recorded only as values that do not identify them, and the file stays on this PC</li>
     </ul>
+    <h3>Settings in the highlights window</h3>
+    <ul>
+      <li>Put the session file in the <strong>Session</strong> box. A session file put in the chat box or dropped on the window moves there too. With the chat box empty, highlights are found from the session's chat and markers</li>
+      <li><strong>Second 0</strong>: choose OBS stream start for a platform's replay and OBS recording start for an OBS recording file. When the video starts later than that, enter the difference in seconds</li>
+      <li><strong>Skip scenes</strong>: parts of scene names separated by commas. Highlights with half or more of their length in such a scene are left out</li>
+      <li><strong>Avatar motion (experimental)</strong>: adds to the score of moments in which the avatar moved a lot</li>
+      <li><strong>From session</strong> in the avatar row of the export settings: fills the avatar box from the outline during the ticked highlights</li>
+      <li><strong>Audio track</strong>: the track number when OBS recorded the microphone on a track of its own. Used for subtitles, silences and loudness, and the sound of the clips does not change</li>
+    </ul>
     <h3>Command line</h3>
     <pre><code>stream2clip.exe session record --chat "https://chzzk.naver.com/live/CHANNEL_ID" --vts --vts-source "VTube Studio"</code></pre>
     <pre><code>stream2clip.exe auto vod.mp4 -o clips --session session.jsonl --skip-scene waiting --layout stack --avatar session</code></pre>

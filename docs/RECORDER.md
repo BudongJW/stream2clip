@@ -112,13 +112,16 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 | `--avatar session` | 세션의 VTube Studio 외곽선으로 아바타 박스 지정 |
 | `--avatar-motion` | 실험 기능. 세션의 아바타 파라미터 변화량을 하이라이트 점수의 보조 신호로 사용. 근거에 **아바타 움직임 큼 (실험)** 표시 |
 
-| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
-| 앱 | 시작 화면 클립 영역의 **방송 기록기**. 채팅 주소, OBS 사용, VTube Studio 사용, VTS 소스 이름, 표시할 때 리플레이 저장, F11 선택 후 **기록 시작**. 채팅, OBS, VTube Studio의 연결 상태와 채팅, 급증, 표시, 아바타 외곽선 개수 표시. 종료 후 **하이라이트 찾기**로 하이라이트 창의 채팅 칸에 세션 파일 입력 |
+| 앱 | 시작 화면 클립 영역의 **방송 기록기**. 채팅 주소, OBS 사용, VTube Studio 사용, VTS 소스 이름, 표시할 때 리플레이 저장, F11 선택 후 **기록 시작**. 채팅, OBS, VTube Studio의 연결 상태와 채팅, 급증, 표시, 아바타 외곽선 개수 표시. 종료 후 **하이라이트 찾기**로 하이라이트 창의 세션 칸에 세션 파일 입력 |
 | 저장 위치 | 저장 폴더의 `sessions/session-날짜-시각.jsonl`. YouTube 채팅을 yt-dlp로 받는 경우 같은 폴더의 `-chat` 폴더 사용 |
 | F11 | 사용 설정 시 다른 프로그램 사용 중에도 F11로 표시. 사용 중에는 다른 프로그램이 F11을 받지 못하므로 기본값은 사용 안 함 |
 | 연결 실패 | 각 부분이 독립적으로 재연결(채팅 30초, OBS와 VTube Studio 10초 간격). 한 부분의 실패가 다른 부분의 기록을 멈추지 않음 |
-| 하이라이트 창 | 채팅 칸에 세션 파일 지정 시 채팅과 표시를 읽음(`load_chat`의 `session` 형식, 0초는 `auto` 기준) |
+| 하이라이트 창 | **세션** 칸에 세션 파일 지정. 채팅 칸에 넣거나 창에 끌어다 놓은 세션 파일은 세션 칸으로 이동. 채팅 칸이 비어 있으면 세션의 채팅과 표시로 검출 |
+| 하이라이트 창의 세션 설정 | 세션 지정 시 표시. **0초 기준**(`--session-origin`)과 보정 초(`--session-offset`), **제외 장면**(`--skip-scene`, 쉼표 구분), **아바타 움직임 (실험)**(`--avatar-motion`) |
+| 하이라이트 창의 아바타 | 내보내기 설정 아바타 줄의 **세션에서**(`--avatar session`). 체크한 하이라이트 구간의 외곽선 기준이며 해당 구간에 외곽선이 없으면 세션 전체 기준 |
+| 하이라이트 창의 오디오 트랙 | **오디오 트랙**(`--audio-track`). 창의 번호는 OBS와 같이 1부터, 명령줄은 0부터. 검출과 내보내기의 자막 인식, 무음 판정에 적용 |
 
 ## 시청자 투표
 
