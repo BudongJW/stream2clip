@@ -26,7 +26,7 @@
 | 캔버스 크기 | `GetVideoSettings`의 기본 해상도와 출력 해상도 | 아바타 좌표를 영상 픽셀로 변환 |
 | VTube Studio 소스 배치 | `GetSceneItemTransform`(장면 전환 시와 15초마다 확인, 변경 시에만 기록) | 아바타 좌표를 영상 픽셀로 변환. 숨김 상태이거나 장면에 없으면 빈 값 기록 |
 | 아바타 외곽선 | VTube Studio `ModelOutlineEvent`(초당 15회 수신, 기본 0.5초마다 기록) | `--avatar session`의 아바타 박스 |
-| 아바타 파라미터 | VTube Studio `Live2DParameterListRequest`(기본 0.2초마다) | 기록만 수행. 기본값은 표준 얼굴, 머리 파라미터 13종 |
+| 아바타 파라미터 | VTube Studio `Live2DParameterListRequest`(기본 0.2초마다) | `--avatar-motion`(실험): 구간별 움직임을 보조 신호로 하이라이트 점수에 반영. 기본값은 표준 얼굴, 머리 파라미터 13종 |
 | 연결 상태 | 각 부분의 연결, 대기, 재연결 | `session show`의 연결 문제 개수 |
 
 ## 세션 파일
@@ -108,6 +108,7 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 | `--session` | `highlights`, `auto`, `clips`에서 세션 파일 사용. `--chat`이 없으면 세션의 채팅과 표시로 검출. 주소로 실행한 `auto`는 채팅 다시보기를 받지 않음 |
 | `--skip-scene` | 이름에 지정 문자열이 포함된 OBS 장면에 절반 이상 걸친 하이라이트 제외 후 순위 재계산 |
 | `--avatar session` | 세션의 VTube Studio 외곽선으로 아바타 박스 지정 |
+| `--avatar-motion` | 실험 기능. 세션의 아바타 파라미터 변화량을 하이라이트 점수의 보조 신호로 사용. 근거에 **아바타 움직임 큼 (실험)** 표시 |
 
 | &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
@@ -153,3 +154,4 @@ stream2clip session record --chat chzzk-api --vts
 - 장시간 방송에서 VTube Studio 파라미터 조회 간격 0.2초의 부하
 - 플랫폼 다시보기와 OBS 송출 시작 사이의 실제 시각 차이
 - CHZZK 공식 Open API의 실제 로그인과 Socket.IO 서버 연결(애플리케이션 미등록)
+- 아바타 움직임 신호의 검출 성능. 합성 데이터로만 확인하였으며 실제 방송으로 `evaluate` 미실시

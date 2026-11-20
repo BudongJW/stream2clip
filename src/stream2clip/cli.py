@@ -278,11 +278,13 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--plot", help="also draw the timeline as PNG")
 
 
-def _add_session_args(p: argparse.ArgumentParser) -> None:
+def _add_session_args(p: argparse.ArgumentParser, *, detect: bool = True) -> None:
     g = p.add_argument_group("session file (stream2clip session record)")
     g.add_argument("--session", metavar="FILE", help="session recorded while streaming: its chat and markers (when --chat is not given), its OBS scenes for --skip-scene, and VTube Studio's outline for --avatar session")
     g.add_argument("--session-origin", choices=["auto", "stream", "record", "session"], default="auto", help="what time 0 of the video is: when OBS started streaming (a platform's VOD), recording (a local recording), or the session; auto: the first of those")
     g.add_argument("--session-offset", type=float, default=0.0, metavar="SECONDS", help="seconds the video starts after that time (negative: before)")
+    if detect:  # what highlight detection takes from the session
+        g.add_argument("--avatar-motion", action="store_true", help="experimental: also score how much the VTube Studio avatar moved (its parameters in --session)")
 
 
 def _session(args: argparse.Namespace):
@@ -321,11 +323,20 @@ def _detect(args: argparse.Namespace, video: str | None):
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
                           min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings, **_markers(args))
     src = _source(args)
+    if getattr(args, "avatar_motion", False) and session is None:
+        raise ValueError("--avatar-motion needs the avatar parameters of a --session file")
+    motion = None
+    if getattr(args, "avatar_motion", False):
+        from .session import avatar_motion
+
+        motion = avatar_motion(session, zero, window=cfg.window, delay=cfg.chat_delay)
+        if not motion.any():
+            raise ValueError(f"{args.session} holds no avatar parameters: record with  stream2clip session record --vts")
     messages = session.messages(zero, marker_delay=args.delay) if session is not None and not args.chat else None
     if messages is not None:
         print(f"session {args.session}: {len(messages):,} chat messages and markers")
     result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), speech=args.speech, config=cfg,
-                             source={"url": src.url, "title": src.title} if src else {}, messages=messages)
+                             source={"url": src.url, "title": src.title} if src else {}, messages=messages, avatar=motion)
     if session is not None and args.skip_scene:
         from .session import skip_scenes
 
@@ -1219,7 +1230,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--info", help="yt-dlp info JSON (source title / URL)")
     p.add_argument("--strict", action="store_true", help="exit 1 when the guideline check finds errors")
     _add_clip_args(p)
-    _add_session_args(p)
+    _add_session_args(p, detect=False)
     p.set_defaults(func=cmd_clips)
 
     p = sub.add_parser("auto", help="VOD + chat -> highlights -> clips in one go")

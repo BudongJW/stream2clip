@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-551-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-553-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -518,7 +518,7 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 |:---:|---|
 | 앱 | 시작 화면 클립 영역의 **방송 기록기**, 단독 실행은 `stream2clip-recorder`. 채팅, OBS, VTube Studio 연결 상태와 기록 개수 표시. 종료 후 **하이라이트 찾기**로 하이라이트 창에 세션 입력 |
 | 기록 신호 | 채팅과 급증, 표시(**지금 표시** 버튼, F11, Enter, VTube Studio 단축키, 채팅 `!clip`), OBS 장면, 송출과 녹화 시작, 저장된 리플레이, VTube Studio 소스의 OBS 배치, 아바타 외곽선(0.5초 간격), 파라미터(0.2초 간격) |
-| 방송 후 | `--session`으로 세션의 채팅과 표시로 하이라이트 검출(채팅 다시보기 불필요), `--skip-scene`으로 대기 화면 등 장면 제외, `--avatar session`으로 외곽선 기준 아바타 영역 지정. `session show`로 장면과 표시 시점 확인 |
+| 방송 후 | `--session`으로 세션의 채팅과 표시로 하이라이트 검출(채팅 다시보기 불필요), `--skip-scene`으로 대기 화면 등 장면 제외, `--avatar session`으로 외곽선 기준 아바타 영역 지정, `--avatar-motion`(실험)으로 아바타 움직임을 보조 신호로 사용. `session show`로 장면과 표시 시점 확인 |
 | 영상의 0초 | 기본값은 OBS 송출 시작(플랫폼 다시보기), 송출이 없으면 녹화 시작. `--session-origin`, `--session-offset`으로 변경 |
 | VTube Studio | 설정에서 API 시작. 첫 연결 시 VTube Studio의 플러그인 허용 창에서 허용하면 이후 자동 연결 |
 | 시청자 투표 | `--viewer-votes 3`(앱의 **시청자 투표**): 서로 다른 시청자 3명이 30초 안에 `!clip` 입력 시 표시 |
@@ -683,7 +683,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 551개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 553개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -1243,7 +1243,7 @@ python packaging/build_mascot.py --sheet sheet.png
 | 화면 언어 | 일본어, 영어 문구의 원어민 검수. 명령줄의 진행 출력은 영어만 제공 |
 | 가이드라인 | 한국 기획사 프로필. 공식 원문이 확인된 곳부터 추가(스텔라이브, 이세계아이돌은 원문 미확보) |
 | 아바타 레이어 | Spout2, NDI 알파 레이어 녹화, VMC 수신 기록, 기록한 VTube Studio 파라미터로 세로 화면용 재렌더 |
-| 방송 기록기 | 시청자 투표 현황을 방송 화면에 띄우는 OBS 위젯, 아바타 파라미터 변화량 신호의 검출 성능 평가, 실제 OBS, VTube Studio, CHZZK Open API 연결 검증. SOOP 공식 Chat SDK는 브라우저 전용이라 대상 외 |
+| 방송 기록기 | 시청자 투표 현황을 방송 화면에 띄우는 OBS 위젯, 아바타 움직임 신호(`--avatar-motion`)의 실제 방송 검출 성능 평가, 실제 OBS, VTube Studio, CHZZK Open API 연결 검증. SOOP 공식 Chat SDK는 브라우저 전용이라 대상 외 |
 | 실서비스 검증 | 실제 YouTube 업로드, Holodex API 키 사용 검증 |
 | 편집 연계 | 편집 프로그램에서의 EDL 가져오기 실측, FCPXML 내보내기, 말소리 인식 기반의 무음 구간 판정 |
 | 검출 신호 | SOOP 구독 및 팔로우 알림, Streamer.bot 이벤트, 사용자가 연결하는 판정 플러그인(LLM 등) |

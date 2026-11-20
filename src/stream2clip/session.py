@@ -36,7 +36,7 @@ from .geometry import Region
 
 __all__ = [
     "SCHEMA", "SessionEvent", "SessionWriter", "Session", "SceneSpan", "load_session", "is_session",
-    "ItemPlacement", "item_placement", "vts_to_source", "avatar_region", "skip_scenes", "ORIGINS",
+    "ItemPlacement", "item_placement", "vts_to_source", "avatar_region", "skip_scenes", "avatar_motion", "ORIGINS",
 ]
 
 SCHEMA = "stream2clip.session/v1"
@@ -424,6 +424,42 @@ def avatar_region(
     left = int(round(min(max(0.0, cx - w / 2), vw - w)))
     top = int(round(min(max(0.0, y0 - h * margin / 2), vh - h)))
     return Region(left, top, w, h)
+
+
+def avatar_motion(session: Session, origin: float | None = None, *, window: float = 5.0, delay: float = 0.0) -> np.ndarray:
+    """How much the avatar's face and head moved in each ``window`` (experimental signal).
+
+    The change of each recorded parameter between two readings is measured in its usual move
+    (the median of its changes in the session), summed over the parameters and added up per
+    window. ``delay`` moves the curve onto the chat clock (pass the chat
+    delay), as the other signals of highlight detection are. Empty without parameters.
+    """
+    events = session.of("avatar_params")
+    if len(events) < 2:
+        return np.zeros(0)
+    zero = session.origin() if origin is None else origin
+    names = sorted({str(k) for e in events for k in (e.data.get("values") or {})})
+    times = np.array([e.t - zero + delay for e in events])
+    table = np.full((len(events), len(names)), np.nan)
+    column = {name: i for i, name in enumerate(names)}
+    for row, e in enumerate(events):
+        for key, value in (e.data.get("values") or {}).items():
+            if isinstance(value, (int, float)):
+                table[row, column[str(key)]] = float(value)
+    moved = np.zeros(len(events) - 1)
+    for i in range(len(names)):
+        step = np.abs(np.diff(table[:, i]))
+        usual = step[np.isfinite(step) & (step > 1e-9)]
+        if usual.size == 0:
+            continue  # a parameter that never moves says nothing
+        # In units of its usual move, so a mouth that moves all the time and a head that seldom does
+        # weigh the same; one reading counts at most ten usual moves (a model reset, a jump).
+        moved += np.nan_to_num(np.minimum(step / float(np.median(usual)), 10.0))
+    index = np.floor(times[1:] / window).astype(int)
+    keep = index >= 0
+    if not keep.any():
+        return np.zeros(0)
+    return np.bincount(index[keep], weights=moved[keep], minlength=int(index[keep].max()) + 1)
 
 
 def skip_scenes(highlights: Iterable[Any], scenes: Sequence[SceneSpan], names: Sequence[str], *, mostly: float = 0.5) -> list[Any]:

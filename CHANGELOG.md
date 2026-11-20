@@ -19,6 +19,7 @@
 - `--skip-scene`: 이름에 지정 문자열이 포함된 OBS 장면에 절반 이상 걸친 하이라이트 제외
 - `--avatar session`: VTube Studio 외곽선을 OBS 배치와 캔버스 크기로 영상 좌표로 변환하여 아바타 영역 지정. `--vts-region`으로 VTube Studio 화면 위치 직접 지정 가능
 - `--session-origin`, `--session-offset`: 영상의 0초 기준(송출 시작, 녹화 시작, 기록 시작)과 차이 지정
+- `--avatar-motion`(실험): 기록된 VTube Studio 파라미터의 구간별 변화량을 하이라이트 점수의 보조 신호로 사용(가중치 0.15, 다른 신호를 깎지 않음). 근거 문구 **아바타 움직임 큼 (실험)**
 
 ### 확인 내용
 - OBS와 VTube Studio는 공개 프로토콜 문서(obs-websocket 5, VTube Studio 공개 API의 인증, 이벤트, 좌표계) 기준으로 작성하고 가짜 서버로 테스트

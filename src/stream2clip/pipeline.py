@@ -10,6 +10,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Sequence
 
+import numpy as np
+
 from .chat import ChatMessage
 from .compliance import AgencyProfile, Issue, build_description, check_upload
 from .export import export, probe
@@ -60,13 +62,15 @@ def find_highlights(
     source: dict | None = None,
     on_stage: Callable[[str], None] | None = None,
     messages: Sequence[ChatMessage] | None = None,
+    avatar: np.ndarray | None = None,
 ) -> HighlightResult:
     """Load the chat archive / info JSON / loudness curve and detect highlights.
 
     This is the first half of ``stream2clip auto``; ``on_stage`` is told which step
     starts ("chat", "audio", "detect") so a UI can show what it is waiting for.
     ``speech`` is a subtitle file whose reaction lines are scored too (experimental).
-    ``messages`` are chat messages already loaded (a session file's, for one), used instead of ``chat``.
+    ``messages`` are chat messages already loaded (a session file's, for one), used instead of ``chat``;
+    ``avatar`` an avatar movement curve on the chat clock (experimental, ``session.avatar_motion``).
     """
     from .audio import audio_levels, laughter_levels
     from .chat import load_chat
@@ -100,12 +104,15 @@ def find_highlights(
             said = None  # no reaction line in these subtitles: the signal has nothing to say
             if not messages and levels is None and not heatmap:
                 raise ValueError(f"No reaction words (やばい, えっ, すごい, wow ...) were found in {os.fspath(speech)}: with nothing else to analyse, there is no highlight to find")
-    if not messages and levels is None and not heatmap and said is None:
+    if avatar is not None and not np.any(avatar):
+        avatar = None
+    if not messages and levels is None and not heatmap and said is None and avatar is None:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
     return detect_highlights(
         messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap,
         laughter=bursts, laughter_window=cfg.window, speech=said, speech_window=cfg.window, config=cfg, source=source or {},
+        avatar=avatar, avatar_window=cfg.window,
     )
 
 

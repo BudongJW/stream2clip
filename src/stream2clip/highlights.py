@@ -124,7 +124,7 @@ SIGNALS = ("rate", "unique", "reactions", "paid", "audio", "heatmap", "laughter"
 #: Chat commands that mark "clip what just happened" (Twitch ``!clip`` bots, timestamp bots, the marks of Bilibili streamers).
 DEFAULT_MARKERS = ("!clip", "!클립", "!切り抜き", "!ts", "!mark")
 #: Experimental signals: added on top of the score instead of averaged into it.
-BONUS_SIGNALS = ("laughter",)
+BONUS_SIGNALS = ("laughter", "avatar")
 
 
 def classify_reactions(text: str, emotes: Sequence[str] = ()) -> set[str]:
@@ -158,7 +158,7 @@ class HighlightConfig:
     #: ... when it comes from one of these (``ChatMessage.role``); "any" accepts every chatter.
     marker_roles: tuple[str, ...] = ("owner", "moderator")
     weights: dict[str, float] = field(
-        default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15, "laughter": 0.15, "speech": 0.30}
+        default_factory=lambda: {"rate": 0.30, "unique": 0.20, "reactions": 0.30, "paid": 0.10, "audio": 0.15, "heatmap": 0.15, "laughter": 0.15, "speech": 0.30, "avatar": 0.15}
     )
 
     def __post_init__(self) -> None:
@@ -340,11 +340,14 @@ def detect_highlights(
     speech_window: float | None = None,
     config: HighlightConfig | None = None,
     source: dict[str, Any] | None = None,
+    avatar: np.ndarray | None = None,
+    avatar_window: float | None = None,
 ) -> HighlightResult:
     """Find the most exciting moments. Any subset of chat / audio / heatmap may be given.
 
     ``laughter`` is the optional, experimental :func:`stream2clip.audio.laughter_levels` curve,
-    ``speech`` the optional, experimental :func:`speech_levels` of the subtitles.
+    ``speech`` the optional, experimental :func:`speech_levels` of the subtitles, ``avatar`` the
+    optional, experimental :func:`stream2clip.session.avatar_motion` of a session file.
     """
     cfg = config or HighlightConfig()
     w = cfg.window
@@ -372,6 +375,8 @@ def detect_highlights(
         raw["audio"] = _resample(np.asarray(audio, dtype=np.float64), audio_window or w, n, w)
     if laughter is not None and len(laughter):
         raw["laughter"] = _resample(np.asarray(laughter, dtype=np.float64), laughter_window or w, n, w)
+    if avatar is not None and len(avatar) and np.any(avatar):
+        raw["avatar"] = _resample(np.asarray(avatar, dtype=np.float64), avatar_window or w, n, w)
     if speech is not None and len(speech) and np.any(speech):
         # The counts stop at the last reaction line: the rest of the stream is silence, not more of the same.
         counted = np.zeros(max(len(speech), math.ceil(total / (speech_window or w))))
@@ -517,6 +522,11 @@ def _explain(h: Highlight, raw: dict[str, np.ndarray], chat: dict[str, Any] | No
         stats["laughter_z"] = burst
         if burst >= 2:
             reasons.append(tr("웃음소리 같은 소리 (추정)"))
+    if "avatar" in raw:
+        moved = float(signals["avatar"][max(0, peak_i - 2) : peak_i + 2].max())
+        stats["avatar_z"] = moved
+        if moved >= 2:
+            reasons.append(tr("아바타 움직임 큼 (실험)"))
     if "speech" in raw:
         said = int(round(float(raw["speech"][lo:hi].sum())))
         stats["speech_reactions"] = said

@@ -303,3 +303,45 @@ def test_avatar_session_puts_the_box_where_the_model_is(tmp_path, capsys):
     # without --vts-region and without an OBS placement there is nothing to go by
     assert main(["clips", str(video), "--highlights", str(highlights), "-o", str(out), "--layout", "stack", "--avatar", "session", "--session", str(session)]) == 1
     assert "cannot be placed" in capsys.readouterr().err
+
+
+# ----------------------------------------------------------------------------- avatar movement (experimental)
+
+
+def test_avatar_motion_sums_scaled_parameter_changes_per_window(tmp_path):
+    from stream2clip.session import avatar_motion
+
+    events = [(1000, "output", {"output": "stream", "active": True})]
+    for i in range(200):  # 0.2 s readings over 40 s: calm, then the head shakes between 20 and 25 s
+        t = i * 0.2
+        angle = 20.0 * (1 if i % 2 else -1) if 20 <= t < 25 else 0.0
+        events.append((1000 + t, "avatar_params", {"values": {"ParamAngleX": angle, "ParamEyeLOpen": 1.0, "ParamMouthOpenY": 0.1 * (i % 3)}}))
+    s = _session(tmp_path, events)
+    motion = avatar_motion(s, window=5.0)
+    assert len(motion) == 8 and int(np.argmax(motion)) == 4  # 20-25 s
+    assert motion[4] > 1.5 * np.median(motion)
+    shifted = avatar_motion(s, window=5.0, delay=5.0)  # on the chat clock, 5 s later
+    assert int(np.argmax(shifted)) == 5
+    assert avatar_motion(_session(tmp_path, [(1000, "chat", {"text": "x"})])).size == 0
+
+
+def test_the_avatar_signal_lifts_a_moment_and_says_so(tmp_path, capsys):
+    from stream2clip.cli import main
+
+    events = [(1000, "output", {"output": "stream", "active": True})]
+    for second in range(0, 600, 3):
+        events.append((1000 + second, "chat", {"text": "hi", "author": f"a{second}"}))
+    for i in range(3000):
+        t = i * 0.2
+        angle = 25.0 * (1 if i % 2 else -1) if 300 <= t < 310 else 0.5 * (i % 2)
+        events.append((1000 + t, "avatar_params", {"values": {"ParamAngleX": angle}}))
+    path = _session(tmp_path, events).path
+    out = tmp_path / "h.json"
+    assert main(["highlights", "--session", str(path), "--avatar-motion", "--delay", "0", "-o", str(out)]) == 0
+    printed = capsys.readouterr().out
+    assert "아바타 움직임 큼 (실험)" in printed
+    data = json.loads(out.read_text(encoding="utf-8"))
+    best = data["highlights"][0]
+    assert best["start"] <= 305 <= best["end"]
+    assert main(["highlights", "--chat", str(path), "--avatar-motion", "-o", str(out)]) == 1
+    assert "needs the avatar parameters" in capsys.readouterr().err
