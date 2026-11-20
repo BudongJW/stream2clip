@@ -23,7 +23,7 @@ from .export import FFmpegError, MediaInfo, export, probe
 from .ffmpeg import ALPHA_FORMATS, FORMATS, ExportOptions, build_export_command, build_video_filter
 from .geometry import Region
 
-__version__ = "0.13.1"
+__version__ = "0.13.2"
 
 __all__ = [
     "ALPHA_FORMATS",

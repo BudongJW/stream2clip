@@ -128,6 +128,11 @@ def test_start_window_offers_ffmpeg_when_it_is_missing(app, monkeypatch):
     win.dialogs = False
     assert not win.ffmpeg_notice.isHidden() and not win.ffmpeg_button.isHidden()
     assert win.ffmpeg_label.text() == "ffmpeg 없음. 녹화, 영상 변환, 클립 제작에 필요"
+    from PySide6.QtWidgets import QLabel
+
+    for notice in (win.ffmpeg_notice, win.update_notice):  # Kiri at the start of each notice, turned towards its text
+        faces = [label for label in notice.findChildren(QLabel) if label.objectName() == "NoticeMascot"]
+        assert len(faces) == 1 and not faces[0].pixmap().isNull()
     assert win.ffmpeg_button.text() == f"ffmpeg 내려받기 ({tools.FFMPEG_BUILD.megabytes} MB)"
 
     def fails(on_progress, cancelled):
@@ -237,6 +242,7 @@ def test_components_window_lists_this_pc_and_fetches_what_is_missing(app, monkey
     assert dialog.busy and dialog.summary.text() == "확인 중"
     wait(app, lambda: not dialog.busy)
     assert dialog.obs == ("127.0.0.1", 4460) and [item.key for item in dialog.found] == ["ffmpeg", "model", "obs"]
+    assert not dialog.mascot_label.pixmap().isNull()  # Kiri beside the heading
     assert {key: badge.text() for key, badge in dialog.badges.items()} == {"ffmpeg": "없음", "model": "자동", "obs": "없음(선택)"}
     assert dialog.badges["ffmpeg"].objectName() == "StateMissing" and dialog.summary.text() == "필수 구성요소 없음: ffmpeg"
     assert set(dialog.actions) == {"ffmpeg", "model"} and dialog.actions["ffmpeg"].text() == f"ffmpeg 내려받기 ({tools.FFMPEG_BUILD.megabytes} MB)"

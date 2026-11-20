@@ -1,10 +1,16 @@
-stream2clip 마스코트 키리 SD 이모트 5종 (컨셉 v0.2)
+stream2clip 마스코트 키리 SD 이모트 5종, 각도 3종 (컨셉 v0.3)
 
 kiri_wink      윙크: 기본, 인사
 kiri_laugh     빵 터짐: 웃긴 장면
 kiri_surprised 깜짝: 반전, 사고
 kiri_cut       컷: 클립 완성
 kiri_focus     편집 집중: 작업 중, 로딩
+
+kiri_turn_left   왼쪽 45도: 글이 왼쪽에 있는 자리
+kiri_turn_right  오른쪽 45도: 글이 오른쪽에 있는 자리 (앱의 안내, 구성요소 점검 창)
+kiri_side        옆모습, 오른쪽을 바라봄: 진행 중 표시 (하이라이트 창 상태 줄)
+- 각도 3종은 윙크 그림(reference/kiri_wink_green.png)을 입력으로 Qwen-Image-Edit-2509와 dx8152의 Multiple-angles LoRA로 생성 (v0.3). 시드와 지시문은 manifest.json에 기록
+- 좌우를 뒤집어 반대 방향을 만들지 않음: 머리핀과 소매 무늬의 위치가 바뀜
 
 크기: 512, 112, 56, 28px, 투명 배경 PNG
 원본: source 폴더의 kiri_<이름>.png (이모트별 1장)
