@@ -35,6 +35,8 @@ ASSETS: dict[str, str] = {
     "assets/apple-touch-icon.png": "assets/brand/app-icons/web/apple-touch-icon.png",
     "assets/social.png": "assets/brand/03_github-social-preview_1280x640.png",
     "assets/kiri/kiri_wink_512.png": "assets/brand/mascot/kiri_wink_512.png",
+    "assets/kiri/kiri_turn_left_512.png": "assets/brand/mascot/kiri_turn_left_512.png",
+    "assets/kiri/kiri_turn_right_512.png": "assets/brand/mascot/kiri_turn_right_512.png",
     "assets/kiri/kiri_laugh_512.png": "assets/brand/mascot/kiri_laugh_512.png",
     "assets/kiri/kiri_focus_112.png": "assets/brand/mascot/kiri_focus_112.png",
     "assets/shots/launcher.png": "docs/images/launcher.png",

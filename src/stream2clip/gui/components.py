@@ -17,7 +17,7 @@ from PySide6.QtWidgets import QDialog, QGridLayout, QHBoxLayout, QLabel, QPushBu
 
 from .. import __version__, tools
 from ..i18n import mark, shown, tr
-from .qt import app_icon
+from .qt import app_icon, mascot
 
 __all__ = ["ComponentsDialog", "short_path"]
 
@@ -52,7 +52,13 @@ class ComponentsDialog(QDialog):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 18, 20, 16)
         outer.setSpacing(12)
-        outer.addWidget(QLabel(tr("기능별로 필요한 구성요소와 이 PC의 상태"), objectName="Muted"))
+        head = QHBoxLayout()
+        head.setSpacing(12)
+        self.mascot_label = QLabel()
+        self.mascot_label.setPixmap(mascot("turn_right", 48))  # looks at the heading beside it
+        head.addWidget(self.mascot_label)
+        head.addWidget(QLabel(tr("기능별로 필요한 구성요소와 이 PC의 상태"), objectName="Muted"), 1)
+        outer.addLayout(head)
         card = QWidget(objectName="Card")
         self.grid = QGridLayout(card)
         self.grid.setContentsMargins(14, 12, 14, 12)

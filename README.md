@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.13.1-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.13.2-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -824,8 +824,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.13.1-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.13.1-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
+| `dist/stream2clip-0.13.2-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.13.2-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -1142,7 +1142,7 @@ src/stream2clip/
 | [`02_concept-image_keyvisual_1920x1080.png`](assets/brand/02_concept-image_keyvisual_1920x1080.png) | 키 비주얼(FHD, `@2x`) |
 | [`03_github-social-preview_1280x640.png`](assets/brand/03_github-social-preview_1280x640.png) | GitHub 소셜 프리뷰 |
 | [`app-icons/`](assets/brand/app-icons) | 앱 아이콘: Windows `.ico`, macOS `.icns`, Linux PNG, 웹 파비콘(심볼형, 키리형) |
-| [`mascot/`](assets/brand/mascot) | 마스코트 키리 이모트 5종(512, 112, 56, 28px) |
+| [`mascot/`](assets/brand/mascot) | 마스코트 키리 이모트 5종과 각도 3종(512, 112, 56, 28px) |
 | [`source/`](assets/brand/source) | 키 비주얼과 소셜 프리뷰의 원본 페이지(`keyvisual.html`, `social.html`, `brand.css`). 문구와 배치 수정 위치 |
 | [`mascot/source/`](assets/brand/mascot/source) | 이모트별 원본 1장과 제작 기록(`manifest.json`: 생성 도구, 프롬프트, 시드, 배경 처리) |
 
@@ -1166,10 +1166,20 @@ src/stream2clip/
 </tr>
 </table>
 
-| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;사&NoBreak;용&nbsp;위&NoBreak;치&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 표시 |
+<table>
+<tr>
+<td align="center"><img src="assets/brand/mascot/kiri_turn_left_112.png" alt="키리 왼쪽 45도" width="84"><br><sub><b>turn_left</b><br>왼쪽을 바라봄</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_turn_right_112.png" alt="키리 오른쪽 45도" width="84"><br><sub><b>turn_right</b><br>오른쪽을 바라봄</sub></td>
+<td align="center"><img src="assets/brand/mascot/kiri_side_112.png" alt="키리 옆모습" width="84"><br><sub><b>side</b><br>옆모습, 진행 중</sub></td>
+</tr>
+</table>
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;사&NoBreak;용&nbsp;위&NoBreak;치&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 표시 |
 |:---:|---|
-| 하이라이트 창 상태 줄 | 준비 wink, 분석 및 내보내기 중 focus, 하이라이트 검출 laugh, 클립 완성 cut, 실패 surprised |
+| 하이라이트 창 상태 줄 | 준비 wink, 분석 및 내보내기 중 side(진행 표시줄 쪽을 바라봄), 하이라이트 검출 laugh, 클립 완성 cut, 실패 surprised |
 | 하이라이트 창 구간 목록 | 해당 장면에서 가장 많이 나온 채팅 반응에 따라 표시. 웃음 laugh, 놀람 surprised, 귀여움 wink, 환호 cut |
+| 런처의 안내(ffmpeg, 새 버전), 구성요소 점검 창 | turn_right. 안내 문구 쪽을 바라보도록 문구 앞에 배치 |
+| 홈페이지 메인 화면 | 다운로드 구역 제목 끝에 turn_left, 사용 설명서 구역에 turn_right. 글 쪽을 바라보는 방향 |
 
 **제작 절차**: 이모트 PNG는 원본에서 스크립트로 생성하며 직접 수정하지 않음
 
