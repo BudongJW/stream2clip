@@ -145,9 +145,11 @@ class ChatPart(Part):
         if message.role in ("owner", "moderator") or marker_word(message, self.config.markers, ("any",)) is None:
             return
         when = message.time if math.isfinite(message.time) else now
+        if when - self._last_vote < self.vote_cooldown:
+            return  # just marked: more of the same word is about that moment, and the widget must not count past what is needed
         self._votes = [(t, a) for t, a in self._votes if when - t <= self.vote_window] + [(when, message.author or f"anonymous-{len(self._votes)}")]
         voters = {a for _t, a in self._votes}
-        if len(voters) >= self.viewer_votes and when - self._last_vote >= self.vote_cooldown:
+        if len(voters) >= self.viewer_votes:
             first = min(t for t, _a in self._votes)  # viewers type after the moment, like any chat: the first vote is closest to it
             self._last_vote = when
             self._votes = []

@@ -40,7 +40,7 @@ async function look() {
     const s = await (await fetch("state", {cache: "no-store"})).json();
     const need = Math.max(1, s.needed || 1);
     fill.style.width = Math.min(100, 100 * s.votes / need) + "%";
-    count.textContent = s.needed ? s.votes + " / " + s.needed : "";
+    count.textContent = s.needed ? Math.min(s.votes, s.needed) + " / " + s.needed : "";
     box.style.display = s.needed || s.markers ? "inline-flex" : "none";
     if (seen !== null && s.markers > seen) {
       box.classList.add("marked");

@@ -149,3 +149,33 @@ def test_the_window_can_open_the_obs_widget(app, tmp_path, monkeypatch):
     window.stop()
     assert wait_until(app, lambda: not window.running)
     window.close()
+
+
+@pytest.mark.skipif(sys.platform != "win32" or os.environ.get("QT_QPA_PLATFORM") == "offscreen", reason="Win32 hotkeys with a real desktop: the key is pressed at OS level")
+def test_a_real_f11_press_leaves_a_marker(app, tmp_path):
+    import ctypes
+
+    launcher = LauncherWindow()
+    launcher.dialogs = False
+    launcher.settings.save_dir = tmp_path
+    launcher.show()
+    window = launcher.open_session()
+    window.dialogs = False
+    marks = []
+    window.mark = lambda by="button": marks.append(by)
+    window.hotkey_check.setChecked(True)
+    try:
+        wait_until(app, lambda: False, 0.4)
+        if launcher.hotkeys.backend != "win32" or MARKER_KEY not in launcher.hotkeys._names.values():
+            pytest.skip("F11 is registered by another program")
+        ctypes.windll.user32.keybd_event(0x7A, 0, 0, 0)  # VK_F11
+        ctypes.windll.user32.keybd_event(0x7A, 0, 2, 0)  # KEYEVENTF_KEYUP
+        assert wait_until(app, lambda: marks == ["hotkey"]), "global F11 did not reach the recorder window"
+        window.hotkey_check.setChecked(False)
+        wait_until(app, lambda: False, 0.3)
+        assert MARKER_KEY not in launcher.hotkeys._names.values()  # given back: other programs get F11 again
+    finally:
+        window.hotkey_check.setChecked(False)
+        window.close()
+        launcher.close()
+
