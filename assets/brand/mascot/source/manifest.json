@@ -1,0 +1,61 @@
+{
+  "character": "kiri",
+  "version": "0.2",
+  "sizes": [
+    512,
+    112,
+    56,
+    28
+  ],
+  "app_sizes": [
+    112,
+    56
+  ],
+  "emotes": {
+    "wink": {
+      "file": "kiri_wink.png",
+      "background": "transparent",
+      "use": "기본, 인사",
+      "generator": "Qwen-Image로 생성 후 FLUX.1 Kontext [dev]로 표정 편집",
+      "prompt": "미기록",
+      "seed": "미기록",
+      "shrink": 2
+    },
+    "laugh": {
+      "file": "kiri_laugh.png",
+      "background": "transparent",
+      "use": "웃긴 장면",
+      "generator": "Qwen-Image로 생성 후 FLUX.1 Kontext [dev]로 표정 편집",
+      "prompt": "미기록",
+      "seed": "미기록",
+      "shrink": 2
+    },
+    "surprised": {
+      "file": "kiri_surprised.png",
+      "background": "transparent",
+      "use": "반전, 사고",
+      "generator": "Qwen-Image로 생성 후 FLUX.1 Kontext [dev]로 표정 편집",
+      "prompt": "미기록",
+      "seed": "미기록",
+      "shrink": 2
+    },
+    "cut": {
+      "file": "kiri_cut.png",
+      "background": "transparent",
+      "use": "클립 완성",
+      "generator": "Qwen-Image로 생성 후 FLUX.1 Kontext [dev]로 표정 편집",
+      "prompt": "미기록",
+      "seed": "미기록",
+      "shrink": 2
+    },
+    "focus": {
+      "file": "kiri_focus.png",
+      "background": "transparent",
+      "use": "작업 중",
+      "generator": "Qwen-Image로 생성 후 FLUX.1 Kontext [dev]로 표정 편집",
+      "prompt": "미기록",
+      "seed": "미기록",
+      "shrink": 2
+    }
+  }
+}
