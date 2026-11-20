@@ -845,6 +845,8 @@ def cmd_session_record(args: argparse.Namespace) -> int:
     print(f"session {writer.path}", flush=True)
     for name, what in json.loads(writer.path.read_text(encoding="utf-8").splitlines()[0]).get("sources", {}).items():
         print(f"  {name:5s} {what}", flush=True)
+    if args.widget is not None:
+        print(f"widget  {recorder.serve_widget(args.widget)}  (OBS: Sources > Browser, 400 x 120)", flush=True)
     print("Press Enter to leave a marker, Ctrl+C to stop.", flush=True)
 
     def keys() -> None:  # every Enter is a marker
@@ -1299,6 +1301,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--overwrite", action="store_true", help="replace an existing file")
     r.add_argument("--chat", metavar="SOURCE", help="your channel: a Twitch, CHZZK or SOOP channel address, a YouTube live address (yt-dlp), 'chzzk-api' (CHZZK's Open API, after  stream2clip chzzk login), or a chat file a collector appends to")
     r.add_argument("--viewer-votes", type=int, default=0, metavar="N", help="N different viewers typing a marker word (!clip ...) within 30 s leave a marker (default 0: off)")
+    r.add_argument("--widget", type=int, nargs="?", const=8790, metavar="PORT", help="serve an OBS browser source showing the votes and markers on 127.0.0.1 (default port 8790)")
     r.add_argument("--duration", type=float, help="stop after this many seconds")
     r.add_argument("-v", "--verbose", action="store_true", help="print the event counts every minute")
     _add_marker_args(r)

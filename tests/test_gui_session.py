@@ -127,3 +127,24 @@ def test_the_recorder_window_runs_on_its_own(app, tmp_path, monkeypatch):
     assert module.main([], run=lambda a: shown.extend(w for w in a.topLevelWidgets() if isinstance(w, SessionWindow) and w.isVisible()) or 0) == 0
     assert shown and shown[0].host is None
     shown[0].close()
+
+
+def test_the_window_can_open_the_obs_widget(app, tmp_path, monkeypatch):
+    import json
+    import urllib.request
+
+    from stream2clip.gui import session as module
+
+    monkeypatch.setattr(module, "WIDGET_PORT", 0)  # any free port
+    window = SessionWindow(save_dir=tmp_path)
+    window.dialogs = False
+    obs, vts = FakeObsServer(), FakeVts()
+    window.make_recorder = fake_recorder(window, tmp_path, obs, vts)
+    window.widget_check.setChecked(True)
+    window.start()
+    url = window.recorder.widget.url
+    assert "OBS 위젯: http://127.0.0.1:" in window.status.text()
+    assert json.loads(urllib.request.urlopen(url.replace("/widget", "/state"), timeout=5).read())["needed"] == 0
+    window.stop()
+    assert wait_until(app, lambda: not window.running)
+    window.close()

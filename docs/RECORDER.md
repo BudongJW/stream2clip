@@ -105,6 +105,7 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 | `--vts-hotkey` | 이름이 일치하는 VTube Studio 단축키를 표시로 기록(대소문자 무시, 반복 지정 가능) |
 | `--replay-on-marker` | 표시할 때 OBS 리플레이 버퍼도 저장 |
 | `--viewer-votes` | 시청자 투표 기준 인원. 0이면 사용 안 함(기본값) |
+| `--widget` | OBS 위젯 제공. 포트 기본값 8790 |
 | `--session` | `highlights`, `auto`, `clips`에서 세션 파일 사용. `--chat`이 없으면 세션의 채팅과 표시로 검출. 주소로 실행한 `auto`는 채팅 다시보기를 받지 않음 |
 | `--skip-scene` | 이름에 지정 문자열이 포함된 OBS 장면에 절반 이상 걸친 하이라이트 제외 후 순위 재계산 |
 | `--avatar session` | 세션의 VTube Studio 외곽선으로 아바타 박스 지정 |
@@ -124,6 +125,14 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 - 스트리머와 모더레이터의 입력은 투표가 아닌 일반 표시로 처리. 같은 시청자의 반복 입력은 1표
 - 표시 시각은 창 안의 첫 투표 시각. 시청자 입력은 채팅이므로 단축키 표시와 달리 채팅 지연 보정을 하지 않음
 - 표시 후 60초 동안은 추가 투표 표시 없음
+
+## OBS 위젯
+
+- `--widget`(앱은 **OBS 위젯**): 기록 중 이 PC에서만 접속 가능한 주소(`http://127.0.0.1:8790/widget`)로 방송 화면용 페이지 제공
+- OBS에 브라우저 소스로 추가(너비 400, 높이 120). 배경 투명
+- 표시 내용: 시청자 투표 진행(현재 인원 / 필요 인원), 표시가 남으면 3초간 강조. 시청자 투표를 쓰지 않으면 표시 강조만 수행
+- 페이지는 1초마다 `/state`(JSON: 투표 수, 필요 인원, 표시 수, 마지막 표시 시각)를 조회. 외부로 나가는 통신 없음
+- 기록 종료 시 함께 종료. 포트가 사용 중이면 기록을 시작하지 않고 안내
 
 ## CHZZK 공식 Open API
 

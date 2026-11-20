@@ -39,6 +39,7 @@ __all__ = ["SessionWindow", "MARKER_KEY", "main"]
 MARKER_KEY = "F11"
 #: Different viewers typing !clip within 30 seconds that leave a marker, when viewer votes are on.
 VIEWER_VOTES = 3
+WIDGET_PORT = 8790
 
 
 def _state_text(state: str, detail: str) -> str:
@@ -117,6 +118,9 @@ class SessionWindow(QWidget):
         self.votes_check = QCheckBox(tr("시청자 투표"))
         self.votes_check.setToolTip(tr("시청자 {0}명이 30초 안에 !clip을 입력하면 표시를 남깁니다.").format(VIEWER_VOTES))
         marks.addWidget(self.votes_check)
+        self.widget_check = QCheckBox(tr("OBS 위젯"))
+        self.widget_check.setToolTip(tr("투표 현황과 표시를 방송 화면에 띄우는 페이지를 이 PC에서 엽니다.\nOBS에 브라우저 소스로 추가: {0}").format(f"http://127.0.0.1:{WIDGET_PORT}/widget"))
+        marks.addWidget(self.widget_check)
         marks.addStretch(1)
         grid.addLayout(marks, 4, 1, 1, 2)
         grid.setColumnStretch(1, 1)
@@ -174,7 +178,7 @@ class SessionWindow(QWidget):
             self.chat_edit.setText(saved["chat"])
         if isinstance(saved.get("source"), str):
             self.source_edit.setText(saved["source"])
-        for box, key in ((self.obs_check, "obs"), (self.vts_check, "vts"), (self.replay_check, "replay"), (self.hotkey_check, "hotkey"), (self.votes_check, "votes")):
+        for box, key in ((self.obs_check, "obs"), (self.vts_check, "vts"), (self.replay_check, "replay"), (self.hotkey_check, "hotkey"), (self.votes_check, "votes"), (self.widget_check, "widget")):
             if isinstance(saved.get(key), bool):
                 box.setChecked(saved[key])
 
@@ -182,7 +186,7 @@ class SessionWindow(QWidget):
         save_section("session", {
             "chat": self.chat_edit.text().strip(), "source": self.source_edit.text().strip(), "obs": self.obs_check.isChecked(),
             "vts": self.vts_check.isChecked(), "replay": self.replay_check.isChecked(), "hotkey": self.hotkey_check.isChecked(),
-            "votes": self.votes_check.isChecked(),
+            "votes": self.votes_check.isChecked(), "widget": self.widget_check.isChecked(),
         })
 
     def session_dir(self) -> Path:
@@ -263,6 +267,14 @@ class SessionWindow(QWidget):
         except (ValueError, OSError) as exc:
             self._fail(str(exc))
             return
+        widget_url = ""
+        if self.widget_check.isChecked():
+            try:
+                widget_url = recorder.serve_widget(WIDGET_PORT)
+            except OSError as exc:  # the port is taken (another recorder?)
+                recorder.writer.close()
+                self._fail(tr("OBS 위젯을 열 수 없습니다: {0}").format(exc))
+                return
         self.recorder, self.path = recorder, path
         self.remember()
 
@@ -277,9 +289,9 @@ class SessionWindow(QWidget):
         self.start_button.setText(tr("기록 중지"))
         self.mark_button.setEnabled(True)
         self.highlights_button.setEnabled(False)
-        for widget in (self.chat_edit, self.obs_check, self.obs_button, self.vts_check, self.source_edit, self.replay_check, self.votes_check):
+        for widget in (self.chat_edit, self.obs_check, self.obs_button, self.vts_check, self.source_edit, self.replay_check, self.votes_check, self.widget_check):
             widget.setEnabled(False)
-        self.status.setText(tr("기록 중: {0}").format(path))
+        self.status.setText(tr("기록 중: {0}").format(path) + (tr(" / OBS 위젯: {0}").format(widget_url) if widget_url else ""))
         self.timer.start()
         self.refresh()
 
@@ -316,7 +328,7 @@ class SessionWindow(QWidget):
         self.start_button.setText(tr("기록 시작"))
         self.start_button.setEnabled(True)
         self.mark_button.setEnabled(False)
-        for widget in (self.chat_edit, self.obs_check, self.obs_button, self.vts_check, self.source_edit, self.replay_check, self.votes_check):
+        for widget in (self.chat_edit, self.obs_check, self.obs_button, self.vts_check, self.source_edit, self.replay_check, self.votes_check, self.widget_check):
             widget.setEnabled(True)
         if self.error:
             self._fail(self.error)

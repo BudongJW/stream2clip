@@ -135,6 +135,11 @@ class ChatPart(Part):
         self._last_vote = -1e18
         self.votes = 0
 
+    @property
+    def voters(self) -> int:
+        """Different viewers who voted in the current window."""
+        return len({a for _t, a in self._votes})
+
     def _vote(self, message: ChatMessage, now: float) -> None:
         """A viewer's marker word counts as a vote; enough different viewers at once make a marker."""
         if message.role in ("owner", "moderator") or marker_word(message, self.config.markers, ("any",)) is None:
@@ -370,9 +375,19 @@ class SessionRecorder:
         self._marks: "queue.Queue[tuple[float, str, str]]" = queue.Queue()
         self._stop = threading.Event()
         self.markers = 0
+        self.last_marker = 0.0
+        #: The OBS widget, when one was started (closed with the recorder).
+        self.widget: Any = None
 
     def part(self, name: str) -> Part | None:
         return next((p for p in self.parts if p.name == name), None)
+
+    def state(self) -> dict[str, Any]:
+        """What the OBS widget shows: votes so far and needed (0: votes off), markers left, when the last one was."""
+        chat = self.part("chat")
+        needed = chat.viewer_votes if isinstance(chat, ChatPart) else 0
+        return {"votes": chat.voters if isinstance(chat, ChatPart) and needed else 0, "needed": needed,
+                "markers": self.writer.counts.get("marker", 0), "last_marker": self.last_marker}
 
     def mark(self, by: str = "hotkey", label: str = "") -> None:
         """Leave a marker now (written at the next turn of the loop, with the time of the call)."""
@@ -392,6 +407,7 @@ class SessionRecorder:
             except queue.Empty:
                 return
             self.markers += 1
+            self.last_marker = when
             self.writer.write("marker", when, by=by, **({"label": label} if label else {}))
             obs = self.part("obs")
             if self.save_replay_on_marker and isinstance(obs, ObsPart) and obs.client is not None:
@@ -427,7 +443,17 @@ class SessionRecorder:
                     part.close()
                 except Exception:
                     pass
+            if self.widget is not None:
+                self.widget.close()
+                self.widget = None
             self.writer.close()
+
+    def serve_widget(self, port: int = 8790) -> str:
+        """Start the OBS browser source (see :mod:`stream2clip.widget`) and return its address."""
+        from .widget import WidgetServer
+
+        self.widget = WidgetServer(self.state, port=port)
+        return self.widget.url
 
 
 def chat_part(writer: SessionWriter, source: str, folder: str, *, config: LiveConfig | None = None, ytdlp: list[str] | None = None, viewer_votes: int = 0) -> ChatPart:

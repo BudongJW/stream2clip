@@ -11,6 +11,7 @@
 - VTube Studio 공개 API 클라이언트(`stream2clip.vts`): 첫 연결 시 플러그인 허용 창으로 토큰 발급, 이후 저장된 토큰으로 자동 인증
 - obs-websocket 클라이언트에 이벤트 구독 범위 지정과 대기 없는 이벤트 읽기(`ObsClient.poll`) 추가
 - 시청자 투표(`--viewer-votes`, 앱의 **시청자 투표**): 서로 다른 시청자 N명이 30초 안에 `!clip` 등을 입력하면 표시 기록. 같은 시청자의 반복 입력은 1표, 표시 후 60초 대기
+- OBS 위젯(`--widget`, 앱의 **OBS 위젯**): 기록 중 `http://127.0.0.1:8790/widget`에 투명 배경 페이지 제공. 시청자 투표 진행과 표시 발생을 방송 화면에 표시. 이 PC에서만 접속 가능
 - CHZZK 공식 Open API(`stream2clip.chzzk_api`): `chzzk login`으로 브라우저 동의 후 로컬 주소에서 인증 코드를 받아 토큰 발급, `--chat chzzk-api`로 본인 채널의 채팅과 후원 수신(Socket.IO 세션, 채팅과 후원 구독). 토큰은 앱 설정 폴더에 보관하고 만료 시 자동 갱신, Client Secret은 환경 변수로만 사용. `chzzk logout`으로 토큰 삭제
 
 ### 클립 제작

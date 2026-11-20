@@ -472,5 +472,9 @@
  "기록 완료: {0}": "Recorded: {0}",
  "시청자 투표": "Viewer votes",
  "시청자 {0}명이 30초 안에 !clip을 입력하면 표시를 남깁니다.": "Leaves a marker when {0} viewers type !clip within 30 seconds.",
- "아바타 움직임 큼 (실험)": "Big avatar movement (experimental)"
+ "아바타 움직임 큼 (실험)": "Big avatar movement (experimental)",
+ "OBS 위젯": "OBS widget",
+ "투표 현황과 표시를 방송 화면에 띄우는 페이지를 이 PC에서 엽니다.\nOBS에 브라우저 소스로 추가: {0}": "Opens a page on this PC that shows the votes and markers on stream.\nAdd it to OBS as a browser source: {0}",
+ "OBS 위젯을 열 수 없습니다: {0}": "Cannot open the OBS widget: {0}",
+ " / OBS 위젯: {0}": " / OBS widget: {0}"
 }

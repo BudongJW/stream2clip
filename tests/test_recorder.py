@@ -351,3 +351,34 @@ def test_session_record_and_show_on_the_command_line(tmp_path, capsys):
     assert "connection problems: 1" in text
     assert main(["session", "show", str(shown), "--offset", "10"]) == 0
     assert "0:11:20  marker" in capsys.readouterr().out
+
+
+# ----------------------------------------------------------------------------- the OBS widget
+
+
+def test_the_widget_shows_the_votes_and_markers(tmp_path):
+    import urllib.error
+    import urllib.request
+
+    clock = Clock()
+    writer = SessionWriter(tmp_path / "s.jsonl", clock=clock)
+    chat = ListChat([[ChatMessage(time=1000.0, text="!clip", author="a"), ChatMessage(time=1001.0, text="!clip", author="b")]])
+    recorder = SessionRecorder(writer, [ChatPart(writer, lambda: chat, viewer_votes=3)], clock=clock, sleep=lambda s: None)
+    url = recorder.serve_widget(0)
+    try:
+        page = urllib.request.urlopen(url, timeout=5).read().decode("utf-8")
+        assert "fetch(\"state\"" in page and "background:transparent" in page
+        state = lambda: json.loads(urllib.request.urlopen(url.replace("/widget", "/state"), timeout=5).read())  # noqa: E731
+        assert state() == {"votes": 0, "needed": 3, "markers": 0, "last_marker": 0.0}
+        recorder.step()
+        assert state()["votes"] == 2
+        recorder.mark("button")
+        recorder.step()
+        assert state()["markers"] == 1 and state()["last_marker"] == 1000.0
+        with pytest.raises(urllib.error.HTTPError) as missing:
+            urllib.request.urlopen(url.replace("/widget", "/elsewhere"), timeout=5)
+        assert missing.value.code == 404
+    finally:
+        recorder.stop()
+        recorder.run()
+    assert recorder.widget is None  # closed with the recorder
