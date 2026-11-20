@@ -191,10 +191,16 @@ class ObsPart(Part):
     #: Seconds after such a word from OBS before looking: a source being dragged sends many.
     placement_settle = 0.3
 
-    def __init__(self, writer: SessionWriter, connect: Callable[[], Any], *, avatar_source: str | None = None) -> None:
+    #: The obs-websocket vendor name of the Source Record plugin (a filter that records one source to a file of its own).
+    record_vendor = "source-record"
+
+    def __init__(self, writer: SessionWriter, connect: Callable[[], Any], *, avatar_source: str | None = None, record_avatar: bool = False) -> None:
         super().__init__(writer)
         self._connect = connect
         self.avatar_source = avatar_source
+        #: Start the Source Record filter on the VTube Studio source with the session and stop it at the end.
+        self.record_avatar = record_avatar and bool(avatar_source)
+        self._avatar_recording = False
         self.client: Any = None
         self.scene = ""
         self._outputs: dict[str, bool] = {}
@@ -220,6 +226,36 @@ class ObsPart(Part):
             began = now - float(running) / 1000.0 if active and isinstance(running, (int, float)) and running > 0 else None
             self._output(output, active, began)
         self._next_placement = 0.0
+        if self.record_avatar and not self._avatar_recording:  # after a lost connection the plugin is still recording: not started twice
+            self._avatar_record(True)
+
+    def _avatar_record(self, start: bool) -> None:
+        """Start or stop the avatar's own recording and write when: clips line the two recordings up by that time.
+
+        The recording is the Source Record plugin's (not part of this program); it is only asked
+        over obs-websocket's vendor requests. Without the plugin or its filter the session goes on.
+        """
+        what = "started" if start else "stopped"
+        try:
+            answer = self.client.request("CallVendorRequest", {"vendorName": self.record_vendor, "requestType": "record_start" if start else "record_stop", "requestData": {"source": self.avatar_source}})
+        except ObsError as exc:
+            if exc.code is None:  # the connection, not the request
+                raise
+            self.writer.write("status", source="obs", state="connected", detail=f"avatar recording not {what}: {exc} (is the Source Record plugin installed?)")
+            return
+        if (answer.get("responseData") or {}).get("success") is False:
+            self.writer.write("status", source="obs", state="connected", detail=f"avatar recording not {what}: no Source Record filter on the source {self.avatar_source!r}")
+            return
+        self._avatar_recording = start
+        self.writer.write("avatar_record", active=start, source=self.avatar_source, by=self.record_vendor)
+
+    def close(self) -> None:
+        if self._avatar_recording and self.client is not None:
+            try:
+                self._avatar_record(False)
+            except Exception:
+                pass
+        super().close()
 
     def _drop(self) -> None:
         if self.client is not None:
@@ -522,6 +558,7 @@ def build_recorder(
     vts_hotkeys: Sequence[str] = (),
     replay_on_marker: bool = False,
     viewer_votes: int = 0,
+    record_avatar: bool = False,
     connect_obs: Callable[[], Any] | None = None,
     connect_vts: Callable[[], Any] | None = None,
 ) -> SessionRecorder:
@@ -531,7 +568,10 @@ def build_recorder(
     ``vts_url``: VTube Studio's API address (``None``: no VTube Studio); ``parameters``:
     "default" (the standard face and head ones), "all" or "none". ``viewer_votes``: so many
     different viewers typing ``!clip`` within 30 seconds leave a marker (0: off).
+    ``record_avatar``: start and stop the Source Record filter on ``avatar_source`` with the session.
     """
+    if record_avatar and (obs is None or not avatar_source):
+        raise ValueError("Recording the avatar apart needs OBS and the name of the source that shows VTube Studio")
     out = Path(path)
     sources: dict[str, str] = {}
     if chat:
@@ -554,7 +594,7 @@ def build_recorder(
             host, port, password = obs
             events = EVENTS_GENERAL | EVENTS_SCENES | EVENTS_OUTPUTS | ((EVENTS_SCENE_ITEMS | EVENTS_ITEM_TRANSFORMS) if avatar_source else 0)
             connect_obs = lambda: ObsClient(host, port, password, timeout=5.0, events=events)  # noqa: E731
-        parts.append(ObsPart(writer, connect_obs, avatar_source=avatar_source))
+        parts.append(ObsPart(writer, connect_obs, avatar_source=avatar_source, record_avatar=record_avatar))
     if vts_url:
         if connect_vts is None:
             from .vts import VtsClient

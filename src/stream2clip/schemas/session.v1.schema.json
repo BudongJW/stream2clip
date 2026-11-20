@@ -74,6 +74,10 @@
           "then": {"required": ["path"], "properties": {"path": {"type": "string"}}}
         },
         {
+          "if": {"properties": {"type": {"const": "avatar_record"}}},
+          "then": {"required": ["active"], "properties": {"active": {"type": "boolean"}, "source": {"type": "string"}, "by": {"type": "string"}}}
+        },
+        {
           "if": {"properties": {"type": {"const": "obs_video"}}},
           "then": {
             "required": ["base", "output"],

@@ -123,6 +123,31 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 | 하이라이트 창의 아바타 | 내보내기 설정 아바타 줄의 **세션에서**(`--avatar session`). 체크한 하이라이트 구간의 외곽선 기준이며 해당 구간에 외곽선이 없으면 세션 전체 기준 |
 | 하이라이트 창의 오디오 트랙 | **오디오 트랙**(`--audio-track`). 창의 번호는 OBS와 같이 1부터, 명령줄은 0부터. 검출과 내보내기의 자막 인식, 무음 판정에 적용 |
 
+## 아바타 별도 녹화
+
+아바타만 투명 배경 또는 단색 배경으로 따로 녹화하면 `--avatar-video`로 사각 테두리 없이 합성 가능. 녹화는 OBS 플러그인이 수행하며 stream2clip은 플러그인 코드를 포함하지 않고 obs-websocket 요청으로 시작과 중지만 요청.
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;경&NoBreak;로&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 구성 | 비고 |
+|:---:|---|---|
+| Spout2와 Source Record(권장) | VTube Studio의 Spout2 출력과 배경 **Transparent in capture** 사용, OBS의 Spout2 Capture 소스(합성 방식 Premultiplied Alpha), 해당 소스에 Source Record 필터 추가 | Windows 전용. VTube Studio 화면 UI가 찍히지 않음. Source Record는 소스 1개를 별도 파일로 녹화 |
+| 게임 캡쳐와 Source Record | VTube Studio 창을 게임 캡쳐(투명도 허용)로 추가하고 Source Record 필터 추가 | Spout2 플러그인 불필요 |
+| NDI | VTube Studio의 NDI 출력을 DistroAV 소스로 수신 | 같은 네트워크에 영상 노출, CPU 사용량 증가, 지연 설정에 따라 투명도 손실 보고 사례 존재. 권장하지 않음 |
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 투명 배경 파일 | Source Record 0.5.0 이상의 사용자 지정 ffmpeg 출력에서 알파 채널 녹화 선택. stream2clip은 투명도가 있는 파일을 자동 인식 |
+| 단색 배경 파일 | Source Record 필터의 배경색을 `#00FF00`으로 지정하고 일반 인코더로 녹화. stream2clip은 투명도가 없는 파일에서 `#00FF00`을 제거 |
+| 시작과 중지 | `session record --avatar-record --vts-source "소스 이름"`: 기록 시작 시 Source Record의 `record_start`, 종료 시 `record_stop` 요청(obs-websocket `CallVendorRequest`, 벤더 이름 `source-record`). 시작 시각을 `avatar_record` 이벤트로 기록 |
+| 오프셋 자동 계산 | `--avatar-video`와 `--session`을 함께 지정하면 `--avatar-offset`을 세션의 시작 시각으로 계산(영상 0초 기준과 보정 초 반영). 직접 지정한 값이 우선 |
+| 플러그인이 없는 경우 | 연결 상태에 사유를 기록하고 나머지 기록 계속 |
+| 미검증 | 실제 Spout2, Source Record 플러그인으로의 확인(이 PC에 미설치). 요청 이름과 항목은 플러그인 공개 소스 기준, 가짜 서버로 테스트. 플러그인이 녹화를 실제로 시작하기까지의 지연에 따른 오프셋 오차 미측정 |
+| 앱 | 기록기 창에는 해당 설정 없음. 명령줄에서만 사용 |
+
+```bash
+stream2clip session record --vts --vts-source "VTube Studio" --avatar-record -o session.jsonl
+stream2clip clips 녹화.mkv --highlights h.json -o clips --layout stack --avatar session --session session.jsonl --session-origin record --avatar-video 아바타.mov
+```
+
 ## 시청자 투표
 
 - `--viewer-votes N`(앱은 **시청자 투표**, 3명): 서로 다른 시청자 N명이 30초 안에 표시 명령(`!clip` 등)을 입력하면 표시 1개 기록(`by: viewers`)

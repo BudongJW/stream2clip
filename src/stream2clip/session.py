@@ -172,6 +172,19 @@ class Session:
             raise ValueError(f"{self.path.name}: OBS did not start recording while the session was recorded; choose another origin")
         return self.started
 
+    def avatar_offset(self, origin: float | None = None) -> float | None:
+        """Seconds the avatar's own recording began before second 0 of the video (negative: after): ``--avatar-offset``.
+
+        From the ``avatar_record`` events the recorder writes when it starts that recording. With
+        several, the one running at second 0 counts, else the first. ``None`` without any.
+        """
+        starts = [e.t for e in self.events if e.type == "avatar_record" and e.data.get("active")]
+        if not starts:
+            return None
+        zero = self.origin() if origin is None else origin
+        before = [t for t in starts if t <= zero]
+        return zero - (before[-1] if before else starts[0])
+
     @property
     def end(self) -> float:
         return max([self.started] + [e.t for e in self.events])

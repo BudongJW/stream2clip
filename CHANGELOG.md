@@ -22,6 +22,7 @@
 - `--avatar session`: VTube Studio 외곽선을 OBS 배치와 캔버스 크기로 영상 좌표로 변환하여 아바타 영역 지정. `--vts-region`으로 VTube Studio 화면 위치 직접 지정 가능
 - `--session-origin`, `--session-offset`: 영상의 0초 기준(송출 시작, 녹화 시작, 기록 시작)과 차이 지정
 - `--audio-track N`: 자막 인식, 무음 구간 판정, 음량, 웃음소리, 노래 구간 검출에 쓸 오디오 트랙 지정(`highlights`, `clips`, `auto`, `singing`). OBS 녹화에서 마이크만 별도 트랙에 둔 경우 사용. 클립의 소리는 첫 번째 트랙 유지
+- `session record --avatar-record`: OBS의 Source Record 필터(별도 플러그인)로 아바타 소스만 따로 녹화하도록 시작과 중지를 요청하고 시작 시각을 세션에 기록. `--avatar-video`와 `--session`을 함께 지정하면 `--avatar-offset` 자동 계산. 플러그인 코드는 포함하지 않으며 실제 플러그인으로는 미검증
 - `--avatar-motion`(실험): 기록된 VTube Studio 파라미터의 구간별 변화량을 하이라이트 점수의 보조 신호로 사용(가중치 0.15, 다른 신호를 깎지 않음). 근거 문구 **아바타 움직임 큼 (실험)**
 
 ### 확인 내용

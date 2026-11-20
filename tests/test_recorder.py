@@ -11,7 +11,7 @@ import pytest
 from stream2clip.chat import ChatMessage
 from stream2clip.cli import main
 from stream2clip.obs import ObsClient
-from stream2clip.recorder import ChatPart, ObsPart, Part, SessionRecorder, VtsPart
+from stream2clip.recorder import ChatPart, ObsPart, Part, SessionRecorder, VtsPart, build_recorder
 from stream2clip.session import SessionWriter, load_session
 from stream2clip.vts import VtsClient, VtsError
 
@@ -124,6 +124,8 @@ class FakeObsServer:
         self.closed = False
         self.drop = False
         self.recording_ms = 0  # how long OBS has been recording already
+        self.vendor: bool | None = None  # the Source Record plugin: None not installed, False no filter on the source, True there
+        self.vendor_calls: list[tuple[str, dict]] = []
         self.threads: list[str] = []  # which thread each request came from
 
     def connect(self, url, timeout):
@@ -163,6 +165,11 @@ class FakeObsServer:
                 out = {"sceneItemEnabled": found[1]}
             else:
                 out = {"sceneItemTransform": found[2]}
+        elif kind == "CallVendorRequest":
+            ok = self.vendor is not None and data.get("vendorName") == "source-record"
+            if ok:
+                self.vendor_calls.append((data["requestType"], data.get("requestData") or {}))
+                out = {"vendorName": data["vendorName"], "requestType": data["requestType"], "responseData": {"success": self.vendor}}
         elif kind == "SaveReplayBuffer":
             self.event("ReplayBufferSaved", {"savedReplayPath": "C:/replays/r1.mkv"})
         else:
@@ -497,4 +504,69 @@ def test_a_moved_source_is_looked_at_again_at_once(tmp_path):
     assert obs.requests.count("GetSceneItemTransform") == asked  # hidden: its transform is not asked for
     placed = load_session(tmp_path / "s.jsonl").of("avatar_source")
     assert [bool(e.data["transform"]) for e in placed] == [True, True, False] and placed[1].data["transform"]["positionX"] == 100
+
+
+def test_the_avatars_own_recording_is_started_and_timed(tmp_path):
+    clock = Clock()
+    writer = SessionWriter(tmp_path / "s.jsonl", clock=clock)
+    obs = FakeObsServer()
+    obs.vendor = True
+    part = ObsPart(writer, lambda: ObsClient(connect=obs.connect, events=69), avatar_source="VTS", record_avatar=True)
+    part.poll(clock())
+    assert obs.vendor_calls == [("record_start", {"source": "VTS"})]
+    obs.drop = True  # the connection is lost and comes back: the plugin went on recording
+    clock.now = 1005.0
+    part.poll(clock())
+    obs.drop = False
+    obs.outbox = [json.dumps({"op": 0, "d": {"obsStudioVersion": "31.0.0", "rpcVersion": 1}})]  # OBS greets the new connection
+    clock.now = 1020.0
+    part.poll(clock())
+    assert part.status.state == "connected" and [kind for kind, _ in obs.vendor_calls] == ["record_start"]
+    writer.write("output", 1010.0, output="record", active=True)
+    clock.now = 1030.0
+    part.close()
+    writer.close()
+    assert [kind for kind, _ in obs.vendor_calls] == ["record_start", "record_stop"]
+    session = load_session(tmp_path / "s.jsonl")
+    assert [(e.t, e.data["active"], e.data["by"]) for e in session.of("avatar_record")] == [(1000.0, True, "source-record"), (1030.0, False, "source-record")]
+    assert session.avatar_offset() == 10.0  # it began ten seconds before OBS's own recording: --avatar-offset 10
+    assert session.avatar_offset(990.0) == -10.0 and load_session(tmp_path / "s.jsonl").avatar_offset(session.started) == 0.0
+
+
+@pytest.mark.parametrize("vendor, said", [(None, "is the Source Record plugin installed?"), (False, "no Source Record filter on the source 'VTS'")])
+def test_without_the_plugin_or_its_filter_the_session_goes_on(tmp_path, vendor, said):
+    clock = Clock()
+    writer = SessionWriter(tmp_path / "s.jsonl", clock=clock)
+    obs = FakeObsServer()
+    obs.vendor = vendor
+    part = ObsPart(writer, lambda: ObsClient(connect=obs.connect, events=69), avatar_source="VTS", record_avatar=True)
+    part.poll(clock())
+    assert part.status.state == "connected" and writer.counts.get("scene") == 1
+    part.close()
+    writer.close()
+    session = load_session(tmp_path / "s.jsonl")
+    assert not session.of("avatar_record") and session.avatar_offset() is None
+    assert any(said in e.data.get("detail", "") for e in session.of("status"))
+    with pytest.raises(ValueError, match="needs OBS and the name of the source"):
+        build_recorder(tmp_path / "t.jsonl", obs=("127.0.0.1", 4455, None), record_avatar=True)
+
+
+def test_clips_take_the_avatar_offset_from_the_session(tmp_path, capsys):
+    import argparse
+
+    from stream2clip.cli import _avatar_offset
+
+    path = tmp_path / "s.jsonl"
+    writer = SessionWriter(path, clock=Clock(1000.0))
+    writer.write("avatar_record", 1004.0, active=True, source="VTS", by="source-record")
+    writer.write("output", 1010.0, output="record", active=True)
+    writer.close()
+    args = argparse.Namespace(avatar_offset=None, avatar_video="avatar.mov", session=str(path), session_origin="auto", session_offset=0.0)
+    assert _avatar_offset(args) == 6.0 and "avatar offset +6.00 s" in capsys.readouterr().out
+    args.session_offset = 1.5  # the video starts a second and a half after the recording began
+    assert _avatar_offset(args) == 7.5
+    args.avatar_offset = 2.0  # said by hand: that is it
+    assert _avatar_offset(args) == 2.0
+    assert _avatar_offset(argparse.Namespace(avatar_offset=None, avatar_video="avatar.mov", session=None)) == 0.0
+    assert _avatar_offset(argparse.Namespace(avatar_offset=None, avatar_video=None, session=str(path))) == 0.0
 

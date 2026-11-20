@@ -399,7 +399,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--vts-region", type=_region, metavar="X,Y,W,H", help="--avatar session: where VTube Studio's whole view is in the video, when the session does not know where OBS put it")
     g.add_argument("--avatar-video", metavar="FILE", help="stack / pip layout: take the avatar from its own recording (green screen or alpha) instead of a box in the stream")
     g.add_argument("--avatar-key", default="auto", metavar="COLOR", help="colour removed from --avatar-video: 'auto' (default) uses the file's own transparency when it has one and removes #00FF00 otherwise; 'none' always uses the file's transparency")
-    g.add_argument("--avatar-offset", type=float, default=0.0, metavar="SECONDS", help="--avatar-video: seconds its recording started before the stream's (negative: after)")
+    g.add_argument("--avatar-offset", type=float, default=None, metavar="SECONDS", help="--avatar-video: seconds its recording started before the stream's (negative: after; default: from --session when the recorder started that recording, else 0)")
     g.add_argument("--corner", default="top-right", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="pip layout: where the avatar goes (default top-right)")
     g.add_argument("--inset", type=float, default=0.42, help="pip layout: avatar width as a fraction of the frame (default 0.42)")
     g.add_argument("--face-model", help="--avatar auto: ONNX face model file (default: downloaded once, 12 MB)")
@@ -482,7 +482,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             print(f"avatar {args.avatar_video}: " + ("its own transparency is used" if key == "none" else "#00FF00 is removed"))
         layout = VerticalLayout(
             args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split, corner=args.corner, inset=args.inset,
-            avatar_source=args.avatar_video, avatar_key=None if key.lower() == "none" else ("#00FF00" if key.lower() == "auto" else key), avatar_offset=args.avatar_offset,
+            avatar_source=args.avatar_video, avatar_key=None if key.lower() == "none" else ("#00FF00" if key.lower() == "auto" else key), avatar_offset=_avatar_offset(args),
         )
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
@@ -552,6 +552,20 @@ def cmd_compile(args: argparse.Namespace) -> int:
         made = compile_clips(args.clips, args.output, **options)
     _report_compilation(made)
     return 0
+
+
+def _avatar_offset(args: argparse.Namespace) -> float:
+    """``--avatar-offset``, or what the session says about when the avatar's own recording began."""
+    if args.avatar_offset is not None:
+        return float(args.avatar_offset)
+    if not args.avatar_video or not getattr(args, "session", None):
+        return 0.0
+    session, zero = _session(args)
+    offset = session.avatar_offset(zero) if session is not None else None
+    if offset is None:
+        return 0.0
+    print(f"avatar offset {offset:+.2f} s  (when its recording began, from {args.session})")
+    return offset
 
 
 def _session_avatar(args: argparse.Namespace, video: str, highlights, aspect: float) -> Region:
@@ -836,7 +850,7 @@ def _session_recorder(args: argparse.Namespace):
         out, chat=args.chat, live_config=LiveConfig(**_markers(args)), ytdlp=ytdlp,
         obs=None if args.no_obs else (args.host, args.port, password), avatar_source=args.vts_source,
         vts_url=args.vts_url if args.vts else None, outline_every=args.outline_every, parameters=args.parameters,
-        parameters_every=args.parameters_every, vts_hotkeys=args.vts_hotkey or (), replay_on_marker=args.replay_on_marker,
+        parameters_every=args.parameters_every, vts_hotkeys=args.vts_hotkey or (), replay_on_marker=args.replay_on_marker, record_avatar=args.avatar_record,
         viewer_votes=args.viewer_votes,
     )
     return recorder.writer, recorder
@@ -1319,6 +1333,7 @@ def build_parser() -> argparse.ArgumentParser:
     o.add_argument("--password", help="WebSocket server password (default: OBS_WEBSOCKET_PASSWORD)")
     o.add_argument("--vts-source", metavar="NAME", help="name of the OBS source that shows VTube Studio: its place on the canvas is recorded, so the avatar box can be found later")
     o.add_argument("--replay-on-marker", action="store_true", help="also save OBS's replay buffer at every marker")
+    o.add_argument("--avatar-record", action="store_true", help="start and stop the Source Record filter (an OBS plugin) on the --vts-source source with the session; its start is written, so clips find --avatar-offset")
     v = r.add_argument_group("VTube Studio")
     v.add_argument("--vts", action="store_true", help="record the model's outline and parameters (VTube Studio > Settings > Start API; allow the plugin in the popup once)")
     v.add_argument("--vts-url", default="ws://127.0.0.1:8001", help="VTube Studio API address (default ws://127.0.0.1:8001)")
