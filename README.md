@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-577-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-578-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -254,7 +254,7 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 - 로그인 쿠키가 필요한 방송은 명령줄(`--cookies`, `--cookies-from-browser`) 사용
 
 <p align="center"><img src="docs/images/highlights_window.png" alt="하이라이트 창: 입력 파일, 타임라인, 구간 목록, 레이아웃 미리보기, 내보내기 설정과 진행률" width="92%"></p>
-<p align="center"><sub>하이라이트 창. 키 비주얼로 만든 30분 영상과 합성 채팅 데이터로 실행한 화면이며 노란 테두리는 선택한 구간</sub></p>
+<p align="center"><sub>하이라이트 창. 프로젝트의 데모 방송(15분)과 그 채팅으로 실행한 화면이며 노란 테두리는 선택한 구간</sub></p>
 
 ### 레이아웃
 
@@ -694,19 +694,31 @@ stream2clip check --vrm model.vrm --monetized
 
 ## 스크린샷
 
+Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방송은 프로젝트의 데모 방송(키리의 벽돌깨기)
+
 <table>
 <tr>
-<td width="40%" align="center"><img src="docs/images/launcher.png" alt="런처: 캡쳐 버튼, 움짤 녹화 설정, 투명 배경 녹화, 하이라이트 찾기"><br><sub><b>런처</b>: 캡쳐, 움짤 녹화, 투명 배경 설정, 하이라이트 찾기</sub></td>
-<td width="60%" align="center"><img src="docs/images/editor.png" alt="편집기: 선택, 펜, 형광펜, 네모, 화살표, 글자, 모자이크, 투명, 자르기 툴바"><br><sub><b>편집기</b>: 툴바, 팔레트, 굵기, 번역, 되돌리기, 복사, 저장</sub></td>
+<td width="42%" align="center"><img src="docs/images/launcher.png" alt="런처: 캡쳐 버튼, 움짤 녹화 설정, 투명 배경 녹화, 방송 기록기, 하이라이트 찾기"><br><sub><b>런처</b>: 캡쳐, 움짤 녹화, 투명 배경 설정, 방송 기록기, 하이라이트 찾기</sub></td>
+<td width="58%" align="center"><img src="docs/images/demo_record.gif" alt="영역 녹화로 저장한 GIF: 벽돌깨기 방송의 연쇄 폭발 장면"><br><sub><b>영역 녹화 결과</b>: F9로 방송 화면 일부를 녹화하여 앱이 저장한 GIF 원본</sub></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img src="docs/images/selector.png" alt="영역 선택 오버레이" width="85%"><br><sub><b>영역 선택 오버레이</b>: 화면 정지 상태에서 드래그, 선택 영역만 밝게 표시, 실제 픽셀 크기 표시</sub></td>
+<td colspan="2" align="center"><img src="docs/images/demo_record_steps.webp" alt="영역 녹화 과정: F9, 영역 선택, 녹화 표시줄, 저장" width="92%"><br><sub><b>영역 녹화</b>: F9, 드래그로 영역 선택, 녹화, 다시 F9로 저장</sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/demo_capture.webp" alt="영역 캡쳐와 편집 과정: F8, 영역 선택, 편집기에서 네모, 화살표, 모자이크, 글자 추가" width="92%"><br><sub><b>영역 캡쳐와 편집</b>: F8, 드래그로 영역 선택, 편집기에서 네모, 화살표, 모자이크, 글자 추가</sub></td>
+</tr>
+<tr>
+<td width="42%" align="center"><img src="docs/images/selector.png" alt="영역 선택 오버레이"><br><sub><b>영역 선택 오버레이</b>: 화면 정지 상태에서 드래그, 선택 영역만 밝게 표시, 실제 픽셀 크기 표시</sub></td>
+<td width="58%" align="center"><img src="docs/images/editor.png" alt="편집기: 선택, 펜, 형광펜, 네모, 화살표, 글자, 모자이크, 투명, 자르기 툴바"><br><sub><b>편집기</b>: 툴바, 팔레트, 굵기, 번역, 되돌리기, 복사, 저장</sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/demo_highlights.webp" alt="하이라이트 창 사용 과정: 하이라이트 찾기, 구간 선택, 아바타 자동 찾기, 클립 내보내기" width="76%"> <img src="docs/images/demo_clip.webp" alt="내보낸 세로 클립: 위는 아바타, 아래는 방송 화면" width="19%"><br><sub><b>하이라이트 창과 결과 클립</b>: 채팅 급증 구간 검출, 아바타 위치 자동 검출, 세로 클립 내보내기. 대기 구간은 빠르게 재생</sub></td>
 </tr>
 </table>
 
-- 스크린샷은 앱을 실제로 실행하여 촬영. 편집기는 Xvfb 가상 디스플레이, 런처, 하이라이트 창, 영역 선택은 Windows 11
-- 캡쳐 대상 이미지는 [assets/brand](assets/brand)의 키 비주얼. 영역 선택 화면은 키 비주얼을 화면 이미지로 입력하여 실행
-- 영어, 일본어 화면: [docs/images/en](docs/images/en), [docs/images/ja](docs/images/ja)
+- 모든 그림은 Windows 11에서 앱을 실제로 조작하며 화면을 촬영. F8, F9는 실제 키 입력, 드래그와 버튼은 입력 이벤트로 실행
+- 화면 속 방송은 [packaging/build_demo_stream.py](packaging/build_demo_stream.py)로 만든 프로젝트의 데모 방송. 직접 그린 벽돌깨기 화면, 키리 아바타(목소리 크기에 따른 입 모양, 장면에 따른 표정), 합성 음성과 자막, 장면에 맞춰 생성한 채팅으로 구성하며 다른 방송인의 영상은 사용하지 않음
+- 영어, 일본어 화면: [docs/images/en](docs/images/en), [docs/images/ja](docs/images/ja). 이전 방식(키 비주얼 기준)으로 촬영한 화면
 
 <br>
 
@@ -724,7 +736,7 @@ stream2clip check --vrm model.vrm --monetized
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 577개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 578개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -1429,7 +1441,7 @@ python packaging/build_brand.py
 | 편집 프로그램용 내보내기 | EDL은 독립된 판독기(OpenTimelineIO)로 확인. DaVinci Resolve, Premiere Pro에서의 실제 가져오기는 미검증. 마커 목록은 DaVinci Resolve 형식만 제공 |
 | 무음 구간 제거 | 음량 기준 판정. 말소리가 작게 깔린 부분이 함께 줄어들 수 있으며 배경 음악이 큰 방송은 효과가 적음. 실제 방송 1개로만 측정 |
 | 모음 영상 | 클립을 다시 인코딩하여 이어 붙임. 챕터 문구는 검출 근거이므로 게시 전 수정 필요 |
-| 방송 기록기 | OBS 33.0.1에서 장면, 녹화 시작, 소스 배치, 표시 기록과 세션 기반 클립 제작 확인. 방송 중인 CHZZK, SOOP, Twitch 채널의 채팅으로 수신, 시청자 투표, OBS 위젯 확인. VTube Studio 연결과 실제 모델 외곽선, 송출 시작 기준의 시각 차이는 미검증. 장면 시각은 OBS 전환 효과 길이(기본 0.3초)만큼 늦게 기록. 녹화 중 기록기를 시작한 경우 0초 기준 오차 약 1초. 아바타 영역은 실행 1회에 1개이므로 하이라이트마다 소스 배치가 다르면 구간별로 실행. 회전, 반전된 소스와 그룹 안의 소스 미지원 |
+| 방송 기록기 | OBS 33.0.1에서 장면, 녹화 시작, 소스 배치, 표시 기록과 세션 기반 클립 제작 확인. 방송 중인 CHZZK, SOOP, Twitch 채널의 채팅으로 수신, 시청자 투표, OBS 위젯 확인. 아바타 별도 녹화는 Source Record 0.5.0으로 확인(오프셋 오차 0.2초 이내). VTube Studio 연결과 실제 모델 외곽선, 송출 시작 기준의 시각 차이는 미검증. 장면 시각은 OBS 전환 효과 길이(기본 0.3초)만큼 늦게 기록. 녹화 중 기록기를 시작한 경우 0초 기준 오차 약 1초. 아바타 영역은 실행 1회에 1개이므로 하이라이트마다 소스 배치가 다르면 구간별로 실행. 회전, 반전된 소스와 그룹 안의 소스 미지원 |
 
 기능별 실환경 검증 결과와 미검증 범위: [docs/VERIFICATION.md](docs/VERIFICATION.md)
 
