@@ -10,6 +10,8 @@
 - 채팅, OBS, VTube Studio는 각각 독립적으로 연결하고 실패 시 일정 간격으로 재연결. 한 부분의 실패가 다른 부분을 멈추지 않음
 - VTube Studio 공개 API 클라이언트(`stream2clip.vts`): 첫 연결 시 플러그인 허용 창으로 토큰 발급, 이후 저장된 토큰으로 자동 인증
 - obs-websocket 클라이언트에 이벤트 구독 범위 지정과 대기 없는 이벤트 읽기(`ObsClient.poll`) 추가
+- 시청자 투표(`--viewer-votes`, 앱의 **시청자 투표**): 서로 다른 시청자 N명이 30초 안에 `!clip` 등을 입력하면 표시 기록. 같은 시청자의 반복 입력은 1표, 표시 후 60초 대기
+- CHZZK 공식 Open API(`stream2clip.chzzk_api`): `chzzk login`으로 브라우저 동의 후 로컬 주소에서 인증 코드를 받아 토큰 발급, `--chat chzzk-api`로 본인 채널의 채팅과 후원 수신(Socket.IO 세션, 채팅과 후원 구독). 토큰은 앱 설정 폴더에 보관하고 만료 시 자동 갱신, Client Secret은 환경 변수로만 사용. `chzzk logout`으로 토큰 삭제
 
 ### 클립 제작
 - `--session`: 세션의 채팅과 표시로 하이라이트 검출(`highlights`, `auto`, `clips`). 주소로 실행한 `auto`는 채팅 다시보기를 받지 않음. 하이라이트 창의 채팅 칸에도 세션 파일 입력 가능
@@ -21,7 +23,8 @@
 ### 확인 내용
 - OBS와 VTube Studio는 공개 프로토콜 문서(obs-websocket 5, VTube Studio 공개 API의 인증, 이벤트, 좌표계) 기준으로 작성하고 가짜 서버로 테스트
 - 합성 영상과 합성 외곽선으로 `--avatar session` 세로 클립 제작까지 확인
-- 미검증: 실제 OBS, VTube Studio, 방송 채팅과의 연결, 실제 방송 외곽선으로 계산한 아바타 영역의 품질
+- CHZZK 공식 Open API는 공식 문서(인증, 세션, 이벤트 형식) 기준으로 작성하고 가짜 서버와 가짜 소켓으로 테스트
+- 미검증: 실제 OBS, VTube Studio, 방송 채팅과의 연결, 실제 방송 외곽선으로 계산한 아바타 영역의 품질, CHZZK Open API의 실제 로그인과 소켓 연결
 
 ## v0.13.1: 2026-11-20
 

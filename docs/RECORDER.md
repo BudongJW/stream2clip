@@ -97,13 +97,14 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
-| `--chat` | 본인 채널 주소 또는 수집기가 추가하는 채팅 파일. 생략 시 채팅 없이 기록 |
+| `--chat` | 본인 채널 주소, `chzzk-api`(CHZZK 공식 Open API), 수집기가 추가하는 채팅 파일. 생략 시 채팅 없이 기록 |
 | `--no-obs` | OBS에 연결하지 않음. 기본은 `127.0.0.1:4455`, 비밀번호는 `--password` 또는 `OBS_WEBSOCKET_PASSWORD` |
 | `--vts`, `--vts-url` | VTube Studio 외곽선과 파라미터 기록. VTube Studio 설정에서 API 시작 필요. 첫 연결 시 VTube Studio의 플러그인 허용 창에서 허용 |
 | `--vts-source` | OBS에서 VTube Studio를 표시하는 소스 이름. 지정 시 소스 배치 기록 |
 | `--parameters` | `default`(표준 13종), `all`, `none` |
 | `--vts-hotkey` | 이름이 일치하는 VTube Studio 단축키를 표시로 기록(대소문자 무시, 반복 지정 가능) |
 | `--replay-on-marker` | 표시할 때 OBS 리플레이 버퍼도 저장 |
+| `--viewer-votes` | 시청자 투표 기준 인원. 0이면 사용 안 함(기본값) |
 | `--session` | `highlights`, `auto`, `clips`에서 세션 파일 사용. `--chat`이 없으면 세션의 채팅과 표시로 검출. 주소로 실행한 `auto`는 채팅 다시보기를 받지 않음 |
 | `--skip-scene` | 이름에 지정 문자열이 포함된 OBS 장면에 절반 이상 걸친 하이라이트 제외 후 순위 재계산 |
 | `--avatar session` | 세션의 VTube Studio 외곽선으로 아바타 박스 지정 |
@@ -116,9 +117,39 @@ stream2clip auto vod.mp4 -o clips --session session.jsonl --skip-scene 대기 --
 | 연결 실패 | 각 부분이 독립적으로 재연결(채팅 30초, OBS와 VTube Studio 10초 간격). 한 부분의 실패가 다른 부분의 기록을 멈추지 않음 |
 | 하이라이트 창 | 채팅 칸에 세션 파일 지정 시 채팅과 표시를 읽음(`load_chat`의 `session` 형식, 0초는 `auto` 기준) |
 
+## 시청자 투표
+
+- `--viewer-votes N`(앱은 **시청자 투표**, 3명): 서로 다른 시청자 N명이 30초 안에 표시 명령(`!clip` 등)을 입력하면 표시 1개 기록(`by: viewers`)
+- 스트리머와 모더레이터의 입력은 투표가 아닌 일반 표시로 처리. 같은 시청자의 반복 입력은 1표
+- 표시 시각은 창 안의 첫 투표 시각. 시청자 입력은 채팅이므로 단축키 표시와 달리 채팅 지연 보정을 하지 않음
+- 표시 후 60초 동안은 추가 투표 표시 없음
+
+## CHZZK 공식 Open API
+
+본인 채널의 채팅과 후원을 공식 경로로 수신. 다른 채널은 수신 불가(공식 API의 제약)
+
+```bash
+stream2clip chzzk login --client-id CLIENT_ID --client-secret CLIENT_SECRET --redirect http://localhost:8765/callback
+```
+
+```bash
+stream2clip session record --chat chzzk-api --vts
+```
+
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 사전 준비 | CHZZK 개발자 센터에서 애플리케이션 등록, 채팅 메시지 조회와 후원 조회 권한 선택, 로그인 리디렉션 URL을 `--redirect`와 같은 로컬 주소로 등록 |
+| 로그인 | `chzzk login`이 브라우저로 동의 화면을 열고 로컬 주소에서 인증 코드를 받아 토큰 발급. 브라우저를 열 수 없으면 `--no-browser`로 주소만 출력 |
+| 토큰 | 앱 설정 폴더의 `chzzk-token.json`(사용자 본인만 읽기 가능). Access Token 1일, Refresh Token 30일. 만료 시 자동 갱신. `chzzk logout`으로 삭제 |
+| 앱 정보 | Client Secret은 파일에 저장하지 않음. 기록 시 환경 변수 `CHZZK_CLIENT_ID`, `CHZZK_CLIENT_SECRET` 필요(앱의 방송 기록기도 동일) |
+| 수신 | 세션 생성 후 Socket.IO(Engine.IO 3) 연결, 연결 완료 메시지의 세션 키로 채팅과 후원 구독. 후원 금액은 원 단위 |
+| 권한 회수 | 사용자가 동의를 철회하면 해당 사실을 안내하고 재연결 대기 상태로 전환 |
+| SOOP | 공식 Chat SDK는 브라우저 JavaScript 전용이고 본인 방송에만 접속 가능하여 미지원. SOOP은 기존 직접 수신 사용 |
+
 ## 확인하지 못한 것
 
 - 실제 OBS, VTube Studio, CHZZK, SOOP 방송과의 연결. 모든 연결은 가짜 서버로 테스트
 - 실제 방송의 외곽선으로 계산한 아바타 박스의 품질
 - 장시간 방송에서 VTube Studio 파라미터 조회 간격 0.2초의 부하
 - 플랫폼 다시보기와 OBS 송출 시작 사이의 실제 시각 차이
+- CHZZK 공식 Open API의 실제 로그인과 Socket.IO 서버 연결(애플리케이션 미등록)

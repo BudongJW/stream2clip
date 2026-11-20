@@ -721,14 +721,19 @@ class SoopLiveChat(_SocketChat):
 
 
 def reads_chat_itself(source: str) -> bool:
-    """Whether ``source`` is a channel whose chat this module reads directly (Twitch, CHZZK, SOOP), without yt-dlp."""
-    return bool(twitch_channel(source) or chzzk_channel(source) or soop_channel(source))
+    """Whether ``source`` is a channel whose chat this module reads directly (Twitch, CHZZK, SOOP, CHZZK's Open API), without yt-dlp."""
+    from .chzzk_api import API_SOURCE
+
+    return bool(twitch_channel(source) or chzzk_channel(source) or soop_channel(source)) or source.strip().lower() == API_SOURCE
 
 
 def open_chat(source: str, folder: str | os.PathLike[str], *, ytdlp: list[str] | None = None) -> "tuple[ChatSource, str]":
     """The chat source for ``source`` and a few words on what it is: a Twitch, CHZZK or SOOP channel, another live address (yt-dlp), or a file."""
+    from .chzzk_api import API_SOURCE, ChzzkApi, ChzzkApiChat
     from .sources import is_url
 
+    if source.strip().lower() == API_SOURCE:  # one's own channel, signed in with  stream2clip chzzk login
+        return ChzzkApiChat(ChzzkApi()), "CHZZK Open API  (your own channel: chat and donations)"
     if twitch_channel(source):
         chat = TwitchLiveChat(source)
         return chat, f"twitch.tv/{chat.channel}  (Twitch chat, as it is sent)"

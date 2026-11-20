@@ -181,7 +181,8 @@ class Session:
 
         A hotkey or button marker is pressed at the moment, while chat comes ``marker_delay``
         seconds after it; the marker is moved by that much so that highlight detection, which
-        takes the delay off every chat marker, lands on the press.
+        takes the delay off every chat marker, lands on the press. A marker left by viewers'
+        votes is chat itself and keeps its time.
         """
         zero = self.origin() if origin is None else origin
         found: list[ChatMessage] = []
@@ -193,7 +194,8 @@ class Session:
                     amount=float(d.get("amount") or 0.0), currency=d.get("currency"), emotes=tuple(d.get("emotes") or ()), role=str(d.get("role") or ""),
                 ))
             elif e.type == "marker":
-                found.append(ChatMessage(time=e.t - zero + marker_delay, text=MARKER_WORD, author="", role="owner"))
+                shift = 0.0 if e.data.get("by") == "viewers" else marker_delay
+                found.append(ChatMessage(time=e.t - zero + shift, text=MARKER_WORD, author="", role="owner"))
         found.sort(key=lambda m: m.time)
         return [m for m in found if m.time >= 0]
 

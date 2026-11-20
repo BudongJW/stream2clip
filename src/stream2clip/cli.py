@@ -822,6 +822,7 @@ def _session_recorder(args: argparse.Namespace):
         obs=None if args.no_obs else (args.host, args.port, password), avatar_source=args.vts_source,
         vts_url=args.vts_url if args.vts else None, outline_every=args.outline_every, parameters=args.parameters,
         parameters_every=args.parameters_every, vts_hotkeys=args.vts_hotkey or (), replay_on_marker=args.replay_on_marker,
+        viewer_votes=args.viewer_votes,
     )
     return recorder.writer, recorder
 
@@ -895,6 +896,28 @@ def cmd_session_show(args: argparse.Namespace) -> int:
     problems = [e for e in session.of("status") if e.data.get("state") == "waiting"]
     if problems:
         print(f"connection problems: {len(problems)} (the first: {problems[0].data.get('source')}: {problems[0].data.get('detail', '')})")
+    return 0
+
+
+def cmd_chzzk_login(args: argparse.Namespace) -> int:
+    from .chzzk_api import ChzzkApi, login
+
+    api = ChzzkApi(args.client_id, args.client_secret)
+    print(f"Waiting for CHZZK's sign-in on {args.redirect} (5 minutes) ...", flush=True)
+    login(api, args.redirect, open_browser=(lambda url: None) if args.no_browser else None, on_url=lambda url: print(f"sign in  {url}", flush=True))
+    print(f"signed in; tokens kept in {api.token_file}. Record with:  stream2clip session record --chat chzzk-api")
+    return 0
+
+
+def cmd_chzzk_logout(args: argparse.Namespace) -> int:
+    from .chzzk_api import token_path
+
+    path = token_path()
+    if path.exists():
+        path.unlink()
+        print(f"removed {path}")
+    else:
+        print("not signed in")
     return 0
 
 
@@ -1263,7 +1286,8 @@ def build_parser() -> argparse.ArgumentParser:
     r = ss.add_parser("record", help="record a session file until Ctrl+C (Enter leaves a marker)")
     r.add_argument("-o", "--output", help="session file to write (default: session-<date>-<time>.jsonl)")
     r.add_argument("--overwrite", action="store_true", help="replace an existing file")
-    r.add_argument("--chat", metavar="SOURCE", help="your channel: a Twitch, CHZZK or SOOP channel address, a YouTube live address (yt-dlp), or a chat file a collector appends to")
+    r.add_argument("--chat", metavar="SOURCE", help="your channel: a Twitch, CHZZK or SOOP channel address, a YouTube live address (yt-dlp), 'chzzk-api' (CHZZK's Open API, after  stream2clip chzzk login), or a chat file a collector appends to")
+    r.add_argument("--viewer-votes", type=int, default=0, metavar="N", help="N different viewers typing a marker word (!clip ...) within 30 s leave a marker (default 0: off)")
     r.add_argument("--duration", type=float, help="stop after this many seconds")
     r.add_argument("-v", "--verbose", action="store_true", help="print the event counts every minute")
     _add_marker_args(r)
@@ -1290,6 +1314,17 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--origin", choices=["auto", "stream", "record", "session"], default="auto", help="what time 0 of the video is: when OBS started streaming (a platform's VOD), recording (a local recording), or the session; auto: the first of those")
     s.add_argument("--offset", type=float, default=0.0, metavar="SECONDS", help="seconds the video starts after that time (negative: before)")
     s.set_defaults(func=cmd_session_show)
+
+    p = sub.add_parser("chzzk", help="CHZZK's official Open API for your own channel: sign in once, then  session record --chat chzzk-api")
+    cs = p.add_subparsers(dest="chzzk_command", required=True)
+    c = cs.add_parser("login", help="sign in in the browser (the application's client id and secret: --client-id/--client-secret or CHZZK_CLIENT_ID/CHZZK_CLIENT_SECRET)")
+    c.add_argument("--client-id", help="the application's client id (CHZZK developer center)")
+    c.add_argument("--client-secret", help="the application's client secret")
+    c.add_argument("--redirect", default="http://localhost:8765/callback", help="the login redirect URL registered with the application (a local address; default http://localhost:8765/callback)")
+    c.add_argument("--no-browser", action="store_true", help="print the sign-in address instead of opening the browser")
+    c.set_defaults(func=cmd_chzzk_login)
+    c = cs.add_parser("logout", help="forget the CHZZK tokens kept on this PC")
+    c.set_defaults(func=cmd_chzzk_logout)
 
     p = sub.add_parser("language", help="show the interface language the app starts in (before a choice made in the app itself)")
     p.add_argument("-v", "--verbose", action="store_true", help="also show where it could come from")

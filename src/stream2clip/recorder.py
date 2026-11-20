@@ -19,6 +19,7 @@ thread (a hotkey, a window) and are picked up at the next turn of the loop.
 
 from __future__ import annotations
 
+import math
 import os
 import queue
 import threading
@@ -27,6 +28,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from .chat import ChatMessage
+from .highlights import marker_word
 from .live import ChatSource, LiveConfig, SurgeDetector
 from .obs import ObsError
 from .session import SessionWriter
@@ -107,13 +110,44 @@ class ChatPart(Part):
     name = "chat"
     retry = 30.0  # a channel that is not live yet: ask again in a while
 
-    def __init__(self, writer: SessionWriter, open_source: Callable[[], ChatSource], *, config: LiveConfig | None = None) -> None:
+    def __init__(
+        self,
+        writer: SessionWriter,
+        open_source: Callable[[], ChatSource],
+        *,
+        config: LiveConfig | None = None,
+        viewer_votes: int = 0,
+        vote_window: float = 30.0,
+        vote_cooldown: float = 60.0,
+    ) -> None:
         super().__init__(writer)
         self._open_source = open_source
         self._source: ChatSource | None = None
-        self.detector = SurgeDetector(config or LiveConfig(), live_from=writer.started)
+        self.config = config or LiveConfig()
+        self.detector = SurgeDetector(self.config, live_from=writer.started)
         self.messages = 0
         self.surges = 0
+        #: This many different viewers typing a marker word (``!clip`` ...) within ``vote_window`` seconds leave a marker; 0: off.
+        self.viewer_votes = viewer_votes
+        self.vote_window = vote_window
+        self.vote_cooldown = vote_cooldown
+        self._votes: list[tuple[float, str]] = []
+        self._last_vote = -1e18
+        self.votes = 0
+
+    def _vote(self, message: ChatMessage, now: float) -> None:
+        """A viewer's marker word counts as a vote; enough different viewers at once make a marker."""
+        if message.role in ("owner", "moderator") or marker_word(message, self.config.markers, ("any",)) is None:
+            return
+        when = message.time if math.isfinite(message.time) else now
+        self._votes = [(t, a) for t, a in self._votes if when - t <= self.vote_window] + [(when, message.author or f"anonymous-{len(self._votes)}")]
+        voters = {a for _t, a in self._votes}
+        if len(voters) >= self.viewer_votes and when - self._last_vote >= self.vote_cooldown:
+            first = min(t for t, _a in self._votes)  # viewers type after the moment, like any chat: the first vote is closest to it
+            self._last_vote = when
+            self._votes = []
+            self.votes += 1
+            self.writer.write("marker", first, by="viewers", label=f"{len(voters)} viewers")
 
     def _open(self, now: float) -> None:
         self._source = self._open_source()
@@ -132,6 +166,8 @@ class ChatPart(Part):
             self.writer.chat(message)
             self.messages += 1
             self.detector.add(message, now)
+            if self.viewer_votes > 0:
+                self._vote(message, now)
         for trigger in self.detector.advance(now):
             if trigger.stats.get("marker"):
                 continue  # the marker is in the chat already
@@ -394,11 +430,11 @@ class SessionRecorder:
             self.writer.close()
 
 
-def chat_part(writer: SessionWriter, source: str, folder: str, *, config: LiveConfig | None = None, ytdlp: list[str] | None = None) -> ChatPart:
-    """A :class:`ChatPart` for a channel address or a file, as ``stream2clip live`` reads it."""
+def chat_part(writer: SessionWriter, source: str, folder: str, *, config: LiveConfig | None = None, ytdlp: list[str] | None = None, viewer_votes: int = 0) -> ChatPart:
+    """A :class:`ChatPart` for a channel address, ``chzzk-api`` or a file, as ``stream2clip live`` reads it."""
     from .live import open_chat
 
-    return ChatPart(writer, lambda: open_chat(source, folder, ytdlp=ytdlp)[0], config=config)
+    return ChatPart(writer, lambda: open_chat(source, folder, ytdlp=ytdlp)[0], config=config, viewer_votes=viewer_votes)
 
 
 def build_recorder(
@@ -415,6 +451,7 @@ def build_recorder(
     parameters_every: float = 0.2,
     vts_hotkeys: Sequence[str] = (),
     replay_on_marker: bool = False,
+    viewer_votes: int = 0,
     connect_obs: Callable[[], Any] | None = None,
     connect_vts: Callable[[], Any] | None = None,
 ) -> SessionRecorder:
@@ -422,7 +459,8 @@ def build_recorder(
 
     ``chat``: a channel address or a chat file; ``obs``: ``(host, port, password)``;
     ``vts_url``: VTube Studio's API address (``None``: no VTube Studio); ``parameters``:
-    "default" (the standard face and head ones), "all" or "none".
+    "default" (the standard face and head ones), "all" or "none". ``viewer_votes``: so many
+    different viewers typing ``!clip`` within 30 seconds leave a marker (0: off).
     """
     out = Path(path)
     sources: dict[str, str] = {}
@@ -438,7 +476,7 @@ def build_recorder(
     recorder = SessionRecorder(writer, [], save_replay_on_marker=replay_on_marker)
     parts: list[Part] = []
     if chat:
-        parts.append(chat_part(writer, chat, os.fspath(out.with_name(out.stem + "-chat")), config=live_config, ytdlp=ytdlp))
+        parts.append(chat_part(writer, chat, os.fspath(out.with_name(out.stem + "-chat")), config=live_config, ytdlp=ytdlp, viewer_votes=viewer_votes))
     if obs is not None:
         if connect_obs is None:
             from .obs import EVENTS_GENERAL, EVENTS_OUTPUTS, EVENTS_SCENES, ObsClient

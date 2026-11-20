@@ -469,5 +469,7 @@
  "표시함 ({0})": "Marked ({0})",
  "사용 안 함": "Not used",
  "채팅 {0}, 급증 {1}, 표시 {2}, 아바타 외곽선 {3}": "Chat {0}, surges {1}, markers {2}, avatar outlines {3}",
- "기록 완료: {0}": "Recorded: {0}"
+ "기록 완료: {0}": "Recorded: {0}",
+ "시청자 투표": "Viewer votes",
+ "시청자 {0}명이 30초 안에 !clip을 입력하면 표시를 남깁니다.": "Leaves a marker when {0} viewers type !clip within 30 seconds."
 }

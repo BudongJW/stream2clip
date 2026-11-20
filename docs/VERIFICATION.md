@@ -79,6 +79,7 @@ CHZZK 구간 다운로드 실패의 원인은 ffmpeg 7.1 이후의 HLS 확장자
 
 - 실환경 미검증: 실제 OBS, VTube Studio, 방송 채팅과의 연결. OBS와 VTube Studio는 공개 프로토콜 문서(obs-websocket 5, VTube Studio 공개 API) 기준으로 작성하고 가짜 서버로 테스트
 - 아바타 박스: 합성 영상과 합성 외곽선으로 세로 클립 제작까지 확인. 실제 방송의 외곽선으로는 미검증
+- CHZZK 공식 Open API: 공식 문서(인증, 세션, 이벤트 형식) 기준으로 작성하고 가짜 서버로 테스트. 애플리케이션 등록과 실제 로그인, 실제 Socket.IO 서버 연결은 미검증
 
 ## OBS 연동
 
