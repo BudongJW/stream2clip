@@ -443,7 +443,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--snap", type=float, default=3.0, metavar="SECONDS", help="with --subtitles: move a clip edge that falls inside a spoken line to the edge of that line, by at most this much (default 3; 0 = leave the edges alone)")
     s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
-    s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
+    s.add_argument("--glossary", help="CSV (source,target,note,heard) or JSON of names, e.g. VTuber names: fixed in translation, given to --transcribe as hints, and their misheard spellings (heard, separated by |) corrected in the subtitles")
     s.add_argument("--bilingual", action="store_true", help="keep the original line above the translation")
     s.add_argument("--speaker", action="append", metavar="LABEL=NAME:#COLOR", help="name and caption colour of a speaker in a collab, e.g. SPEAKER_00=ぺこら:#57C7FF (a diarization label, or an audio track number with --speaker-tracks); name and colour optional; repeat per speaker")
     s.add_argument("--speakers-rttm", metavar="FILE", help="who speaks when, from a diarization tool (RTTM, on the video's clock): each subtitle line is given its speaker; whisperX JSON subtitles carry speakers themselves")
@@ -556,15 +556,20 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         tracks = tuple(int(part) for part in args.speaker_tracks.split(",") if part.strip())
         if len(tracks) < 2:
             raise ValueError("--speaker-tracks needs two or more audio tracks, e.g. 1,2")
-    transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
-    subtitle_translator = glossary = None
+    glossary = None
+    if args.glossary:
+        from .translation import Glossary
+
+        glossary = Glossary.load(args.glossary)
+    hints = glossary.names() if glossary is not None else ()
+    transcriber = FasterWhisperTranscriber(args.transcribe, hotwords=hints) if args.transcribe and cues is None else None
+    subtitle_translator = None
     if args.translate:
-        from .translation import Glossary, get_translator
+        from .translation import get_translator
 
         if cues is None and transcriber is None:
             raise ValueError("--translate needs subtitles: give --subtitles or --transcribe")
         subtitle_translator = get_translator(args.translator)
-        glossary = Glossary.load(args.glossary) if args.glossary else None
     source = _source(args)
     profile = get_profile(args.agency) if (args.agency or source) else None
     credit = (args.credit or "").strip()

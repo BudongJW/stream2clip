@@ -100,7 +100,7 @@
  "원문 병기": "Keep original",
  "원문 줄 아래에 번역을 함께 넣습니다": "Puts the translation under the original line",
  "(선택) 이름 고정 CSV, JSON": "(optional) fixed names CSV, JSON",
- "source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다.": "A CSV with source,target columns, or JSON. Pins words translators get wrong, such as VTuber names.",
+ "source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다.\n받아쓰기에는 이름 힌트로 쓰고, heard 열(| 로 구분)에 적은 잘못 들은 표기는 자막에서 이름으로 고칩니다.": "A CSV with source,target columns, or JSON. Pins words translators get wrong, such as VTuber names.\nTranscription takes the names as hints, and misheard spellings listed in the heard column (separated by |) are corrected to the names in the subtitles.",
  "설명란과 업로드 전 점검에 쓸 기획사 프로필 (체크리스트일 뿐 법적 판단이 아닙니다)": "Agency profile for the description and the pre-upload check (a checklist, not legal advice)",
  "폴더": "Folder",
  "번역 안 함": "No translation",
@@ -595,5 +595,8 @@
  "썸네일": "Thumbnail",
  "최고 순간 근처의 가장 선명한 장면에 제목 앞부분을 크게 넣은 1280x720 썸네일(clip_01.jpg)": "A 1280x720 thumbnail: the sharpest frame near the peak, with the start of the title in large type (clip_01.jpg)",
  "유료 광고 포함": "Includes paid promotion",
- "협찬, 간접 광고(PPL), 보증 광고가 있으면 선택. 선택하지 않으면 유료 광고가 없는 영상으로 YouTube에 알림": "Tick when the video has a sponsorship, paid product placement or endorsement. Unticked, the video is declared to YouTube as free of paid promotion"
+ "협찬, 간접 광고(PPL), 보증 광고가 있으면 선택. 선택하지 않으면 유료 광고가 없는 영상으로 YouTube에 알림": "Tick when the video has a sponsorship, paid product placement or endorsement. Unticked, the video is declared to YouTube as free of paid promotion",
+ "받아쓰기 (Whisper large-v3-turbo)": "Transcribe (Whisper large-v3-turbo)",
+ "받아쓰기 (Whisper large-v3)": "Transcribe (Whisper large-v3)",
+ "받아쓰기 모델: small은 CPU에서도 빠름, medium은 더 정확.\nlarge-v3-turbo는 large-v3에 가까운 정확도에 약 1.6배 빠름, large-v3이 가장 정확. 두 모델은 GPU 권장, 처음 쓸 때 내려받음(약 1.6GB, 3GB)": "Transcription model: small is fast even on a CPU, medium is more accurate.\nlarge-v3-turbo is close to large-v3 in accuracy and about 1.6 times faster; large-v3 is the most accurate. Both need a GPU to be quick and are downloaded on first use (about 1.6 GB and 3 GB)"
 }

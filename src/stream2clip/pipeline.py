@@ -478,6 +478,8 @@ def make_clips(
                 with tempfile.TemporaryDirectory(prefix="stream2clip-asr-") as tmp:
                     wav = _extract_audio(clip_video, max(0.0, h.start - offset), h.end - offset, Path(tmp) / "clip.wav", track=audio_track)
                     clip_cues = transcriber.transcribe(wav, language=language)
+            if clip_cues and glossary is not None:
+                clip_cues = glossary.fix_cues(clip_cues)  # names recognition misheard, in transcripts and downloaded subtitles
             if clip_cues and subtitle_translator is not None:
                 from .translation import translate_cues
 

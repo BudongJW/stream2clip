@@ -62,6 +62,8 @@ _EFFECTS = [
     ("whoosh", tr("슉 (whoosh)")), ("boom", tr("쿵 (boom)")), ("sparkle", tr("반짝 (sparkle)")),
 ]
 _EFFECT_TIMES = [("peak", tr("최고 순간")), ("start", tr("시작")), ("end", tr("끝"))]
+#: Speech recognition models the app offers (faster-whisper names); the command line takes any.
+_WHISPER_MODELS = ("small", "medium", "large-v3-turbo", "large-v3")
 #: What to make (stream2clip.presets): Shorts, horizontal clips, a long horizontal compilation.
 _PRESETS = [("shorts", tr("Shorts (세로, 15~90초)")), ("clip", tr("가로 클립 (1~3분)")), ("long", tr("가로 모음 (8~10분, 챕터)"))]
 #: Which moment of the session is second 0 of the video (see stream2clip.session.Session.origin).
@@ -696,6 +698,9 @@ class HighlightsWindow(QMainWindow):
         self.subs_combo.addItem(tr("없음"), "none")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper small)"), "small")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper medium)"), "medium")
+        self.subs_combo.addItem(tr("받아쓰기 (Whisper large-v3-turbo)"), "large-v3-turbo")
+        self.subs_combo.addItem(tr("받아쓰기 (Whisper large-v3)"), "large-v3")
+        self.subs_combo.setToolTip(tr("받아쓰기 모델: small은 CPU에서도 빠름, medium은 더 정확.\nlarge-v3-turbo는 large-v3에 가까운 정확도에 약 1.6배 빠름, large-v3이 가장 정확. 두 모델은 GPU 권장, 처음 쓸 때 내려받음(약 1.6GB, 3GB)"))
         grid.addWidget(self.subs_combo, 4, 1, 1, 2)
         grid.addWidget(QLabel(tr("언어")), 5, 0)
         self.language_edit = QLineEdit("ja")
@@ -737,7 +742,7 @@ class HighlightsWindow(QMainWindow):
         grid.addWidget(QLabel(tr("용어집")), 8, 0)
         self.glossary_edit = QLineEdit()
         self.glossary_edit.setPlaceholderText(tr("(선택) 이름 고정 CSV, JSON"))
-        self.glossary_edit.setToolTip(tr("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다."))
+        self.glossary_edit.setToolTip(tr("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다.\n받아쓰기에는 이름 힌트로 쓰고, heard 열(| 로 구분)에 적은 잘못 들은 표기는 자막에서 이름으로 고칩니다."))
         grid.addWidget(self.glossary_edit, 8, 1)
         pick_glossary = QPushButton(tr("찾기"))
         pick_glossary.clicked.connect(lambda: self._browse(self.glossary_edit, "Glossary (*.csv *.json);;All files (*)"))
@@ -1351,7 +1356,7 @@ class HighlightsWindow(QMainWindow):
         options = ExportOptions(format=self.format_combo.currentData(), fps=30, quality=85, layout=layout)
         mode = self.subs_combo.currentData()
         subs_path = self.subs_edit.text().strip() if mode == "file" else ""
-        model = mode if mode in ("small", "medium") else None
+        model = mode if mode in _WHISPER_MODELS else None
         language = self.language_edit.text().strip() or None
         karaoke = self.karaoke_check.isChecked()
         look, place = self.style_combo.currentData(), self.position_combo.currentData()
@@ -1393,17 +1398,18 @@ class HighlightsWindow(QMainWindow):
             from ..pipeline import make_clips
             from ..sources import load_info, source_from_info
             from ..subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
+            from ..translation import Glossary
 
             cues = load_subtitles(subs_path) if subs_path else None
-            transcriber = FasterWhisperTranscriber(model) if model else None
+            glossary = Glossary.load(glossary_path) if glossary_path else None
+            transcriber = FasterWhisperTranscriber(model, hotwords=glossary.names() if glossary is not None else ()) if model else None
             source = source_from_info(load_info(info_path)) if info_path else None
             profile = get_profile(agency) if (agency or source) else None
-            subtitle_translator = glossary = None
+            subtitle_translator = None
             if translator_spec:
-                from ..translation import Glossary, get_translator
+                from ..translation import get_translator
 
                 subtitle_translator = get_translator(translator_spec)
-                glossary = Glossary.load(glossary_path) if glossary_path else None
             soundtrack = None
             if bgm_spec or sfx_key:
                 from ..soundtrack import Effect, SoundLibrary, Soundtrack, resolve_sound

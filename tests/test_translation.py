@@ -153,3 +153,71 @@ def test_cli_clips_with_translation(green_screen_video, tmp_path, monkeypatch, c
 
     assert main(["clips", str(green_screen_video), "--highlights", str(highlights), "--translate", "ko", "-o", str(out)]) == 1
     assert "--subtitles or --transcribe" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- names in speech recognition
+
+
+def test_glossary_heard_spellings_fix_transcripts(tmp_path):
+    path = tmp_path / "names.csv"
+    path.write_text("source,target,note,heard\n兎田ぺこら,우사다 페코라,,兎田ペコラ\nぺこら,페코라,,ペコラ|ぺコラ\nさくらみこ,,,\n", encoding="utf-8")
+    glossary = Glossary.load(path)
+    assert glossary.terms == {"兎田ぺこら": "우사다 페코라", "ぺこら": "페코라"}
+    assert glossary.heard == {"兎田ペコラ": "兎田ぺこら", "ペコラ": "ぺこら", "ぺコラ": "ぺこら"}
+    assert glossary.names() == ["兎田ぺこら", "ぺこら", "さくらみこ"]  # a name without a translation still helps recognition
+    assert glossary.fix("兎田ペコラとぺコラ") == "兎田ぺこらとぺこら"  # the full name first
+
+    # A name recognition split over two words becomes one word over their time: the karaoke still lights it up.
+    cue = Cue(0.0, 2.0, "ペコラが来た", (Word(0.0, 0.3, "ペ"), Word(0.3, 0.6, "コラが"), Word(0.6, 2.0, "来た")))
+    fixed = glossary.fix_cues([cue])[0]
+    assert fixed.text == "ぺこらが来た" and fixed.words == (Word(0.0, 0.6, "ぺこらが"), Word(0.6, 2.0, "来た"))
+    english = Glossary({}, {"iron mouse": "Ironmouse"}, ("Ironmouse",))
+    words = (Word(0.0, 0.5, "hi"), Word(0.5, 1.0, "iron"), Word(1.0, 1.5, "mouse"), Word(1.5, 2.0, "here"))
+    assert english.fix_cues([Cue(0.0, 2.0, "hi iron mouse here", words)])[0].words == (Word(0.0, 0.5, "hi"), Word(0.5, 1.5, "Ironmouse"), Word(1.5, 2.0, "here"))
+    assert Glossary({"a": "b"}).fix_cues([cue]) == [cue]  # nothing misheard listed: unchanged
+
+    json_file = tmp_path / "names.json"
+    json_file.write_text(json.dumps({"ぺこら": {"target": "페코라", "heard": ["ペコラ"]}, "草": "ㅋㅋ"}, ensure_ascii=False), encoding="utf-8")
+    loaded = Glossary.load(json_file)
+    assert loaded.terms == {"ぺこら": "페코라", "草": "ㅋㅋ"} and loaded.heard == {"ペコラ": "ぺこら"}
+
+    saved = Glossary.load(glossary.save(tmp_path / "out.csv"))
+    assert (saved.terms, saved.heard, saved.vocabulary) == (glossary.terms, glossary.heard, glossary.vocabulary)
+
+
+def test_transcriber_listens_for_the_glossary_names(monkeypatch):
+    import numpy as np
+
+    from stream2clip import audio
+    from stream2clip.subtitles import FasterWhisperTranscriber
+
+    class Model:
+        def transcribe(self, samples, *, language=None, word_timestamps=False, vad_filter=False, hotwords=None, initial_prompt=None):
+            self.hints = {"hotwords": hotwords, "initial_prompt": initial_prompt}
+            return iter([]), None
+
+    class OlderModel:  # faster-whisper before hotwords: the names go in the initial prompt
+        def transcribe(self, samples, *, language=None, word_timestamps=False, vad_filter=False, initial_prompt=None):
+            self.hints = {"initial_prompt": initial_prompt}
+            return iter([]), None
+
+    monkeypatch.setattr(audio, "decode_pcm", lambda path, sample_rate: np.zeros(160, dtype=np.float32))
+    for model, expected in ((Model(), {"hotwords": "兎田ぺこら ぺこら", "initial_prompt": None}), (OlderModel(), {"initial_prompt": "兎田ぺこら ぺこら"})):
+        transcriber = FasterWhisperTranscriber.__new__(FasterWhisperTranscriber)  # no model download
+        transcriber._model, transcriber._vad, transcriber.hotwords = model, True, ("兎田ぺこら", "ぺこら")
+        assert transcriber.transcribe("clip.wav", language="ja") == [] and model.hints == expected
+
+
+@needs_ffmpeg
+def test_cli_clips_fix_misheard_names_without_translating(green_screen_video, tmp_path):
+    srt = tmp_path / "subs.srt"
+    srt.write_text("1\n00:00:00,100 --> 00:00:00,900\nペコラです\n", encoding="utf-8")
+    glossary = tmp_path / "names.csv"
+    glossary.write_text("source,target,note,heard\nぺこら,,,ペコラ\n", encoding="utf-8")
+    highlights = tmp_path / "h.json"
+    highlights.write_text(json.dumps({"highlights": [{"rank": 1, "start": 0.0, "end": 2.0}]}), encoding="utf-8")
+    out = tmp_path / "clips"
+    assert main(["clips", str(green_screen_video), "--highlights", str(highlights), "--subtitles", str(srt), "--glossary", str(glossary),
+                 "--layout", "none", "-f", "gif", "--fps", "5", "-o", str(out)]) == 0
+    ass = (out / "clip_01.ass").read_text(encoding="utf-8")
+    assert "ぺこらです" in ass and "ペコラ" not in ass

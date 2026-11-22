@@ -17,11 +17,11 @@ import csv
 import io
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence
 
-from .subtitles import Cue
+from .subtitles import Cue, Word, _is_cjk
 
 if TYPE_CHECKING:
     from .translate import Translator
@@ -31,36 +31,76 @@ __all__ = ["Glossary", "translate_cues", "holodex_names", "get_translator", "loa
 HOLODEX_API = "https://holodex.net/api/v2"
 
 
+def _cell(cells: list[str], columns: dict[str, int], name: str) -> str:
+    n = columns.get(name)
+    return cells[n] if n is not None and n < len(cells) else ""
+
+
 @dataclass(frozen=True)
 class Glossary:
-    """Fixed translations: ``{"兎田ぺこら": "우사다 페코라", "ぺこら": "페코라"}``."""
+    """Fixed translations: ``{"兎田ぺこら": "우사다 페코라", "ぺこら": "페코라"}``.
+
+    The same names also help speech recognition. :meth:`names` are given to the transcriber as
+    hints, and ``heard`` maps what recognition writes instead of a name back to the name
+    (``{"ペコラ": "ぺこら"}``), in transcripts and in downloaded subtitles alike.
+    """
 
     terms: dict[str, str] = field(default_factory=dict)
+    #: Misheard spelling to the name it should be (from the ``heard`` column).
+    heard: dict[str, str] = field(default_factory=dict)
+    #: Every name in the file, in its order, with or without a translation.
+    vocabulary: tuple[str, ...] = ()
 
     @classmethod
     def load(cls, path: str | os.PathLike[str]) -> "Glossary":
-        """``.json`` (an object) or CSV with ``source,target`` columns; rows without a target are skipped."""
+        """``.json`` or CSV ``source,target[,note][,heard]``; ``heard`` lists misheard spellings separated by ``|``.
+
+        JSON is ``{"source": "target"}`` or ``{"source": {"target": "...", "heard": ["...", "..."]}}``.
+        A row without a target still counts as a name for recognition; it is not translated.
+        """
         p = Path(path)
         text = p.read_text(encoding="utf-8-sig")
+        rows: list[tuple[str, str, list[str]]] = []
         if p.suffix.lower() == ".json":
-            data = json.loads(text)
-            return cls({str(k): str(v) for k, v in data.items() if k and v})
+            for key, value in json.loads(text).items():
+                if isinstance(value, dict):
+                    heard = value.get("heard") or []
+                    rows.append((str(key), str(value.get("target") or ""), [str(h) for h in ([heard] if isinstance(heard, str) else heard)]))
+                else:
+                    rows.append((str(key), str(value or ""), []))
+        else:
+            columns = {"source": 0, "target": 1, "heard": 3}
+            for i, row in enumerate(csv.reader(io.StringIO(text))):
+                cells = [cell.strip() for cell in row]
+                if i == 0 and len(cells) >= 2 and cells[0].lower() == "source" and cells[1].lower() == "target":
+                    columns = {name.lower(): n for n, name in enumerate(cells)}
+                    continue
+                rows.append((_cell(cells, columns, "source"), _cell(cells, columns, "target"), _cell(cells, columns, "heard").split("|")))
         terms: dict[str, str] = {}
-        for row in csv.reader(io.StringIO(text)):
-            if len(row) < 2 or not row[0].strip() or not row[1].strip():
+        heard: dict[str, str] = {}
+        vocabulary: list[str] = []
+        for source, target, variants in rows:
+            source, target = source.strip(), target.strip()
+            if not source:
                 continue
-            if row[0].strip().lower() == "source" and row[1].strip().lower() == "target":
-                continue
-            terms[row[0].strip()] = row[1].strip()
-        return cls(terms)
+            if target:
+                terms[source] = target
+            for variant in variants:
+                if variant.strip() and variant.strip() != source:
+                    heard[variant.strip()] = source
+            if source not in vocabulary:
+                vocabulary.append(source)
+        return cls(terms, heard, tuple(vocabulary))
 
     def save(self, path: str | os.PathLike[str], notes: dict[str, str] | None = None) -> Path:
         out = Path(path)
+        names = list(self.vocabulary) or list(self.terms)
         with out.open("w", encoding="utf-8", newline="") as fh:
             writer = csv.writer(fh)
-            writer.writerow(["source", "target", "note"])
-            for source, target in self.terms.items():
-                writer.writerow([source, target, (notes or {}).get(source, "")])
+            writer.writerow(["source", "target", "note", "heard"])
+            for source in names:
+                variants = "|".join(v for v, name in self.heard.items() if name == source)
+                writer.writerow([source, self.terms.get(source, ""), (notes or {}).get(source, ""), variants])
         return out
 
     def apply(self, text: str) -> str:
@@ -69,6 +109,65 @@ class Glossary:
             if source in text:
                 text = text.replace(source, self.terms[source])
         return text
+
+    def names(self, limit: int = 30) -> list[str]:
+        """The names to give speech recognition as hints, in file order (the first ``limit``)."""
+        return list(self.vocabulary or tuple(self.terms))[:limit]
+
+    def fix(self, text: str) -> str:
+        """``text`` with misheard spellings put back to the names, longest first."""
+        for variant in sorted(self.heard, key=len, reverse=True):
+            if variant in text:
+                text = text.replace(variant, self.heard[variant])
+        return text
+
+    def fix_cues(self, cues: Iterable[Cue]) -> list[Cue]:
+        """Cues with misheard names fixed in the text and in the karaoke words.
+
+        A name that recognition split over several words becomes one word spanning their time,
+        so the karaoke still lights it up as it is said.
+        """
+        cues = list(cues)
+        if not self.heard:
+            return cues
+        return [replace(c, text=self.fix(c.text), words=self._fix_words(c.words)) for c in cues]
+
+    def _fix_words(self, words: tuple[Word, ...]) -> tuple[Word, ...]:
+        if not words:
+            return words
+        tokens = [w.text.strip() for w in words]
+        joined, spans = "", []
+        for i, token in enumerate(tokens):
+            if i and token and joined and not (_is_cjk(token[:1]) or _is_cjk(joined[-1:])):
+                joined += " "
+            spans.append((len(joined), len(joined) + len(token)))
+            joined += token
+        hits: list[tuple[int, int, str]] = []
+        taken = [False] * len(joined)
+        for variant in sorted(self.heard, key=len, reverse=True):
+            at = joined.find(variant)
+            while at >= 0:
+                end = at + len(variant)
+                if not any(taken[at:end]):
+                    hits.append((at, end, self.heard[variant]))
+                    taken[at:end] = [True] * (end - at)
+                at = joined.find(variant, end)
+        if not hits:
+            return words
+        out: list[Word] = []
+        i = 0
+        for at, end, name in sorted(hits):
+            first = next(k for k, (a, b) in enumerate(spans) if b > at)
+            last = max(k for k, (a, b) in enumerate(spans) if a < end)
+            if first < i:
+                continue
+            out.extend(words[i:first])
+            head = tokens[first][: at - spans[first][0]]
+            tail = tokens[last][end - spans[last][0]:]
+            out.append(Word(words[first].start, words[last].end, head + name + tail))
+            i = last + 1
+        out.extend(words[i:])
+        return tuple(out)
 
     def __len__(self) -> int:
         return len(self.terms)

@@ -784,3 +784,38 @@ def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, st
     assert again.preset_combo.currentData() == "clip"
     assert again.context_check.isChecked() and again.teaser_check.isChecked() and again.thumbnail_check.isChecked()
     again.close()
+
+
+@needs_ffmpeg
+def test_larger_models_and_the_glossary_reach_the_transcriber(app, window, stream_files, tmp_path, monkeypatch):
+    from stream2clip import subtitles
+    from stream2clip.subtitles import Cue
+
+    made = []
+
+    class Transcriber:
+        def __init__(self, model, *, hotwords=()):
+            made.append((model, list(hotwords)))
+
+        def transcribe(self, path, *, language=None):
+            return [Cue(0.0, 1.0, "ペコラです")]
+
+    monkeypatch.setattr(subtitles, "FasterWhisperTranscriber", Transcriber)
+    models = [window.subs_combo.itemData(i) for i in range(window.subs_combo.count())]
+    assert models[-4:] == ["small", "medium", "large-v3-turbo", "large-v3"]
+
+    video, chat = stream_files
+    glossary = tmp_path / "names.csv"
+    glossary.write_text("source,target,note,heard\nぺこら,,,ペコラ\n", encoding="utf-8")
+    window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    window.subs_combo.setCurrentIndex(window.subs_combo.findData("large-v3-turbo"))
+    window.glossary_edit.setText(str(glossary))
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    window.export()
+    wait(app, lambda: not window.busy, 120)
+    assert made == [("large-v3-turbo", ["ぺこら"])]  # the names are hints even without a translator
+    assert "ぺこらです" in window.last_results[0].subtitles.read_text(encoding="utf-8")  # and the misheard one is fixed

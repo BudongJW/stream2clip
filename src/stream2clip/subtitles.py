@@ -635,15 +635,20 @@ class FasterWhisperTranscriber:
     """Word-timestamped transcription with faster-whisper (``pip install "stream2clip[asr]"``).
 
     For Japanese streams ``kotoba-tech/kotoba-whisper-v2.0-faster`` is a good model id.
+    ``hotwords`` are names to listen for (a glossary's :meth:`~stream2clip.translation.Glossary.names`):
+    they are put in front of every window as a hint (faster-whisper's ``hotwords``, or the
+    initial prompt on versions without it).
     """
 
-    def __init__(self, model: str = "small", *, device: str = "auto", compute_type: str = "default", vad: bool = True) -> None:
+    def __init__(self, model: str = "small", *, device: str = "auto", compute_type: str = "default", vad: bool = True,
+                 hotwords: Sequence[str] = ()) -> None:
         try:
             from faster_whisper import WhisperModel  # type: ignore[import-not-found]
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise RuntimeError('Transcription needs faster-whisper: pip install "stream2clip[asr]"') from exc
         self._model = WhisperModel(model, device=device, compute_type=compute_type)
         self._vad = vad
+        self.hotwords = tuple(w.strip() for w in hotwords if w and w.strip())
 
     def transcribe(self, path: str | os.PathLike[str], *, language: str | None = None) -> list[Cue]:
         # Decode with our own ffmpeg and hand over samples: faster-whisper's file reader
@@ -651,7 +656,13 @@ class FasterWhisperTranscriber:
         from .audio import decode_pcm
 
         samples = decode_pcm(path, sample_rate=16000)
-        segments, _info = self._model.transcribe(samples, language=language, word_timestamps=True, vad_filter=self._vad)
+        hints: dict[str, str] = {}
+        if self.hotwords:
+            import inspect
+
+            takes_hotwords = "hotwords" in inspect.signature(self._model.transcribe).parameters
+            hints["hotwords" if takes_hotwords else "initial_prompt"] = " ".join(self.hotwords)
+        segments, _info = self._model.transcribe(samples, language=language, word_timestamps=True, vad_filter=self._vad, **hints)
         cues = []
         for seg in segments:
             words = tuple(Word(float(w.start), float(w.end), w.word.strip()) for w in (seg.words or []))
