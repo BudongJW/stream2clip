@@ -479,7 +479,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
 
 
 def _add_preset_arg(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--preset", choices=["shorts", "clip", "long"], default="shorts", help="what to make: shorts (9:16, 15-90 s, the default), clip (horizontal 1-3 min with a context line, as Korean and English clip channels post), long (horizontal clips of 45-150 s joined into one video of about 8-9 min with chapters, as Japanese clip channels post); options given here win over the preset")
+    p.add_argument("--preset", choices=["shorts", "clip", "long"], default="shorts", help="what to make: shorts (9:16, 15-90 s, the default), clip (horizontal 1-3 min with a context line, as Korean and English clip channels post), long (horizontal clips of 45-150 s joined into one video of about 10 min with chapters, as Japanese clip channels post); options given here win over the preset")
 
 
 def _soundtrack(args: argparse.Namespace):

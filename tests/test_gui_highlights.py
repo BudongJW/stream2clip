@@ -743,3 +743,44 @@ def test_avatar_box_comes_from_the_sessions_outline(app, window, stream_files, t
     window.session_edit.clear()
     assert not window.session_avatar_button.isEnabled()
 
+
+
+@needs_ffmpeg
+def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, stream_files, tmp_path, monkeypatch):
+    from stream2clip import pipeline
+
+    video, chat = stream_files
+    seen = {}
+    find, make = pipeline.find_highlights, pipeline.make_clips
+    monkeypatch.setattr(pipeline, "find_highlights", lambda *args, **kwargs: seen.update(find=kwargs) or find(*args, **kwargs))
+    monkeypatch.setattr(pipeline, "make_clips", lambda *args, **kwargs: seen.update(make=kwargs) or make(*args, **kwargs))
+
+    assert window.preset_combo.currentData() == "shorts" and not window.context_check.isChecked()
+    window.apply_preset("long")
+    assert window.layout_combo.currentData() == "none" and window.compile_check.isChecked() and window.top_spin.value() == 6
+    window.apply_preset("clip")
+    assert window.layout_combo.currentData() == "none" and not window.compile_check.isChecked()
+    assert window.context_check.isChecked() and window.top_spin.value() == 8
+
+    window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    config = seen["find"]["config"]
+    assert (config.lead, config.tail, config.min_length, config.max_length) == (45.0, 30.0, 60.0, 180.0)
+    assert window.list.count() == 1
+
+    window.teaser_check.setChecked(True)
+    window.thumbnail_check.setChecked(True)
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    window.export()
+    wait(app, lambda: not window.busy, 120)
+    assert (seen["make"]["context"], seen["make"]["teaser"], seen["make"]["thumbnails"]) == ("auto", 2.0, True)
+    clip = window.last_results[0]
+    assert clip.teaser > 0 and clip.thumbnail is not None and clip.thumbnail.exists()
+
+    window.remember()
+    again = HighlightsWindow()
+    assert again.preset_combo.currentData() == "clip"
+    assert again.context_check.isChecked() and again.teaser_check.isChecked() and again.thumbnail_check.isChecked()
+    again.close()

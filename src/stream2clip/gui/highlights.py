@@ -62,6 +62,8 @@ _EFFECTS = [
     ("whoosh", tr("슉 (whoosh)")), ("boom", tr("쿵 (boom)")), ("sparkle", tr("반짝 (sparkle)")),
 ]
 _EFFECT_TIMES = [("peak", tr("최고 순간")), ("start", tr("시작")), ("end", tr("끝"))]
+#: What to make (stream2clip.presets): Shorts, horizontal clips, a long horizontal compilation.
+_PRESETS = [("shorts", tr("Shorts (세로, 15~90초)")), ("clip", tr("가로 클립 (1~3분)")), ("long", tr("가로 모음 (8~10분, 챕터)"))]
 #: Which moment of the session is second 0 of the video (see stream2clip.session.Session.origin).
 _SESSION_ORIGINS = [("auto", tr("자동")), ("stream", tr("OBS 송출 시작")), ("record", tr("OBS 녹화 시작")), ("session", tr("세션 시작"))]
 _PICK_FILE = "\x00file"  # the "choose a .py file" entry of the translator list
@@ -646,19 +648,26 @@ class HighlightsWindow(QMainWindow):
         grid.setContentsMargins(14, 12, 14, 12)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(8)
-        grid.addWidget(QLabel(tr("레이아웃")), 0, 0)
+        grid.addWidget(QLabel(tr("형태")), 0, 0)
+        self.preset_combo = QComboBox()
+        for key, label in _PRESETS:
+            self.preset_combo.addItem(label, key)
+        self.preset_combo.setToolTip(tr("만들 영상의 형태. 레이아웃, 모음 영상, 상황 설명을 함께 바꾸고, 하이라이트 찾기 전에 고르면 구간 길이도 맞춤.\n실제 클립 채널은 대부분 가로 영상: 한국어, 영어 채널은 1~3분, 일본어 채널은 10분 전후"))
+        self.preset_combo.activated.connect(lambda _index: self.apply_preset())
+        grid.addWidget(self.preset_combo, 0, 1, 1, 2)
+        grid.addWidget(QLabel(tr("레이아웃")), 1, 0)
         self.layout_combo = QComboBox()
         for key in ("blur", "stack", "pip", "center", "fit", "none"):
             self.layout_combo.addItem(_LAYOUT_LABELS[key], key)
         self.layout_combo.currentIndexChanged.connect(self._on_layout_changed)
-        grid.addWidget(self.layout_combo, 0, 1, 1, 2)
+        grid.addWidget(self.layout_combo, 1, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("아바타")), 1, 0)
+        grid.addWidget(QLabel(tr("아바타")), 2, 0)
         self.avatar_edit = QLineEdit()
         self.avatar_edit.setPlaceholderText(tr("x,y,w,h"))
         self.avatar_edit.setToolTip(tr("stack, pip 레이아웃에서 방송 화면 속 아바타의 위치와 크기 (픽셀)"))
         self.avatar_edit.editingFinished.connect(self.refresh_preview)
-        grid.addWidget(self.avatar_edit, 1, 1)
+        grid.addWidget(self.avatar_edit, 2, 1)
         self.avatar_button = QPushButton(tr("자동 찾기"))
         self.avatar_button.setToolTip(tr("애니메 얼굴 검출로 아바타 위치를 찾습니다 (처음 한 번 12MB 모델 다운로드)"))
         self.avatar_button.clicked.connect(self.find_avatar)
@@ -669,51 +678,51 @@ class HighlightsWindow(QMainWindow):
         avatar_buttons.setSpacing(6)
         avatar_buttons.addWidget(self.avatar_button)
         avatar_buttons.addWidget(self.session_avatar_button)
-        grid.addLayout(avatar_buttons, 1, 2)
+        grid.addLayout(avatar_buttons, 2, 2)
 
-        grid.addWidget(QLabel(tr("아바타 영상")), 2, 0)
+        grid.addWidget(QLabel(tr("아바타 영상")), 3, 0)
         self.avatar_video_edit = QLineEdit()
         self.avatar_video_edit.setPlaceholderText(tr("(선택) 아바타만 녹화한 영상"))
         self.avatar_video_edit.setToolTip(tr("방송과 같은 시간에 아바타만 따로 녹화한 영상입니다. 초록 배경(#00FF00)은 지우고, 투명 배경 영상은 그대로 씁니다.\n넣으면 아바타 위치 대신 이 영상이 stack, pip 레이아웃의 아바타가 됩니다."))
         self.avatar_video_edit.editingFinished.connect(self.refresh_preview)
-        grid.addWidget(self.avatar_video_edit, 2, 1)
+        grid.addWidget(self.avatar_video_edit, 3, 1)
         self.avatar_video_button = QPushButton(tr("찾기"))
         self.avatar_video_button.clicked.connect(self._pick_avatar_video)
-        grid.addWidget(self.avatar_video_button, 2, 2)
+        grid.addWidget(self.avatar_video_button, 3, 2)
 
-        grid.addWidget(QLabel(tr("자막")), 3, 0)
+        grid.addWidget(QLabel(tr("자막")), 4, 0)
         self.subs_combo = QComboBox()
         self.subs_combo.addItem(tr("자막 파일 사용 (있으면)"), "file")
         self.subs_combo.addItem(tr("없음"), "none")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper small)"), "small")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper medium)"), "medium")
-        grid.addWidget(self.subs_combo, 3, 1, 1, 2)
-        grid.addWidget(QLabel(tr("언어")), 4, 0)
+        grid.addWidget(self.subs_combo, 4, 1, 1, 2)
+        grid.addWidget(QLabel(tr("언어")), 5, 0)
         self.language_edit = QLineEdit("ja")
         self.language_edit.setToolTip(tr("자막 원문 언어 (ja, ko, en 등). 받아쓰기와 번역에 사용"))
-        grid.addWidget(self.language_edit, 4, 1)
+        grid.addWidget(self.language_edit, 5, 1)
         self.karaoke_check = QCheckBox(tr("카라오케"), checked=True)
         self.karaoke_check.setToolTip(tr("말하는 단어에 맞춰 색이 바뀝니다 (번역한 자막에는 적용되지 않습니다)"))
-        grid.addWidget(self.karaoke_check, 4, 2)
+        grid.addWidget(self.karaoke_check, 5, 2)
 
-        grid.addWidget(QLabel(tr("스타일")), 5, 0)
+        grid.addWidget(QLabel(tr("스타일")), 6, 0)
         self.style_combo = QComboBox()
         for key, label in _SUBTITLE_STYLES:
             self.style_combo.addItem(label, key)
         self.style_combo.setToolTip(tr("자막의 모양. 상자는 복잡한 게임 화면 위에서도 읽기 쉽습니다."))
-        grid.addWidget(self.style_combo, 5, 1)
+        grid.addWidget(self.style_combo, 6, 1)
         self.position_combo = QComboBox()
         for key, label in _SUBTITLE_POSITIONS:
             self.position_combo.addItem(label, key)
         self.position_combo.setToolTip(tr("자막의 위치. 게임 자체의 대사 창이 아래에 있으면 위쪽을 고르세요."))
-        grid.addWidget(self.position_combo, 5, 2)
+        grid.addWidget(self.position_combo, 6, 2)
 
-        grid.addWidget(QLabel(tr("번역")), 6, 0)
+        grid.addWidget(QLabel(tr("번역")), 7, 0)
         self.translator_combo = QComboBox()
         self.translator_combo.setToolTip(tr("번역 서비스는 내장돼 있지 않습니다. 설치한 번역기 플러그인을 고르거나,\ntranslate(texts, target, source) 함수가 있는 .py 파일을 고르세요 (examples/translators 참고)."))
         self._fill_translators()
         self.translator_combo.activated.connect(self._on_translator_picked)
-        grid.addWidget(self.translator_combo, 6, 1)
+        grid.addWidget(self.translator_combo, 7, 1)
         translate_row = QHBoxLayout()
         translate_row.setSpacing(6)
         self.target_edit = QLineEdit("ko")
@@ -723,47 +732,47 @@ class HighlightsWindow(QMainWindow):
         self.bilingual_check = QCheckBox(tr("원문 병기"))
         self.bilingual_check.setToolTip(tr("원문 줄 아래에 번역을 함께 넣습니다"))
         translate_row.addWidget(self.bilingual_check)
-        grid.addLayout(translate_row, 6, 2)
+        grid.addLayout(translate_row, 7, 2)
 
-        grid.addWidget(QLabel(tr("용어집")), 7, 0)
+        grid.addWidget(QLabel(tr("용어집")), 8, 0)
         self.glossary_edit = QLineEdit()
         self.glossary_edit.setPlaceholderText(tr("(선택) 이름 고정 CSV, JSON"))
         self.glossary_edit.setToolTip(tr("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다."))
-        grid.addWidget(self.glossary_edit, 7, 1)
+        grid.addWidget(self.glossary_edit, 8, 1)
         pick_glossary = QPushButton(tr("찾기"))
         pick_glossary.clicked.connect(lambda: self._browse(self.glossary_edit, "Glossary (*.csv *.json);;All files (*)"))
-        grid.addWidget(pick_glossary, 7, 2)
+        grid.addWidget(pick_glossary, 8, 2)
 
-        grid.addWidget(QLabel(tr("형식")), 8, 0)
+        grid.addWidget(QLabel(tr("형식")), 9, 0)
         self.format_combo = QComboBox()
         for fmt in ("mp4", "webm", "webp", "gif"):
             self.format_combo.addItem(fmt.upper(), fmt)
-        grid.addWidget(self.format_combo, 8, 1)
+        grid.addWidget(self.format_combo, 9, 1)
         self.agency_combo = QComboBox()
         for key in _AGENCIES:
             self.agency_combo.addItem(key or tr("가이드라인 없음"), key)
         self.agency_combo.setToolTip(tr("설명란과 업로드 전 점검에 쓸 기획사 프로필 (체크리스트일 뿐 법적 판단이 아닙니다)"))
-        grid.addWidget(self.agency_combo, 8, 2)
+        grid.addWidget(self.agency_combo, 9, 2)
 
-        grid.addWidget(QLabel(tr("출처 표기")), 9, 0)
+        grid.addWidget(QLabel(tr("출처 표기")), 10, 0)
         self.credit_edit = QLineEdit()
         self.credit_edit.setPlaceholderText(tr("(선택) 예: 원본: 채널 이름"))
         self.credit_edit.setToolTip(tr("클립 왼쪽 위에 작게 넣을 문구. 비우면 넣지 않음"))
-        grid.addWidget(self.credit_edit, 9, 1)
+        grid.addWidget(self.credit_edit, 10, 1)
         self.compile_check = QCheckBox(tr("모음 영상"))
         self.compile_check.setToolTip(tr("내보낸 클립을 방송 순서대로 이어 붙인 영상과 챕터 목록을 함께 저장 (MP4, WebM)"))
-        grid.addWidget(self.compile_check, 9, 2)
+        grid.addWidget(self.compile_check, 10, 2)
 
-        grid.addWidget(QLabel(tr("무음 구간")), 10, 0)
+        grid.addWidget(QLabel(tr("무음 구간")), 11, 0)
         self.silence_check = QCheckBox(tr("조용한 부분 줄이기"))
         self.silence_check.setToolTip(tr("클립 안에서 0.7초 넘게 조용한 부분을 짧은 쉼으로 줄임. 자막도 함께 이동.\n배경 음악이 큰 방송은 줄일 부분이 적고, 말 없이 게임 소리만 작게 나는 장면도 줄어듦"))
-        grid.addWidget(self.silence_check, 10, 1, 1, 2)
+        grid.addWidget(self.silence_check, 11, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("배경 음악")), 11, 0)
+        grid.addWidget(QLabel(tr("배경 음악")), 12, 0)
         self.bgm_edit = QLineEdit()
         self.bgm_edit.setPlaceholderText(tr("(선택) 음원 파일 또는 음원 목록의 이름"))
         self.bgm_edit.setToolTip(tr("직접 내려받은 무료 음원을 클립 소리 아래에 깔고, 말하는 동안은 더 줄입니다.\n출처와 라이선스는 stream2clip sounds add로 음원 목록에 기록하면 설명란 크레디트와 점검에 쓰입니다."))
-        grid.addWidget(self.bgm_edit, 11, 1)
+        grid.addWidget(self.bgm_edit, 12, 1)
         pick_bgm = QPushButton(tr("찾기"))
         pick_bgm.clicked.connect(lambda: self._browse(self.bgm_edit, "Audio (*.mp3 *.wav *.ogg *.m4a *.flac *.opus);;All files (*)"))
         self.library_button = QPushButton(tr("목록"))
@@ -773,32 +782,46 @@ class HighlightsWindow(QMainWindow):
         bgm_buttons.setSpacing(6)
         bgm_buttons.addWidget(pick_bgm)
         bgm_buttons.addWidget(self.library_button)
-        grid.addLayout(bgm_buttons, 11, 2)
+        grid.addLayout(bgm_buttons, 12, 2)
 
-        grid.addWidget(QLabel(tr("효과음")), 12, 0)
+        grid.addWidget(QLabel(tr("효과음")), 13, 0)
         self.sfx_combo = QComboBox()
         for key, label in _EFFECTS:
             self.sfx_combo.addItem(label, key)
         self.sfx_combo.setToolTip(tr("stream2clip이 직접 만드는 효과음이라 크레디트가 필요 없습니다.\n자동은 채팅 반응에 따라 고릅니다: 웃음 뿅, 놀람 쿵, 귀여움 반짝, 환호 띵."))
-        grid.addWidget(self.sfx_combo, 12, 1)
+        grid.addWidget(self.sfx_combo, 13, 1)
         self.sfx_time_combo = QComboBox()
         for key, label in _EFFECT_TIMES:
             self.sfx_time_combo.addItem(label, key)
         self.sfx_time_combo.setToolTip(tr("효과음을 넣을 때: 하이라이트의 최고 순간, 클립의 시작 또는 끝"))
-        grid.addWidget(self.sfx_time_combo, 12, 2)
+        grid.addWidget(self.sfx_time_combo, 13, 2)
 
-        grid.addWidget(QLabel(tr("음량")), 13, 0)
+        grid.addWidget(QLabel(tr("음량")), 14, 0)
         self.loudness_check = QCheckBox(tr("-14 LUFS로 맞추기"))
         self.loudness_check.setToolTip(tr("클립 소리를 YouTube 기준 음량(-14 LUFS)에 맞춤. 작게 녹음된 방송도 다른 Shorts와 비슷한 크기로 들림.\n한 번 측정한 후 일정하게 키우거나 줄이므로 내보내기 시간이 조금 늘어남 (MP4, WebM)"))
-        grid.addWidget(self.loudness_check, 13, 1, 1, 2)
+        grid.addWidget(self.loudness_check, 14, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 14, 0)
+        grid.addWidget(QLabel(tr("시작 부분")), 15, 0)
+        opening = QHBoxLayout()
+        opening.setSpacing(12)
+        self.context_check = QCheckBox(tr("상황 설명"))
+        self.context_check.setToolTip(tr("클립 첫 3초 동안 위쪽에 방송 주제 한 줄(방송 제목의 괄호 속 게임 이름 등)"))
+        self.teaser_check = QCheckBox(tr("최고 순간 미리 보기"))
+        self.teaser_check.setToolTip(tr("클립 맨 앞에 최고 순간 2초를 먼저 보여 줌(ちょい見せ). 소리가 커지는 지점에 맞춤 (MP4, WebM)"))
+        self.thumbnail_check = QCheckBox(tr("썸네일"))
+        self.thumbnail_check.setToolTip(tr("최고 순간 근처의 가장 선명한 장면에 제목 앞부분을 크게 넣은 1280x720 썸네일(clip_01.jpg)"))
+        for check in (self.context_check, self.teaser_check, self.thumbnail_check):
+            opening.addWidget(check)
+        opening.addStretch(1)
+        grid.addLayout(opening, 15, 1, 1, 2)
+
+        grid.addWidget(QLabel(tr("저장")), 16, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 14, 1)
+        grid.addWidget(self.output_edit, 16, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 14, 2)
-        grid.setRowStretch(15, 1)
+        grid.addWidget(pick, 16, 2)
+        grid.setRowStretch(17, 1)
         self._on_layout_changed()
         return card
 
@@ -841,10 +864,11 @@ class HighlightsWindow(QMainWindow):
     # ------------------------------------------------------------------ remembered settings
     def _restore(self) -> None:
         saved = load_section("highlights")
-        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion"), (self.loudness_check, "loudness")):
+        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion"), (self.loudness_check, "loudness"),
+                           (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
-        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when")):
+        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
@@ -877,7 +901,8 @@ class HighlightsWindow(QMainWindow):
             "session_origin": self.origin_combo.currentData(), "session_offset": round(self.offset_spin.value(), 1), "skip_scenes": self.skip_scene_edit.text().strip(),
             "avatar_motion": self.motion_check.isChecked(), "audio_track": self.track_spin.value(),
             "bgm": self.bgm_edit.text().strip(), "sfx": self.sfx_combo.currentData(), "sfx_when": self.sfx_time_combo.currentData(),
-            "loudness": self.loudness_check.isChecked(),
+            "loudness": self.loudness_check.isChecked(), "preset": self.preset_combo.currentData(), "context": self.context_check.isChecked(),
+            "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(),
             "last_dir": self.last_dir,
         })
 
@@ -1062,6 +1087,19 @@ class HighlightsWindow(QMainWindow):
         assert kind in LAYOUTS
         return VerticalLayout(kind, avatar=avatar)
 
+    def apply_preset(self, key: str | None = None) -> None:
+        """Set the layout, the compilation and the context line for a form (Shorts, horizontal clip, long compilation)."""
+        from ..presets import get_preset
+
+        if key is not None:
+            self.preset_combo.setCurrentIndex(max(0, self.preset_combo.findData(key)))
+        preset = get_preset(self.preset_combo.currentData())
+        self.layout_combo.setCurrentIndex(max(0, self.layout_combo.findData(preset.layout)))
+        self.compile_check.setChecked(preset.compile)
+        self.context_check.setChecked(preset.context is not None)
+        self.top_spin.setValue(preset.top)
+        self._on_layout_changed()
+
     def open_sound_library(self):
         """The sound library window; a track picked there goes into the music box."""
         from .sounds import SoundLibraryDialog
@@ -1093,7 +1131,11 @@ class HighlightsWindow(QMainWindow):
             self._on_failed(tr("영상 파일을 고르거나 방송 주소를 넣으세요."))
             return
         url = self.source_url()
-        config = HighlightConfig(threshold=self.threshold_spin.value(), top=self.top_spin.value())
+        from ..presets import get_preset
+
+        form = get_preset(self.preset_combo.currentData())
+        config = HighlightConfig(threshold=self.threshold_spin.value(), top=self.top_spin.value(), lead=form.lead, tail=form.tail,
+                                 min_length=form.min_length, max_length=form.max_length)
         audio = self.audio_check.isChecked() and not url
         laughter = self.laughter_check.isChecked() and not url
         singing = self.singing_combo.currentData() if not url else "off"
@@ -1329,6 +1371,9 @@ class HighlightsWindow(QMainWindow):
         sfx_key = self.sfx_combo.currentData() or ""
         sfx_when = self.sfx_time_combo.currentData() or "peak"
         loudness = -14.0 if self.loudness_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm") else None
+        context = "auto" if self.context_check.isChecked() else None
+        teaser = 2.0 if self.teaser_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm") else 0.0
+        thumbnails = self.thumbnail_check.isChecked()
         self.last_compilation = None
         if translator_spec and not subs_path and model is None:
             self._on_failed(tr("번역하려면 자막이 필요합니다. 자막 파일을 고르거나 받아쓰기를 켜세요."))
@@ -1376,6 +1421,7 @@ class HighlightsWindow(QMainWindow):
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
                 subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track, soundtrack=soundtrack, loudness=loudness,
+                context=context, teaser=teaser, thumbnails=thumbnails,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )
