@@ -154,7 +154,7 @@ def test_music_sits_under_the_clip_and_tracks_take_turns():
     first = plan_mix(track, 0, length=20.0, voice_level=-20.0, levels=fixed_levels(-10.0))
     layer = first.mix.layers[0]
     assert layer.path == Path("a.mp3") and layer.gain == -22.0 and layer.loop and layer.duck and layer.offset == 5.0
-    assert layer.duck_threshold == pytest.approx(10 ** (-35 / 20), rel=1e-3)
+    assert layer.duck_threshold == pytest.approx(10 ** (-42 / 20), rel=1e-3)  # 22 dB under the clip's -20 dB
     assert plan_mix(track, 1, length=20.0, voice_level=-20.0, levels=fixed_levels()).mix.layers[0].path == Path("b.mp3")
     assert plan_mix(track, 2, length=20.0, voice_level=-20.0, levels=fixed_levels()).mix.layers[0].path == Path("a.mp3")
     fixed = Soundtrack(music=music[:1], volume=-30.0, duck=False)
