@@ -113,8 +113,16 @@ def find_highlights(
     duration = None
     levels = None
     bursts = None
+    estimated = None
     if video:
         duration = probe(video).duration
+        if cfg.estimate_delay and messages:
+            from .highlights import estimate_chat_delay
+
+            stage("delay")
+            estimated = estimate_chat_delay(messages, audio_levels(video, window=1.0, track=audio_track))
+            if estimated is not None:
+                cfg = replace(cfg, chat_delay=round(estimated[0], 1))
         if audio:
             stage("audio")
             levels = audio_levels(video, window=cfg.window, track=audio_track)
@@ -136,11 +144,13 @@ def find_highlights(
     if not messages and levels is None and not heatmap and said is None and avatar is None:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
-    return detect_highlights(
+    result = detect_highlights(
         messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap,
         laughter=bursts, laughter_window=cfg.window, speech=said, speech_window=cfg.window, config=cfg, source=source or {},
         avatar=avatar, avatar_window=cfg.window,
     )
+    result.estimated_delay = estimated
+    return result
 
 
 @dataclass

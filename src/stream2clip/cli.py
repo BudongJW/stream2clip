@@ -267,6 +267,13 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _delay(text: str) -> "float | str":
+    """``--delay``: seconds, or ``auto``."""
+    if text.strip().lower() == "auto":
+        return "auto"
+    return float(text)
+
+
 def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("highlight detection")
     g.add_argument("--chat", help="chat archive: yt-dlp live_chat.json, chat-downloader JSON, TwitchDownloader JSON, CHZZK / SOOP replay chat, CSV/JSONL")
@@ -280,7 +287,8 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--top", type=int, help="maximum number of highlights (default: from --preset; shorts 10)")
     g.add_argument("--threshold", type=float, default=2.0, help="robust z-score needed for a peak (default 2.0)")
     g.add_argument("--window", type=float, default=5.0, help="analysis bucket in seconds (default 5)")
-    g.add_argument("--delay", type=float, default=8.0, help="seconds chat lags behind the moment (default 8)")
+    g.add_argument("--delay", type=_delay, default=8.0, metavar="SECONDS|auto",
+                   help="seconds chat lags behind the moment (default 8); auto estimates it from the video's sound and keeps 8 when no clear lag shows")
     g.add_argument("--lead", type=float, help="context before the moment (default: from --preset; shorts 20 s)")
     g.add_argument("--tail", type=float, help="context after the moment (default: from --preset; shorts 10 s)")
     g.add_argument("--min-length", type=float, help="shortest highlight in seconds (default: from --preset; shorts 15)")
@@ -351,8 +359,12 @@ def _detect(args: argparse.Namespace, video: str | None):
         raise ValueError("Give --chat, --info (heatmap), --audio with a video, --speech with subtitles, or --session")
     if args.skip_scene and session is None:
         raise ValueError("--skip-scene needs the scenes of a --session file")
-    cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
-                          min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings, **_markers(args))
+    auto_delay = args.delay == "auto"
+    if auto_delay and not (video and (args.chat or session is not None)):
+        raise ValueError("--delay auto compares the chat with the video's sound: give the video and the chat")
+    cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=8.0 if auto_delay else args.delay, estimate_delay=auto_delay,
+                          lead=args.lead, tail=args.tail, min_length=args.min_length, max_length=args.max_length, top=args.top,
+                          skip_greetings=not args.keep_greetings, **_markers(args))
     src = _source(args)
     if getattr(args, "avatar_motion", False) and session is None:
         raise ValueError("--avatar-motion needs the avatar parameters of a --session file")
@@ -363,7 +375,7 @@ def _detect(args: argparse.Namespace, video: str | None):
         motion = avatar_motion(session, zero, window=cfg.window, delay=cfg.chat_delay)
         if not motion.any():
             raise ValueError(f"{args.session} holds no avatar parameters: record with  stream2clip session record --vts")
-    messages = session.messages(zero, marker_delay=args.delay) if session is not None and not args.chat else None
+    messages = session.messages(zero, marker_delay=cfg.chat_delay) if session is not None and not args.chat else None
     if messages is not None:
         print(f"session {args.session}: {len(messages):,} chat messages and markers")
     result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), speech=args.speech, config=cfg,
@@ -384,6 +396,10 @@ def _detect(args: argparse.Namespace, video: str | None):
         songs = singing_sections(video, track=args.audio_track)
         print(f"singing  {len(songs)} sections" + (": " + ", ".join(f"{_clock(s.start)}-{_clock(s.end)}" for s in songs) if songs else ""))
         mark_singing(result, [(s.start, s.end) for s in songs], drop=args.skip_singing)
+    if auto_delay:
+        found = result.estimated_delay
+        print(f"chat delay {found[0]:.1f} s, estimated from the sound (agreement {found[1]:.2f})" if found
+              else f"chat delay {cfg.chat_delay:g} s: the sound showed no clear lag")
     print(f"analysed {result.messages} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
     for h in result.highlights:
         print(f"  #{h.rank:02d}  {_clock(h.start)} - {_clock(h.end)}  score {h.score:5.1f}  {' / '.join(h.reasons)}")

@@ -263,7 +263,7 @@ def test_auto_takes_the_chat_from_the_session(tmp_path, capsys, monkeypatch):
 
     fetched = {}
 
-    def fake_fetch(url, out, *, info, chat, ytdlp, on_stage, warn):
+    def fake_fetch(url, out, *, info, chat, ytdlp, on_stage, warn, note):
         fetched.update(info=info, chat=chat)
         return None, None
 
