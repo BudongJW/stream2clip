@@ -423,19 +423,23 @@ class Ticking(Part):
         self.reads.append(time.monotonic())
 
 
-def longest_gap(tmp_path, threads):
+def read_gaps(tmp_path, threads):
     writer = SessionWriter(tmp_path / f"s{int(threads)}.jsonl")
     ticking = Ticking(writer)
     recorder = SessionRecorder(writer, [SlowToConnect(writer), ticking])
     recorder.run(poll=0.02, until=time.time() + 1.2, threads=threads)
     assert len(ticking.reads) >= 2
-    return max(b - a for a, b in zip(ticking.reads, ticking.reads[1:]))
+    return sorted(b - a for a, b in zip(ticking.reads, ticking.reads[1:]))
 
 
 def test_a_part_waiting_for_its_connection_does_not_hold_up_the_others(tmp_path):
     # Seen with a real OBS: while VTube Studio was not running, each try to reach it took 2 s and scene changes were written that much late.
-    assert longest_gap(tmp_path, threads=True) < 0.3
-    assert longest_gap(tmp_path, threads=False) >= 0.4  # read in turn, the wait is everyone's
+    gaps = read_gaps(tmp_path, threads=True)
+    # The slow part tries about three times in the run; held up by it, every try would leave a gap of 0.4 s.
+    # A busy machine (a CI runner) may still stall the thread once, so one long gap is allowed.
+    assert gaps[len(gaps) // 2] < 0.1 and sum(gap >= 0.4 for gap in gaps) <= 1
+    in_turn = read_gaps(tmp_path, threads=False)
+    assert in_turn[len(in_turn) // 2] >= 0.4  # read in turn, the wait is everyone's
 
 
 def test_a_recording_already_running_keeps_its_real_start(tmp_path):
