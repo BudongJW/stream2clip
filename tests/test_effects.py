@@ -183,6 +183,11 @@ def test_clips_with_effects(tmp_path, capsys):
     data = json.loads((out / "clips.json").read_text(encoding="utf-8"))["clips"][0]["effects"]
     assert data["preset"] == "variety" and [p["type"] for p in data["placed"]] == ["zoom", "caption_tag"]
     assert "Style: Tag," in (out / "clip_01.ass").read_text(encoding="utf-8")
+    with_sound = tmp_path / "sfx"  # effects and the soundtrack plan side by side
+    assert main(["clips", str(video), "--highlights", str(highlights), "--layout", "none", "-f", "mp4", "--fps", "10",
+                 "--fx", "subtle", "--sfx", "pop", "-o", str(with_sound)]) == 0
+    clip = json.loads((with_sound / "clips.json").read_text(encoding="utf-8"))["clips"][0]
+    assert clip["effects"]["preset"] == "subtle" and clip["sounds"]
     plain = tmp_path / "plain"
     assert main(["clips", str(video), "--highlights", str(highlights), "--layout", "none", "-f", "mp4", "--fps", "10", "-o", str(plain)]) == 0
     assert json.loads((plain / "clips.json").read_text(encoding="utf-8"))["clips"][0]["effects"] is None  # off unless asked

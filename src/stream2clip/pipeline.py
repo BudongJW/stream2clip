@@ -537,18 +537,18 @@ def make_clips(
                     keep = []
             sub_path = None
             situation = _context_text(context, source)
-            plan = None
+            fx_plan = None
             if fx is not None and fx.get("effects"):
-                plan = _plan_effects(fx, h, clip_video, opts, keep, spoken, clip_cues or [], length, play_res, hotkeys,
+                fx_plan = _plan_effects(fx, h, clip_video, opts, keep, spoken, clip_cues or [], length, play_res, hotkeys,
                                      reduced_motion=reduced_motion, audio_track=audio_track, language=language,
                                      translated=subtitle_translator is not None, translate_to=translate_to, source=source)
-                opts = replace(opts, effects=plan.filters)
-            if clip_cues or credit or situation or (plan is not None and plan.tags):
+                opts = replace(opts, effects=fx_plan.filters)
+            if clip_cues or credit or situation or (fx_plan is not None and fx_plan.tags):
                 sub_path = write_ass(
                     clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
                     credit=credit, credit_position=credit_position, duration=length, context=situation, context_seconds=context_seconds,
                     speaker_colors=colors, speaker_names=speaker_names,
-                    emphasis=plan.emphasis if plan else (), emphasis_scale=plan.emphasis_scale if plan else 1.25, tags=plan.tags if plan else (),
+                    emphasis=fx_plan.emphasis if fx_plan else (), emphasis_scale=fx_plan.emphasis_scale if fx_plan else 1.25, tags=fx_plan.tags if fx_plan else (),
                 )
                 opts = replace(opts, subtitles=sub_path)
             planned, skipped = [], []
@@ -604,7 +604,7 @@ def make_clips(
             from .subtitles import caption_issues
 
             result.captions = caption_issues(clip_cues or [], subtitle_style)  # per clip, apart from the guideline check
-            result.effects = plan.to_dict() if plan is not None else None
+            result.effects = fx_plan.to_dict() if fx_plan is not None else None  # (plan is the soundtrack's, above)
             result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)
     finally:
