@@ -248,7 +248,8 @@ def test_the_recorder_writes_obs_vts_chat_and_markers(tmp_path):
     recorder.mark("button")
     obs.event("CurrentProgramSceneChanged", {"sceneName": "Talk"})  # the VTS source is not in this scene
     vts.event("HotkeyTriggeredEvent", {"hotkeyName": "clip it", "hotkeyID": "h1"})
-    vts.event("HotkeyTriggeredEvent", {"hotkeyName": "Wave"})
+    vts.event("HotkeyTriggeredEvent", {"hotkeyName": "Wave", "hotkeyAction": "ToggleExpression"})
+    vts.event("HotkeyTriggeredEvent", {"hotkeyName": "Plugin pose", "hotkeyTriggeredByAPI": True})
     clock.now = 1002.0
     recorder.step()
     recorder.step()  # the VTS hotkey marker asked for in the step before
@@ -261,6 +262,10 @@ def test_the_recorder_writes_obs_vts_chat_and_markers(tmp_path):
     assert kinds.count("chat") == 2 and kinds.count("avatar_outline") == 1 and kinds.count("marker") == 2
     assert [e.data["by"] for e in session.of("marker")] == ["button", "vts_hotkey"]
     assert session.of("marker")[1].data["label"] == "clip it"
+    # Every hotkey is noted, not only the marker ones: an expression pressed by hand anchors the clip's effects.
+    assert [e.data["name"] for e in session.of("vts_hotkey")] == ["clip it", "Wave", "Plugin pose"]
+    assert session.of("vts_hotkey")[1].data["action"] == "ToggleExpression"
+    assert session.hotkeys() == [(1.0, "clip it"), (1.0, "Wave")]  # seconds from the stream start; a plugin's press is not the streamer's
     assert [e.data for e in session.of("output")] == [{"output": "stream", "active": False}, {"output": "record", "active": False}, {"output": "stream", "active": True}]
     assert session.origin() == 1001.0
     assert [e.data["name"] for e in session.of("scene")] == ["Game", "Talk"]

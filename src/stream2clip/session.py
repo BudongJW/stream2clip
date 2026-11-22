@@ -150,6 +150,14 @@ class Session:
     def of(self, *types: str) -> list[SessionEvent]:
         return [e for e in self.events if e.type in types]
 
+    def hotkeys(self, origin: float | None = None) -> list[tuple[float, str]]:
+        """``(seconds from origin, name)`` of every VTube Studio hotkey the streamer pressed (``vts_hotkey`` events).
+
+        Pressed by hand, not through the API: those are the moments the streamer chose (an expression, a pose).
+        """
+        zero = self.origin() if origin is None else origin
+        return [(e.t - zero, str(e.data.get("name") or "")) for e in self.events if e.type == "vts_hotkey" and not e.data.get("by_api")]
+
     def output_starts(self, output: str) -> list[float]:
         return [e.t for e in self.events if e.type == "output" and e.data.get("output") == output and e.data.get("active")]
 
