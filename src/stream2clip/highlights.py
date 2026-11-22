@@ -23,7 +23,7 @@ import json
 import math
 import os
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -169,6 +169,27 @@ class HighlightConfig:
             raise ValueError("window must be > 0, smooth >= 1, top >= 1")
         if self.min_length > self.max_length:
             raise ValueError("min_length must be <= max_length")
+
+
+PROFILE_SCHEMA = "stream2clip.profile/v1"
+
+
+def save_profile(path: "str | os.PathLike[str]", config: HighlightConfig, *, note: str = "") -> Path:
+    """Write the settings tuning changes (signal weights, threshold, chat delay) as a profile for a channel."""
+    out = Path(path)
+    data = {"schema": PROFILE_SCHEMA, "note": note, "weights": dict(config.weights), "threshold": config.threshold, "chat_delay": config.chat_delay}
+    out.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return out
+
+
+def load_profile(path: "str | os.PathLike[str]", config: HighlightConfig | None = None) -> HighlightConfig:
+    """``config`` (or the defaults) with a profile's weights, threshold and chat delay."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if data.get("schema") != PROFILE_SCHEMA:
+        raise ValueError(f"{path} is not a stream2clip profile (made by evaluate --tune --save-profile)")
+    base = config or HighlightConfig()
+    weights = {**base.weights, **{str(k): float(v) for k, v in (data.get("weights") or {}).items()}}
+    return replace(base, weights=weights, threshold=float(data.get("threshold", base.threshold)), chat_delay=float(data.get("chat_delay", base.chat_delay)))
 
 
 @dataclass
@@ -398,8 +419,12 @@ def detect_highlights(
     source: dict[str, Any] | None = None,
     avatar: np.ndarray | None = None,
     avatar_window: float | None = None,
+    cache: dict[Any, Any] | None = None,
 ) -> HighlightResult:
     """Find the most exciting moments. Any subset of chat / audio / heatmap may be given.
+
+    ``cache`` is a dict the caller keeps for one stream when detecting many times with other weights or
+    thresholds (tuning): the chat is counted into buckets once instead of every time.
 
     ``laughter`` is the optional, experimental :func:`stream2clip.audio.laughter_levels` curve,
     ``speech`` the optional, experimental :func:`speech_levels` of the subtitles, ``avatar`` the
@@ -426,7 +451,14 @@ def detect_highlights(
 
     raw: dict[str, np.ndarray] = {}
     commands = tuple(word.strip().lower() for word in cfg.markers if word.strip())
-    chat = _bucket_chat(messages, n, w, cfg.skip_greetings, commands) if messages else None
+    chat = None
+    if messages:
+        key = ("chat", n, w, cfg.skip_greetings, commands)
+        chat = cache.get(key) if cache is not None else None
+        if chat is None:
+            chat = _bucket_chat(messages, n, w, cfg.skip_greetings, commands)
+            if cache is not None:
+                cache[key] = chat
     if chat is not None:
         for key in ("rate", "unique", "reactions", "paid"):
             raw[key] = chat[key]
@@ -457,7 +489,13 @@ def detect_highlights(
         score = sum(signals[k] * v for k, v in weights.items()) / (core or sum(weights.values()))
     score = _smooth(np.asarray(score, dtype=np.float64), cfg.smooth)
 
-    highlights = _pick(score, cfg, total, marker_times(messages, cfg))
+    marks_key = ("markers", commands, tuple(cfg.marker_roles))
+    marks = cache.get(marks_key) if cache is not None else None
+    if marks is None:
+        marks = marker_times(messages, cfg)
+        if cache is not None:
+            cache[marks_key] = marks
+    highlights = _pick(score, cfg, total, marks)
     for h in highlights:
         marks, words = h.stats.get("marker"), h.reasons
         h.reasons, h.stats = _explain(h, raw, chat, signals, cfg)

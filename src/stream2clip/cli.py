@@ -287,6 +287,7 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--top", type=int, help="maximum number of highlights (default: from --preset; shorts 10)")
     g.add_argument("--threshold", type=float, default=2.0, help="robust z-score needed for a peak (default 2.0)")
     g.add_argument("--window", type=float, default=5.0, help="analysis bucket in seconds (default 5)")
+    g.add_argument("--profile", metavar="FILE", help="settings tuned for a channel (evaluate --tune --save-profile): signal weights, threshold and chat delay")
     g.add_argument("--delay", type=_delay, default=8.0, metavar="SECONDS|auto",
                    help="seconds chat lags behind the moment (default 8); auto estimates it from the video's sound and keeps 8 when no clear lag shows")
     g.add_argument("--lead", type=float, help="context before the moment (default: from --preset; shorts 20 s)")
@@ -365,6 +366,11 @@ def _detect(args: argparse.Namespace, video: str | None):
     cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=8.0 if auto_delay else args.delay, estimate_delay=auto_delay,
                           lead=args.lead, tail=args.tail, min_length=args.min_length, max_length=args.max_length, top=args.top,
                           skip_greetings=not args.keep_greetings, **_markers(args))
+    if getattr(args, "profile", None):
+        from .highlights import load_profile
+
+        cfg = load_profile(args.profile, cfg)
+        print(f"profile {args.profile}: threshold {cfg.threshold:g}, chat delay {cfg.chat_delay:g} s")
     src = _source(args)
     if getattr(args, "avatar_motion", False) and session is None:
         raise ValueError("--avatar-motion needs the avatar parameters of a --session file")
@@ -1195,22 +1201,30 @@ def cmd_upload(args: argparse.Namespace) -> int:
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    from .evaluation import evaluate_streams, load_stream, parse_sweep
-    from .highlights import HighlightConfig
+    from .evaluation import add_feedback, evaluate_streams, f1, gain, held_out, load_stream, parse_sweep, tune
+    from .highlights import HighlightConfig, save_profile
 
     streams = []
     for folder in args.folders:
         try:
-            stream = load_stream(folder, min_votes=args.min_votes)
+            stream = load_stream(folder, min_votes=args.min_votes, sound=args.audio)
         except ValueError as exc:  # one incomplete folder should not stop the others
             print(f"skip   {exc}", file=sys.stderr)
             continue
-        if not stream.labels:
-            print(f"skip   {stream.name}: no timestamps in its comments (fetch with --comments N)", file=sys.stderr)
-            continue
         streams.append(stream)
+    if args.feedback is not None:
+        from .feedback import load
+
+        added = add_feedback(streams, load(args.feedback or None))
+        print(f"feedback {added} kept highlights added as marked moments")
+    for stream in [s for s in streams if not s.labels]:
+        print(f"skip   {stream.name}: no timestamps in its comments (fetch with --comments N) and no kept highlights", file=sys.stderr)
+        streams.remove(stream)
     if not streams:
         raise ValueError("No stream with viewer timestamps to compare against")
+    if args.audio:
+        print(f"sound  {sum(1 for s in streams if s.levels is not None)} of {len(streams)} streams have their video")
+    flags = {"tolerance": args.tolerance, "heatmap": args.heatmap, "sound": args.audio}
     base = HighlightConfig(top=args.top)
     settings = [("defaults", base)]
     for sweep in args.sweep:
@@ -1222,7 +1236,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     report = []
     header = f"{'':<28} {'clip':>4} {'marked':>6} {'precision':>9} {'recall':>7} {'chance':>7} {'lift':>5}"
     for label, cfg in settings:
-        rows, pooled = evaluate_streams(streams, cfg, tolerance=args.tolerance)
+        rows, pooled = evaluate_streams(streams, cfg, **flags)
         print(f"\n[{label}]")
         print(header)
         for name, score in rows:
@@ -1230,6 +1244,27 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         print(line(f"all {len(rows)} streams", pooled))
         report.append({"setting": label, "streams": {name: vars(score) for name, score in rows},
                        "pooled": {**vars(pooled), "precision": pooled.precision, "recall": pooled.recall, "lift": pooled.lift}})
+    if args.tune:
+        tuned, pooled = tune(streams, base, trials=args.tune, seed=args.seed, **flags)
+        plain = evaluate_streams(streams, base, **flags)[1]
+        print(f"\n[tuned: {args.tune} tries on these {len(streams)} streams]")
+        print(header)
+        print(line("defaults", plain))
+        print(line("tuned", pooled))
+        changed = {k: v for k, v in tuned.weights.items() if base.weights.get(k) != v}
+        print(f"  weights {json.dumps(changed)}, threshold {tuned.threshold:g}, chat delay {tuned.chat_delay:g} s")
+        report.append({"setting": "tuned", "weights": tuned.weights, "threshold": tuned.threshold, "chat_delay": tuned.chat_delay,
+                       "pooled": {**vars(pooled), "precision": pooled.precision, "recall": pooled.recall, "lift": pooled.lift}})
+        if len(streams) >= 3:
+            kept, moved = held_out(streams, base, trials=args.tune, seed=args.seed, **flags)
+            print(f"  on streams left out of the tuning: precision above chance {gain(kept):+.0%} with the defaults, {gain(moved):+.0%} tuned"
+                  f" (precision {kept.precision:.0%} -> {moved.precision:.0%}, recall {kept.recall:.0%} -> {moved.recall:.0%}, F1 {f1(kept):.2f} -> {f1(moved):.2f})")
+            report[-1]["held_out"] = {"defaults": {"gain": gain(kept), "f1": f1(kept)}, "tuned": {"gain": gain(moved), "f1": f1(moved)}}
+        if args.save_profile:
+            save_profile(args.save_profile, tuned, note=f"evaluate --tune {args.tune} on {len(streams)} streams")
+            print(f"profile {args.save_profile}  (use with highlights / auto --profile)")
+    elif args.save_profile:
+        raise ValueError("--save-profile saves what --tune N found: add --tune")
     if args.output:
         Path(args.output).write_text(json.dumps({"schema": "stream2clip.evaluation/v1", "tolerance": args.tolerance, "results": report}, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\nsaved {args.output}")
@@ -1462,6 +1497,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tolerance", type=float, default=10.0, help="seconds a marked moment may lie outside a highlight and still count (default 10)")
     p.add_argument("--min-votes", type=int, default=1, help="only use moments marked by at least this many comments (default 1)")
     p.add_argument("--top", type=int, default=10, help="maximum number of highlights per stream (default 10)")
+    p.add_argument("--heatmap", action="store_true", help="also use the most-replayed curve of each info.json")
+    p.add_argument("--audio", action="store_true", help="also use the loudness of a video in a folder (read once, kept as *.levels1s.npy)")
+    p.add_argument("--feedback", nargs="?", const="", metavar="FILE",
+                   help="add the highlights kept at exports from the app (feedback.jsonl in the settings folder, or FILE) as marked moments")
+    p.add_argument("--tune", type=int, default=0, metavar="N", help="try N random settings (weights, threshold, chat delay) and report the best, and how it does on streams left out")
+    p.add_argument("--seed", type=int, default=1, help="--tune: the random seed (default 1)")
+    p.add_argument("--save-profile", metavar="FILE", help="--tune: save the best settings as a profile for highlights / auto --profile")
     p.add_argument("-o", "--output", help="write the numbers as JSON")
     p.set_defaults(func=cmd_evaluate)
 
