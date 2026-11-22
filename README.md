@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-615-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-616-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -481,7 +481,7 @@ stream2clip sounds search "lofi chill" --kind music
 | `--no-duck` | 말하는 동안 음악을 더 줄이는 처리(덕킹) 끄기 |
 | `--sfx 이름@때` | 효과음 배치. 이름은 내장 효과음, `auto`, 음원 목록의 이름, 파일. 때는 `peak`(기본값, 하이라이트의 최고 순간), `start`, `end`, 초. 여러 번 지정 가능 |
 | `--sfx-under dB` | 클립 소리보다 낮출 크기(기본값 3) |
-| `--sfx-gap 초` | 한 클립 안 효과음 사이의 최소 간격(기본값 3, 0은 제한 없음). 먼저 지정한 효과음부터 배치하며 가까운 효과음은 1.5초까지 이동, 자리가 없으면 제외 |
+| `--sfx-gap 초` | 한 클립 안 효과음 사이의 최소 간격(기본값 3, 0은 제한 없음). 먼저 지정한 효과음부터 배치하며 가까운 효과음은 1.5초까지 이동, 자리가 없으면 제외. 이동으로 클립 끝을 넘겨 잘리게 되는 경우에도 제외. 15초 이하 클립에서 끝 효과음이 자주 빠지면 `--sfx-gap 2.5` |
 | `--no-sfx-snap` | 효과음을 지정한 위치 그대로 배치. 기본값은 `peak` 효과음을 최고 순간 2.5초 전부터 1초 후 사이에서 소리가 갑자기 커지는 지점(외침, 웃음의 시작)에 맞추고, 그 외 효과음이 말하는 도중에 놓이면 0.75초 이내의 말 끊김 지점으로 이동 |
 | `--loudness LUFS` | 클립 소리를 지정 음량으로 정규화(값 생략 시 -14). 1회 측정 후 일정한 양만큼 조절하는 2단계 방식, 최대값 -1.5 dBTP |
 | `--sounds 폴더` | 음원 목록 폴더(기본값: 앱 설정 폴더의 `sounds`) |
@@ -503,7 +503,7 @@ stream2clip sounds search "lofi chill" --kind music
 | 라이선스 점검 | 변경 금지(ND), 영상 생성 프로그램에서의 사용 금지(Bensound 무료), 영상 사이트 게시 금지(BBC) 음원은 오류. 비영리(NC), 라이선스 미기록, 크레디트 정보 누락은 경고. 1분이 넘는 클립의 외부 음원은 경고(소유권 주장이 걸린 1분 초과 Shorts는 전 세계 차단) |
 | 소리 처리 | 음악과 효과음을 48kHz 스테레오로 맞춘 후 `amix`(`normalize=0`)로 합성하여 클립 소리 크기 유지. `sidechaincompress`로 덕킹, `alimiter`로 -1dBFS 이하 유지. ffmpeg 4.4 이상 |
 | 무음 구간 제거와 함께 사용 | 조용한 부분을 먼저 줄인 후 남은 길이에 음악을 깔고, 최고 순간 효과음은 줄어든 위치로 이동 |
-| 효과음 위치 | 말하는 구간은 클립 소리로 판정(큰 소리보다 20dB 이내, 0.25초 미만의 끊김은 이어서 봄). YouTube 자동 자막은 줄이 끊김 없이 이어져 줄 사이가 실제 말 끊김과 다름. 이동, 제외 내역은 `clips.json`의 `moved`, `sounds_skipped`에 기록 |
+| 효과음 위치 | 말하는 구간은 클립 소리로 판정(큰 소리보다 20dB 이내, 0.25초 미만의 끊김은 이어서 봄). YouTube 자동 자막은 줄이 끊김 없이 이어져 줄 사이가 실제 말 끊김과 다름. 이동, 제외 내역은 `clips.json`의 `moved`, `sounds_skipped`에 기록. 지정 위치가 클립 끝에 걸린 효과음은 끝에서 0.1초 페이드 아웃 |
 | 음량 정규화 | 무음 구간 제거, 음악과 효과음 합성 후의 최종 소리에 적용. 소리 없는 클립은 그대로 유지. YouTube는 -14 LUFS보다 큰 영상만 줄이고 작은 영상은 키우지 않음 |
 | 기록 | `clips.json`의 `sounds`에 클립별 음원, 시작 위치, 음량, 크레디트 기록 |
 
@@ -795,7 +795,7 @@ Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방�
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 615개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 616개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |

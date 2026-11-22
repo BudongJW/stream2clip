@@ -818,7 +818,10 @@ def plan_mix(
             skipped.append(f"{sound.label}: after the end")
             continue
         on_sound = effect.when == "peak" and peak_on_sound
-        last = length - min(0.3, max(0.05, seconds)) + sound.hit  # at least 0.3 s of it (or all of a shorter one) before the end
+        # Moving it may not push it past the point where all of it still plays before the clip ends (a ding cut
+        # after 0.3 s sounds like a mistake); one asked for that late stays where it was put, and at least 0.3 s plays.
+        whole = length - seconds + sound.hit
+        last = min(length - min(0.3, max(0.05, seconds)) + sound.hit, max(at + sound.hit, whole))
         hit = place_effect(at + sound.hit, hits, gap=soundtrack.effect_gap, low=sound.hit, high=last, lines=lines if soundtrack.snap else (), on_sound=on_sound)
         if hit is None:
             skipped.append(f"{sound.label}: within {soundtrack.effect_gap:g} s of another effect")
@@ -827,7 +830,8 @@ def plan_mix(
         moved = round(hit - sound.hit - at, 3)
         at = round(hit - sound.hit, 3)
         gain = soundtrack.effect_volume if soundtrack.effect_volume is not None else _gain(voice - soundtrack.effect_under, level)
-        layers.append(AudioLayer(path_of(sound), gain=gain, at=at))
+        cut = at + seconds > length + 1e-3  # the clip ends before the effect does: fade it out instead of a click
+        layers.append(AudioLayer(path_of(sound), gain=gain, at=at, fade_out=min(0.1, (length - at) / 3) if cut else 0.0))
         planned.append(PlannedSound(sound, at, gain, moved=moved))
     if not layers:
         return None

@@ -187,6 +187,19 @@ def test_effects_keep_their_distance():
     assert min(b - a for a, b in zip(hits, hits[1:])) >= 3.0 - 1e-6
 
 
+def test_short_clip_effects_are_not_pushed_past_the_end():
+    """Found on 10 s clips of a real stream: keeping its distance, the end ding moved to 9.7 s and was cut after 0.3 s."""
+    ding = builtin_sound("ding")
+    track = Soundtrack(effects=(Effect(ding, "peak"), Effect(ding, "end")))
+    plan = plan_mix(track, 0, length=10.0, voice_level=-20.0, peak=6.16, levels=fixed_levels(-10.0, 1.4))
+    assert [p.at for p in plan.sounds] == [6.16] and plan.skipped == ["ding: within 3 s of another effect"]  # left out, not cut short
+    roomy = plan_mix(Soundtrack(effects=(Effect(ding, "peak"), Effect(ding, 7.0))), 0, length=12.0, voice_level=-20.0, peak=5.0, levels=fixed_levels(-10.0, 1.4))
+    assert [p.at for p in roomy.sounds] == [5.0, 8.0]  # moved later while all of it still fits
+    late = plan_mix(Soundtrack(effects=(Effect(ding, 9.5),)), 0, length=10.0, voice_level=-20.0, levels=fixed_levels(-10.0, 1.4))
+    assert late.sounds[0].at == 9.5 and late.mix.layers[0].fade_out == pytest.approx(0.1)  # asked for that late: it stays, faded out
+    assert plan.mix.layers[0].fade_out == 0.0
+
+
 def test_effects_land_between_subtitle_lines():
     from stream2clip.soundtrack import place_effect
 
