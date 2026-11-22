@@ -56,6 +56,12 @@ _STAGES = {
 _SUBTITLE_STYLES = [("default", tr("기본")), ("box", tr("상자")), ("pink", tr("분홍 강조")), ("small", tr("작게"))]
 _SUBTITLE_POSITIONS = [("bottom", tr("아래쪽")), ("middle", tr("가운데")), ("top", tr("위쪽"))]
 _SINGING = [("off", tr("노래 구간 안 봄")), ("mark", tr("노래 구간 표시")), ("skip", tr("노래 구간 제외"))]
+#: Sound effects of the export settings: none, chosen by chat's reaction, or one of the built-in ones (stream2clip.soundtrack).
+_EFFECTS = [
+    ("", tr("효과음 없음")), ("auto", tr("자동 (채팅 반응에 맞춤)")), ("pop", tr("뿅 (pop)")), ("ding", tr("띵 (ding)")),
+    ("whoosh", tr("슉 (whoosh)")), ("boom", tr("쿵 (boom)")), ("sparkle", tr("반짝 (sparkle)")),
+]
+_EFFECT_TIMES = [("peak", tr("최고 순간")), ("start", tr("시작")), ("end", tr("끝"))]
 #: Which moment of the session is second 0 of the video (see stream2clip.session.Session.origin).
 _SESSION_ORIGINS = [("auto", tr("자동")), ("stream", tr("OBS 송출 시작")), ("record", tr("OBS 녹화 시작")), ("session", tr("세션 시작"))]
 _PICK_FILE = "\x00file"  # the "choose a .py file" entry of the translator list
@@ -753,13 +759,34 @@ class HighlightsWindow(QMainWindow):
         self.silence_check.setToolTip(tr("클립 안에서 0.7초 넘게 조용한 부분을 짧은 쉼으로 줄임. 자막도 함께 이동.\n배경 음악이 큰 방송은 줄일 부분이 적고, 말 없이 게임 소리만 작게 나는 장면도 줄어듦"))
         grid.addWidget(self.silence_check, 10, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 11, 0)
+        grid.addWidget(QLabel(tr("배경 음악")), 11, 0)
+        self.bgm_edit = QLineEdit()
+        self.bgm_edit.setPlaceholderText(tr("(선택) 음원 파일 또는 음원 목록의 이름"))
+        self.bgm_edit.setToolTip(tr("직접 내려받은 무료 음원을 클립 소리 아래에 깔고, 말하는 동안은 더 줄입니다.\n출처와 라이선스는 stream2clip sounds add로 음원 목록에 기록하면 설명란 크레디트와 점검에 쓰입니다."))
+        grid.addWidget(self.bgm_edit, 11, 1)
+        pick_bgm = QPushButton(tr("찾기"))
+        pick_bgm.clicked.connect(lambda: self._browse(self.bgm_edit, "Audio (*.mp3 *.wav *.ogg *.m4a *.flac *.opus);;All files (*)"))
+        grid.addWidget(pick_bgm, 11, 2)
+
+        grid.addWidget(QLabel(tr("효과음")), 12, 0)
+        self.sfx_combo = QComboBox()
+        for key, label in _EFFECTS:
+            self.sfx_combo.addItem(label, key)
+        self.sfx_combo.setToolTip(tr("stream2clip이 직접 만드는 효과음이라 크레디트가 필요 없습니다.\n자동은 채팅 반응에 따라 고릅니다: 웃음 뿅, 놀람 쿵, 귀여움 반짝, 환호 띵."))
+        grid.addWidget(self.sfx_combo, 12, 1)
+        self.sfx_time_combo = QComboBox()
+        for key, label in _EFFECT_TIMES:
+            self.sfx_time_combo.addItem(label, key)
+        self.sfx_time_combo.setToolTip(tr("효과음을 넣을 때: 하이라이트의 최고 순간, 클립의 시작 또는 끝"))
+        grid.addWidget(self.sfx_time_combo, 12, 2)
+
+        grid.addWidget(QLabel(tr("저장")), 13, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 11, 1)
+        grid.addWidget(self.output_edit, 13, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 11, 2)
-        grid.setRowStretch(12, 1)
+        grid.addWidget(pick, 13, 2)
+        grid.setRowStretch(14, 1)
         self._on_layout_changed()
         return card
 
@@ -805,11 +832,11 @@ class HighlightsWindow(QMainWindow):
         for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
-        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin")):
+        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
-        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.skip_scene_edit, "skip_scenes"), (self.output_edit, "output")):
+        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.skip_scene_edit, "skip_scenes"), (self.bgm_edit, "bgm"), (self.output_edit, "output")):
             if isinstance(saved.get(key), str) and saved[key]:
                 edit.setText(saved[key])
         if isinstance(saved.get("top"), int):
@@ -837,6 +864,7 @@ class HighlightsWindow(QMainWindow):
             "credit": self.credit_edit.text().strip(), "compile": self.compile_check.isChecked(), "trim_silence": self.silence_check.isChecked(),
             "session_origin": self.origin_combo.currentData(), "session_offset": round(self.offset_spin.value(), 1), "skip_scenes": self.skip_scene_edit.text().strip(),
             "avatar_motion": self.motion_check.isChecked(), "audio_track": self.track_spin.value(),
+            "bgm": self.bgm_edit.text().strip(), "sfx": self.sfx_combo.currentData(), "sfx_when": self.sfx_time_combo.currentData(),
             "last_dir": self.last_dir,
         })
 
@@ -1273,9 +1301,15 @@ class HighlightsWindow(QMainWindow):
         trim = 0.7 if self.silence_check.isChecked() else None
         track = self.audio_track()
         joined = self.compile_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm")
+        bgm_spec = self.bgm_edit.text().strip()
+        sfx_key = self.sfx_combo.currentData() or ""
+        sfx_when = self.sfx_time_combo.currentData() or "peak"
         self.last_compilation = None
         if translator_spec and not subs_path and model is None:
             self._on_failed(tr("번역하려면 자막이 필요합니다. 자막 파일을 고르거나 받아쓰기를 켜세요."))
+            return
+        if (bgm_spec or sfx_key) and self.format_combo.currentData() not in ("mp4", "webm"):
+            self._on_failed(tr("배경 음악과 효과음은 소리가 있는 형식(MP4, WebM)에만 넣을 수 있습니다."))
             return
         self.remember()
         self._set_busy(True, tr("클립 {0}개 내보내는 중").format(len(chosen)))
@@ -1300,6 +1334,15 @@ class HighlightsWindow(QMainWindow):
 
                 subtitle_translator = get_translator(translator_spec)
                 glossary = Glossary.load(glossary_path) if glossary_path else None
+            soundtrack = None
+            if bgm_spec or sfx_key:
+                from ..soundtrack import Effect, SoundLibrary, Soundtrack, resolve_sound
+
+                library = SoundLibrary()
+                soundtrack = Soundtrack(
+                    music=(resolve_sound(bgm_spec, "bgm", library),) if bgm_spec else (),
+                    effects=(Effect(resolve_sound(sfx_key, "sfx", library), sfx_when),) if sfx_key else (),
+                )
             sections = None
             if url:
                 sections = self._download(url, folder, chosen, lambda i, n, h: self._progress.emit(i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 내려받는 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))))
@@ -1307,7 +1350,7 @@ class HighlightsWindow(QMainWindow):
             results = make_clips(
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
-                subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track,
+                subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track, soundtrack=soundtrack,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )

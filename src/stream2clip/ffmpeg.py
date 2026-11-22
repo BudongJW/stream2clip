@@ -26,6 +26,8 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = [
     "FORMATS",
     "ALPHA_FORMATS",
+    "AudioLayer",
+    "AudioMix",
     "ExportOptions",
     "RawVideoInput",
     "FFmpegNotFoundError",
@@ -37,6 +39,7 @@ __all__ = [
     "build_capture_command",
     "build_concat_command",
     "keep_filters",
+    "mix_filters",
     "extension_for",
     "filter_path",
 ]
@@ -106,6 +109,58 @@ def extension_for(fmt: str) -> str:
 
 
 @dataclass(frozen=True)
+class AudioLayer:
+    """One sound file played over a clip: background music or a sound effect.
+
+    ``at`` is where it starts in the finished clip, ``offset`` where in the file it starts
+    playing. ``loop`` repeats the file until the clip ends (music). ``gain`` is in dB.
+    ``fade_in`` opens the layer, ``fade_out`` closes it at the end of the clip. ``duck``
+    lowers the layer while the clip's own sound is louder than ``duck_threshold`` (linear
+    amplitude, see ffmpeg ``sidechaincompress``).
+    """
+
+    path: "str | os.PathLike[str]"
+    gain: float = 0.0
+    at: float = 0.0
+    offset: float = 0.0
+    loop: bool = False
+    fade_in: float = 0.0
+    fade_out: float = 0.0
+    duck: bool = False
+    duck_threshold: float = 0.05
+    duck_ratio: float = 8.0
+
+    def __post_init__(self) -> None:
+        if self.at < 0 or self.offset < 0 or self.fade_in < 0 or self.fade_out < 0:
+            raise ValueError("at, offset and fades of a sound are seconds, not negative")
+        if not 0.000977 <= self.duck_threshold <= 1.0:
+            raise ValueError("duck_threshold is a linear level in 0.001..1")
+        if not 1.0 <= self.duck_ratio <= 20.0:
+            raise ValueError("duck_ratio must be in 1..20")
+
+
+@dataclass(frozen=True)
+class AudioMix:
+    """Sounds laid over a clip's own sound (``voice``: the input has sound to keep).
+
+    ``length`` is the length of the finished clip in seconds; every layer stops there.
+    The mix goes through a limiter at ``limit`` dBFS so that added sounds never clip.
+    """
+
+    layers: tuple[AudioLayer, ...]
+    length: float
+    voice: bool = True
+    voice_gain: float = 0.0
+    limit: float = -1.0
+
+    def __post_init__(self) -> None:
+        if self.length <= 0:
+            raise ValueError("A mix needs the clip's length")
+        if not -24.0 <= self.limit <= 0.0:
+            raise ValueError("limit is in dBFS, -24..0")
+
+
+@dataclass(frozen=True)
 class ExportOptions:
     """Everything that shapes an exported clip.
 
@@ -140,6 +195,8 @@ class ExportOptions:
     #: Parts of the cut that stay, as (start, end) seconds from its beginning; the rest is dropped and
     #: what stays is closed up (see :func:`stream2clip.audio.sound_parts`). Subtitle times are those of the result.
     keep: "tuple[tuple[float, float], ...] | None" = None
+    #: Background music and sound effects laid over the clip's sound (see :mod:`stream2clip.soundtrack`).
+    mix: AudioMix | None = None
 
     def __post_init__(self) -> None:
         if self.format not in FORMATS:
@@ -168,6 +225,8 @@ class ExportOptions:
                 if a < last or b <= a:
                     raise ValueError("keep must be (start, end) parts in order, without overlap")
                 last = b
+        if self.mix is not None and self.mix.layers and self.format not in _AUDIO_CODECS:
+            raise ValueError(f"{self.format.upper()} has no sound: music and sound effects need one of {', '.join(sorted(_AUDIO_CODECS))}")
 
     @property
     def duration(self) -> float | None:
@@ -254,6 +313,81 @@ def keep_filters(options: ExportOptions, *, audio_in: str = "[0:a:0]", audio_out
     parts += [f"[ka{k}]atrim=start_sample={i}:end_sample={j},asetpts=N/SR/TB[kb{k}]" for k, (i, j) in enumerate(cuts)]
     parts.append("".join(f"[kb{k}]" for k in range(len(cuts))) + f"concat=n={len(cuts)}:v=0:a=1{audio_out}")
     return video, ";".join(parts)
+
+
+_MIX_FORMAT = "aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo"
+
+
+def _seconds(value: float) -> str:
+    return f"{value:.3f}"
+
+
+def mix_filters(mix: AudioMix, *, first_input: int, voice_in: str | None = "[0:a:0]", audio_out: str = "[a]") -> str:
+    """The audio graph that lays ``mix.layers`` over the clip's own sound and writes ``audio_out``.
+
+    ``voice_in`` is the clip's sound (a label, or ``None`` when ``mix.voice`` is false: silence
+    of ``mix.length`` stands in for it). Layer ``k`` is read from input ``first_input + k``,
+    opened by :func:`mix_input_args`. Every layer is brought to 48 kHz stereo, set to its gain,
+    faded, moved to its place with ``adelay``, and cut at the end of the clip. Ducked layers are
+    lowered by ``sidechaincompress`` keyed on the clip's sound. ``amix`` runs with
+    ``normalize=0`` so that adding a layer does not lower the voice, and ``duration=first`` so
+    that the clip's sound decides the length; ``alimiter`` (auto level off) keeps peaks under
+    ``mix.limit``.
+    """
+    length = mix.length
+    parts: list[str] = []
+    playing = [(k, layer) for k, layer in enumerate(mix.layers) if length - layer.at > 0.01]  # a sound placed after the end is left out
+    ducked = [k for k, layer in playing if layer.duck]
+    if mix.voice and voice_in is not None:  # padded to the clip's length: duration=first then always gives the whole clip
+        voice = f"{voice_in}{_MIX_FORMAT}" + (f",volume={mix.voice_gain:g}dB" if mix.voice_gain else "") + f",atrim=duration={_seconds(length)},apad=whole_dur={_seconds(length)}"
+    else:
+        voice = f"anullsrc=r=48000:cl=stereo,atrim=duration={_seconds(length)},aformat=sample_fmts=fltp:channel_layouts=stereo"
+    if ducked and mix.voice and voice_in is not None:
+        parts.append(f"{voice},asplit={len(ducked) + 1}[mv]" + "".join(f"[mk{k}]" for k in ducked))
+    else:
+        ducked = []  # nothing to duck under
+        parts.append(f"{voice}[mv]")
+    labels = ["[mv]"]
+    for k, layer in playing:
+        room = length - layer.at
+        chain = [_MIX_FORMAT, f"atrim=duration={_seconds(room)}"]
+        if layer.gain:
+            chain.append(f"volume={layer.gain:g}dB")
+        if layer.fade_in > 0:
+            chain.append(f"afade=t=in:st=0:d={_seconds(min(layer.fade_in, room / 2))}")
+        if layer.fade_out > 0:
+            fade = min(layer.fade_out, room / 2)
+            chain.append(f"afade=t=out:st={_seconds(room - fade)}:d={_seconds(fade)}")
+        if layer.at > 0:
+            chain.append(f"adelay=delays={int(round(layer.at * 1000))}:all=1")
+        label = f"[ml{k}]"
+        if k in ducked:
+            parts.append(f"[{first_input + k}:a:0]{','.join(chain)}[mr{k}]")
+            parts.append(
+                f"[mr{k}][mk{k}]sidechaincompress=threshold={layer.duck_threshold:.4f}:ratio={layer.duck_ratio:g}:attack=50:release=600{label}"
+            )
+        else:
+            parts.append(f"[{first_input + k}:a:0]{','.join(chain)}{label}")
+        labels.append(label)
+    limit = 10 ** (mix.limit / 20)
+    tail = f"alimiter=limit={max(0.0625, limit):.4f}:level=0"
+    if len(labels) == 1:
+        parts.append(f"[mv]{tail}{audio_out}")
+    else:
+        parts.append("".join(labels) + f"amix=inputs={len(labels)}:duration=first:dropout_transition=0:normalize=0,{tail}{audio_out}")
+    return ";".join(parts)
+
+
+def mix_input_args(mix: AudioMix) -> list[str]:
+    """``-i`` options for the layers of ``mix``, in order (music that loops is read with ``-stream_loop -1``)."""
+    args: list[str] = []
+    for layer in mix.layers:
+        if layer.loop:
+            args += ["-stream_loop", "-1"]
+        if layer.offset > 0:
+            args += ["-ss", _seconds(layer.offset)]
+        args += ["-i", os.fspath(layer.path)]
+    return args
 
 
 def build_video_filter(options: ExportOptions) -> str:
@@ -384,7 +518,18 @@ def build_export_command(
 
     wants_audio = options.audio and raw_input is None and options.format in _AUDIO_CODECS
     graph = build_video_filter(options)
-    if wants_audio and options.keep:  # the sound loses the same parts as the picture (the input must have sound)
+    mix = options.mix if options.mix is not None and options.mix.layers else None
+    if mix is not None:
+        if not wants_audio:
+            raise ValueError("Music and sound effects need a video file with sound kept (audio=True)")
+        first = 1 + (1 if options.layout is not None and options.layout.uses_avatar_video else 0)
+        cmd += mix_input_args(mix)
+        if mix.voice and options.keep:  # the clip's sound loses its silences first, then the music goes under what is left
+            audio = keep_filters(options, audio_out="[kv]")[1] + ";" + mix_filters(mix, first_input=first, voice_in="[kv]")
+        else:
+            audio = mix_filters(mix, first_input=first, voice_in="[0:a:0]" if mix.voice else None)
+        cmd += ["-filter_complex", f"{graph};{audio}", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
+    elif wants_audio and options.keep:  # the sound loses the same parts as the picture (the input must have sound)
         cmd += ["-filter_complex", f"{graph};{keep_filters(options)[1]}", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
     elif wants_audio:
         cmd += ["-filter_complex", graph, "-map", "[v]", "-map", "0:a:0?"] + _AUDIO_CODECS[options.format]

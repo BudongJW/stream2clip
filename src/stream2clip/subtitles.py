@@ -26,6 +26,7 @@ __all__ = [
     "SUBTITLE_STYLES",
     "SUBTITLE_POSITIONS",
     "retime_cues",
+    "clip_time",
     "CREDIT_POSITIONS",
     "subtitle_style",
     "FONT_CANDIDATES",
@@ -173,6 +174,18 @@ def slice_cues(cues: Iterable[Cue], start: float, end: float) -> list[Cue]:
     return out
 
 
+def clip_time(t: float, keep: "Iterable[tuple[float, float]]") -> float:
+    """Where moment ``t`` of a cut lands once only its ``keep`` (start, end) parts stay (a removed moment: where the next part begins)."""
+    passed = 0.0
+    for a, b in sorted((float(a), float(b)) for a, b in keep):
+        if t <= a:
+            return passed
+        if t < b:
+            return passed + (t - a)
+        passed += b - a
+    return passed
+
+
 def retime_cues(cues: Iterable[Cue], keep: "Iterable[tuple[float, float]]") -> list[Cue]:
     """Cue times on the clip that is left when only the ``keep`` (start, end) parts of it stay.
 
@@ -182,14 +195,7 @@ def retime_cues(cues: Iterable[Cue], keep: "Iterable[tuple[float, float]]") -> l
     parts = sorted((float(a), float(b)) for a, b in keep)
 
     def at(t: float) -> float:
-        passed = 0.0
-        for a, b in parts:
-            if t <= a:
-                return passed
-            if t < b:
-                return passed + (t - a)
-            passed += b - a
-        return passed
+        return clip_time(t, parts)
 
     out = []
     for c in cues:

@@ -22,6 +22,7 @@ from .sources import SourceInfo
 from .subtitles import Cue, SubtitleStyle, Transcriber, slice_cues, write_ass
 
 if TYPE_CHECKING:
+    from .soundtrack import PlannedSound, Sound, Soundtrack
     from .translate import Translator
     from .translation import Glossary
 
@@ -37,9 +38,11 @@ class ClipResult:
     issues: list[Issue] = field(default_factory=list)
     #: Seconds of silence taken out of the clip (``trim_silence``); the file is that much shorter than the highlight.
     removed: float = 0.0
+    #: Music and sound effects laid over the clip (``soundtrack``), with where they start and their gain.
+    sounds: "list[PlannedSound]" = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             **self.highlight.to_dict(),
             "file": self.path.name,
             "removed": round(self.removed, 2),
@@ -47,6 +50,9 @@ class ClipResult:
             "description": self.description.name if self.description else None,
             "issues": [{"level": i.level, "message": i.message} for i in self.issues],
         }
+        if self.sounds:
+            data["sounds"] = [s.to_dict() for s in self.sounds]
+        return data
 
 
 def find_highlights(
@@ -235,6 +241,16 @@ def compile_folder(
             profile = get_profile(data["agency"]) if data.get("agency") else None
             where = "".join(f"{clock(start)} {source.timestamp_url(h.start)}\n" for (start, _, _), h in zip(result.parts, chosen))
             text = build_description(source, profile).rstrip("\n") + "\n\n" + text + "\n" + where
+        names = {path.name for path in files}
+        credits: list[str] = []
+        for item in data.get("clips", []):
+            for sound in item.get("sounds", []) if item.get("file") in names else []:
+                if sound.get("credit") and sound["credit"] not in credits:
+                    credits.append(sound["credit"])
+        if credits:  # the music and effects of the clips are in the compilation too
+            from .i18n import tr
+
+            text = text.rstrip("\n") + "\n\n" + tr("BGM, 효과음") + "\n" + "\n".join(credits) + "\n"
         result.notes = result.path.with_suffix(".txt")
         result.notes.write_text(text, encoding="utf-8")
     return result
@@ -279,6 +295,53 @@ def _sound_parts(video: str | os.PathLike[str], start: float, length: float, *, 
     return sound_parts(samples, rate, min_silence=min_silence, level=level)
 
 
+class _Sounds:
+    """What ``make_clips`` needs to lay a soundtrack over its clips: levels measured once, built-in effects drawn once."""
+
+    def __init__(self, soundtrack: "Soundtrack", folder: Path) -> None:
+        self.soundtrack = soundtrack
+        self.folder = folder
+        self._levels: dict[str, tuple[float, float]] = {}
+        self._paths: dict[str, Path] = {}
+        self._voice: dict[str, bool] = {}
+
+    def path_of(self, sound: "Sound") -> Path:
+        from .soundtrack import render_builtin
+
+        if sound.builtin:
+            if sound.name not in self._paths:
+                self._paths[sound.name] = render_builtin(sound.name, self.folder)
+            return self._paths[sound.name]
+        if not sound.path.is_file():
+            raise FileNotFoundError(f"Sound file not found: {sound.path}")
+        return sound.path
+
+    def levels(self, sound: "Sound") -> tuple[float, float]:
+        from .soundtrack import RATE, active_level, measure, synth
+
+        key = f"builtin:{sound.name}" if sound.builtin else os.fspath(sound.path)
+        if key not in self._levels:
+            if sound.builtin:
+                samples = synth(sound.name)
+                self._levels[key] = (active_level(samples, RATE), len(samples) / RATE)
+            elif sound.kind == "bgm":
+                self._levels[key] = measure(self.path_of(sound), start=self.soundtrack.music_start or None, duration=90.0)
+            else:
+                self._levels[key] = measure(self.path_of(sound), duration=None)
+        return self._levels[key]
+
+    def voice_level(self, video: str | os.PathLike[str], start: float, length: float) -> float | None:
+        """Active level of the clip's own (first) audio track; ``None`` when the video has no sound."""
+        from .soundtrack import measure
+
+        key = os.fspath(video)
+        if key not in self._voice:
+            self._voice[key] = probe(video).has_audio
+        if not self._voice[key]:
+            return None
+        return measure(video, start=start, duration=length, track=0)[0]
+
+
 def make_clips(
     video: str | os.PathLike[str] | None,
     highlights: Sequence[Highlight],
@@ -306,11 +369,18 @@ def make_clips(
     trim_silence: float | None = None,
     silence_level: float = 24.0,
     audio_track: int | None = None,
+    soundtrack: "Soundtrack | None" = None,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
     ``credit`` is a short line burned into a corner of every clip for its whole length, such as
     the name of the original channel.
+
+    ``soundtrack`` lays background music and sound effects over every clip (see
+    :mod:`stream2clip.soundtrack`): the music sits under the clip's own sound and is lowered
+    while someone speaks, an effect at the peak lands on the highlight's top moment (after
+    ``trim_silence``, on where that moment went). The credits go into each description and
+    the licenses into the guideline check.
 
     ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
     dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
@@ -337,54 +407,77 @@ def make_clips(
     play_res = _output_size(video, options) if section is None else None
     ai = uses_ai if uses_ai is not None else (transcriber is not None or subtitle_translator is not None)
     results: list[ClipResult] = []
-    for index, h in enumerate(highlights, start=1):
-        if on_progress is not None:
-            on_progress(index, len(highlights), h)
-        stem = name.format(rank=h.rank, start=int(h.start), index=index)
-        clip_video, offset = footage(h)
-        if play_res is None:
-            play_res = _output_size(clip_video, options)
-        opts = replace(options, start=max(0.0, h.start - offset), end=h.end - offset)
-        if offset and opts.layout is not None and opts.layout.uses_avatar_video:
-            # The avatar video is on the stream's clock; this footage starts ``offset`` seconds into it.
-            opts = replace(opts, layout=replace(opts.layout, avatar_offset=opts.layout.avatar_offset + offset))
+    scratch = tempfile.TemporaryDirectory(prefix="stream2clip-sounds-") if soundtrack else None
+    sounds = _Sounds(soundtrack, Path(scratch.name)) if soundtrack and scratch is not None else None
+    try:
+        for index, h in enumerate(highlights, start=1):
+            if on_progress is not None:
+                on_progress(index, len(highlights), h)
+            stem = name.format(rank=h.rank, start=int(h.start), index=index)
+            clip_video, offset = footage(h)
+            if play_res is None:
+                play_res = _output_size(clip_video, options)
+            opts = replace(options, start=max(0.0, h.start - offset), end=h.end - offset)
+            if offset and opts.layout is not None and opts.layout.uses_avatar_video:
+                # The avatar video is on the stream's clock; this footage starts ``offset`` seconds into it.
+                opts = replace(opts, layout=replace(opts.layout, avatar_offset=opts.layout.avatar_offset + offset))
 
-        clip_cues: list[Cue] | None = slice_cues(cues, h.start, h.end) if cues is not None else None
-        if clip_cues is None and transcriber is not None:
-            with tempfile.TemporaryDirectory(prefix="stream2clip-asr-") as tmp:
-                wav = _extract_audio(clip_video, max(0.0, h.start - offset), h.end - offset, Path(tmp) / "clip.wav", track=audio_track)
-                clip_cues = transcriber.transcribe(wav, language=language)
-        if clip_cues and subtitle_translator is not None:
-            from .translation import translate_cues
+            clip_cues: list[Cue] | None = slice_cues(cues, h.start, h.end) if cues is not None else None
+            if clip_cues is None and transcriber is not None:
+                with tempfile.TemporaryDirectory(prefix="stream2clip-asr-") as tmp:
+                    wav = _extract_audio(clip_video, max(0.0, h.start - offset), h.end - offset, Path(tmp) / "clip.wav", track=audio_track)
+                    clip_cues = transcriber.transcribe(wav, language=language)
+            if clip_cues and subtitle_translator is not None:
+                from .translation import translate_cues
 
-            clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
-        length, removed = h.end - h.start, 0.0
-        if trim_silence and trim_silence > 0:
-            keep = _sound_parts(clip_video, opts.start or 0.0, length, min_silence=trim_silence, level=silence_level, track=audio_track)
-            left = sum(b - a for a, b in keep)
-            if keep and length - left >= 0.3:  # a few frames are not worth another cut
-                removed, length = length - left, left
-                opts = replace(opts, keep=tuple(keep))
-                if clip_cues:
-                    from .subtitles import retime_cues
+                clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
+            length, removed = h.end - h.start, 0.0
+            keep: list[tuple[float, float]] = []
+            if trim_silence and trim_silence > 0:
+                keep = _sound_parts(clip_video, opts.start or 0.0, length, min_silence=trim_silence, level=silence_level, track=audio_track)
+                left = sum(b - a for a, b in keep)
+                if keep and length - left >= 0.3:  # a few frames are not worth another cut
+                    removed, length = length - left, left
+                    opts = replace(opts, keep=tuple(keep))
+                    if clip_cues:
+                        from .subtitles import retime_cues
 
-                    clip_cues = retime_cues(clip_cues, keep)
-        sub_path = None
-        if clip_cues or credit:
-            sub_path = write_ass(
-                clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
-                credit=credit, credit_position=credit_position, duration=length,
-            )
-            opts = replace(opts, subtitles=sub_path)
+                        clip_cues = retime_cues(clip_cues, keep)
+                else:
+                    keep = []
+            sub_path = None
+            if clip_cues or credit:
+                sub_path = write_ass(
+                    clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
+                    credit=credit, credit_position=credit_position, duration=length,
+                )
+                opts = replace(opts, subtitles=sub_path)
+            planned = []
+            if sounds is not None:
+                from .soundtrack import plan_mix
+                from .subtitles import clip_time
 
-        clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
-        result = ClipResult(h, clip_path, sub_path, removed=removed)
-        if source is not None:
-            text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai)
-            result.description = out / f"{stem}.txt"
-            result.description.write_text(text, encoding="utf-8")
-            result.issues = check_upload(source, profile, description=text, registered=registered, uses_ai=ai)
-        results.append(result)
+                peak = min(max(0.0, h.peak - h.start), h.end - h.start)
+                plan = plan_mix(
+                    sounds.soundtrack, index - 1, length=length, voice_level=sounds.voice_level(clip_video, opts.start or 0.0, h.end - h.start),
+                    peak=clip_time(peak, keep) if keep else peak, reactions=h.stats, levels=sounds.levels, path_of=sounds.path_of,
+                )
+                if plan is not None:
+                    opts = replace(opts, mix=plan.mix)
+                    planned = plan.sounds
+
+            clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
+            result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned)
+            if source is not None:
+                used = [p.sound for p in planned]
+                text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used))
+                result.description = out / f"{stem}.txt"
+                result.description.write_text(text, encoding="utf-8")
+                result.issues = check_upload(source, profile, description=text, registered=registered, uses_ai=ai, sounds=used, length=length)
+            results.append(result)
+    finally:
+        if scratch is not None:
+            scratch.cleanup()
 
     index_data = {
         "schema": "stream2clip.clips/v1",
@@ -395,3 +488,11 @@ def make_clips(
     }
     (out / "clips.json").write_text(json.dumps(index_data, ensure_ascii=False, indent=2), encoding="utf-8")
     return results
+
+
+def _credits(sounds: "Sequence[Sound]") -> list[str]:
+    if not sounds:
+        return []
+    from .soundtrack import credit_lines
+
+    return credit_lines(sounds)
