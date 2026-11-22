@@ -822,3 +822,31 @@ def test_larger_models_and_the_glossary_reach_the_transcriber(app, window, strea
     wait(app, lambda: not window.busy, 120)
     assert made == [("large-v3-turbo", ["ぺこら"])]  # the names are hints even without a translator
     assert "ぺこらです" in window.last_results[0].subtitles.read_text(encoding="utf-8")  # and the misheard one is fixed
+
+
+@needs_ffmpeg
+def test_exports_note_what_was_kept_and_moved(app, window, stream_files, tmp_path):
+    from stream2clip import feedback
+
+    video, chat = stream_files
+    window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    found = window.found_spans[0]
+    h = window.timeline.highlights[0]
+    h.start = found[0] + 3.0  # dragged by hand
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("gif"))
+    assert window.feedback_check.isChecked()  # on unless turned off
+    window.export()
+    wait(app, lambda: not window.busy)
+    entries = feedback.load()
+    assert len(entries) == 1 and entries[0]["action"] == "clips" and entries[0]["video"] == video.name
+    candidate = entries[0]["candidates"][0]
+    assert candidate["kept"] and candidate["moved"] and candidate["found"] == [round(found[0], 2), round(found[1], 2)]
+
+    window.feedback_check.setChecked(False)
+    window.export()
+    wait(app, lambda: not window.busy)
+    assert len(feedback.load()) == 1  # nothing more once turned off

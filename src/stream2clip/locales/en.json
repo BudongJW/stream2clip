@@ -618,5 +618,8 @@
  "자막 {0}줄이 {1}초보다 짧게 표시됨: {2}": "{0} caption lines show for less than {1} s: {2}",
  "자막 {0}줄이 길어 화면 밖으로 나갈 수 있음: {1}": "{0} caption lines are long enough to run off the frame: {1}",
  "자막 {0}줄이 읽기에 빠름: {1}": "{0} caption lines go by too fast to read: {1}",
- "한 줄 안에서 같은 말이 되풀이됨(받아쓰기 반복 오류일 수 있음): {0}": "The same words repeat within a line (possibly a transcription loop): {0}"
+ "한 줄 안에서 같은 말이 되풀이됨(받아쓰기 반복 오류일 수 있음): {0}": "The same words repeat within a line (possibly a transcription loop): {0}",
+ "기록": "Record",
+ "고른 구간과 뺀 구간 기록": "Note the spans kept and left out",
+ "내보낼 때마다 체크한 구간과 뺀 구간, 손으로 옮긴 구간을 이 PC의 설정 폴더(feedback.jsonl)에 기록.\n채널에 맞춘 검출 조정(evaluate --feedback)에 쓰이며, stream2clip feedback --clear로 삭제": "At each export, notes the spans ticked, the ones left out and the ones moved by hand in this PC's settings folder (feedback.jsonl).\nUsed to tune detection to the channel (evaluate --feedback); stream2clip feedback --clear deletes it"
 }

@@ -433,6 +433,7 @@ class HighlightsWindow(QMainWindow):
         self.last_handoff: list[Path] = []
         self.scenes_skipped = 0  # highlights the last analysis left out for the scene they were in
         self.replay_note = ""  # a reminder from fetching the stream (a SOOP replay's deletion date)
+        self.found_spans: list[tuple[float, float]] = []  # each candidate's span as detected, before any dragging
         self.status = QLabel(tr("영상과 채팅 다시보기를 고르거나 방송 주소를 넣으세요"), objectName="Muted")
         bottom.addWidget(self.status, 1)
         self.progress = QProgressBar()
@@ -827,7 +828,12 @@ class HighlightsWindow(QMainWindow):
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
         grid.addWidget(pick, 16, 2)
-        grid.setRowStretch(17, 1)
+
+        grid.addWidget(QLabel(tr("기록")), 17, 0)
+        self.feedback_check = QCheckBox(tr("고른 구간과 뺀 구간 기록"), checked=True)
+        self.feedback_check.setToolTip(tr("내보낼 때마다 체크한 구간과 뺀 구간, 손으로 옮긴 구간을 이 PC의 설정 폴더(feedback.jsonl)에 기록.\n채널에 맞춘 검출 조정(evaluate --feedback)에 쓰이며, stream2clip feedback --clear로 삭제"))
+        grid.addWidget(self.feedback_check, 17, 1, 1, 2)
+        grid.setRowStretch(18, 1)
         self._on_layout_changed()
         return card
 
@@ -871,7 +877,7 @@ class HighlightsWindow(QMainWindow):
     def _restore(self) -> None:
         saved = load_section("highlights")
         for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion"), (self.loudness_check, "loudness"),
-                           (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail")):
+                           (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail"), (self.feedback_check, "feedback")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
         for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset")):
@@ -908,7 +914,7 @@ class HighlightsWindow(QMainWindow):
             "avatar_motion": self.motion_check.isChecked(), "audio_track": self.track_spin.value(),
             "bgm": self.bgm_edit.text().strip(), "sfx": self.sfx_combo.currentData(), "sfx_when": self.sfx_time_combo.currentData(),
             "loudness": self.loudness_check.isChecked(), "preset": self.preset_combo.currentData(), "context": self.context_check.isChecked(),
-            "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(),
+            "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(), "feedback": self.feedback_check.isChecked(),
             "last_dir": self.last_dir,
         })
 
@@ -947,6 +953,7 @@ class HighlightsWindow(QMainWindow):
         chosen = self.checked_highlights()
         if not chosen or self.busy:
             return
+        self.record_choices("edit")
         from .. import handoff
         from ..export import probe
         from ..sources import is_url
@@ -1121,6 +1128,23 @@ class HighlightsWindow(QMainWindow):
         self._browse(self.avatar_video_edit, "Video (*.mp4 *.mkv *.webm *.mov);;All files (*)")
         self.refresh_preview()
 
+    def record_choices(self, action: str) -> None:
+        """Note which candidates this export kept and which it left out (the window's 기록 setting)."""
+        if not self.feedback_check.isChecked() or self.result is None:
+            return
+        from ..feedback import record
+
+        highlights = list(self.timeline.highlights)
+        kept = [self.list.item(i).checkState() == Qt.CheckState.Checked for i in range(self.list.count())]
+        if len(kept) != len(highlights):
+            return
+        found = self.found_spans if len(self.found_spans) == len(highlights) else None
+        try:
+            record(None, highlights, kept, found=found, source=dict(self.result.source or {}), video=self.video_edit.text().strip(),
+                   duration=self.result.duration, action=action)
+        except OSError:
+            pass  # a record that cannot be written never stops an export
+
     def checked_highlights(self) -> list[Highlight]:
         return [self.timeline.highlights[i] for i in range(self.list.count()) if self.list.item(i).checkState() == Qt.CheckState.Checked]
 
@@ -1218,6 +1242,7 @@ class HighlightsWindow(QMainWindow):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         self.timeline.set_result(result)
+        self.found_spans = [(h.start, h.end) for h in self.timeline.highlights]
         self.list.blockSignals(True)
         self.list.clear()
         for h in result.highlights:
@@ -1352,6 +1377,7 @@ class HighlightsWindow(QMainWindow):
         video = self.video_edit.text().strip()
         if not chosen or not video:
             return
+        self.record_choices("clips")
         try:
             layout = self.layout_choice()
         except ValueError as exc:

@@ -1060,6 +1060,24 @@ def cmd_chzzk_logout(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_feedback(args: argparse.Namespace) -> int:
+    from .feedback import default_path, load, summary
+
+    path = Path(args.file) if args.file else default_path()
+    if args.clear:
+        if path.is_file():
+            path.unlink()
+            print(f"deleted {path}")
+        else:
+            print(f"nothing to delete: {path}")
+        return 0
+    entries = load(path)
+    print(f"{path}: {len(entries)} exports")
+    for line in summary(entries):
+        print(f"  {line}")
+    return 0
+
+
 def cmd_language(args: argparse.Namespace) -> int:
     from . import i18n
 
@@ -1583,6 +1601,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.set_defaults(func=cmd_chzzk_login)
     c = cs.add_parser("logout", help="forget the CHZZK tokens kept on this PC")
     c.set_defaults(func=cmd_chzzk_logout)
+
+    p = sub.add_parser("feedback", help="the record of which highlights were kept or left out at each export from the app (kept on this PC)")
+    p.add_argument("--file", help="the record to read (default: feedback.jsonl in the app's settings folder)")
+    p.add_argument("--clear", action="store_true", help="delete the record")
+    p.set_defaults(func=cmd_feedback)
 
     p = sub.add_parser("language", help="show the interface language the app starts in (before a choice made in the app itself)")
     p.add_argument("-v", "--verbose", action="store_true", help="also show where it could come from")
