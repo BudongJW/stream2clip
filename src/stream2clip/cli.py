@@ -447,7 +447,8 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     m.add_argument("--no-duck", action="store_true", help="keep the music at one level instead of lowering it while someone speaks")
     m.add_argument("--sfx", action="append", metavar="NAME[@WHEN]", help="a sound effect in every clip: built-in pop / ding / whoosh / boom / sparkle, auto (picked by what chat reacted with), a library name or a file; WHEN = peak (default), start, end or seconds from the start; give it more than once for more effects")
     m.add_argument("--sfx-under", type=float, default=3.0, metavar="DB", help="how far below the clip's own sound the effects play (default 3)")
-    m.add_argument("--no-sfx-snap", action="store_true", help="put a peak effect exactly at the highlight's peak instead of the nearest sharp rise in the sound (a shout, a laugh) within 2.5 s before to 1 s after it")
+    m.add_argument("--sfx-gap", type=float, default=3.0, metavar="SECONDS", help="keep this much between two effects in one clip (default 3; 0: none). An effect too close to one given before it moves by up to 1.5 s, or is left out")
+    m.add_argument("--no-sfx-snap", action="store_true", help="put effects exactly where asked: by default a peak effect moves to the nearest sharp rise in the sound (a shout, a laugh) within 2.5 s before to 1 s after the peak, and the others move out of the middle of talk by up to 0.75 s")
     m.add_argument("--sounds", metavar="DIR", help="sound library folder (default: 'sounds' in the app's settings folder)")
     p.add_argument("--compile", dest="compile_to", nargs="?", const="", metavar="FILE", help="also join the clips, in stream order, into one video with a chapter list (default name: compilation.mp4 in the output folder)")
     p.add_argument("--fade", type=float, default=0.0, metavar="SECONDS", help="--compile: fade to black between the clips (default 0: hard cuts)")
@@ -463,7 +464,7 @@ def _soundtrack(args: argparse.Namespace):
     music = tuple(resolve_sound(spec, "bgm", library) for spec in args.bgm or ())
     effects = tuple(Effect.parse(spec, library) for spec in args.sfx or ())
     return Soundtrack(music=music, effects=effects, under=args.bgm_under, volume=args.bgm_volume, duck=not args.no_duck,
-                      music_start=args.bgm_start, effect_under=args.sfx_under, snap=not args.no_sfx_snap)
+                      music_start=args.bgm_start, effect_under=args.sfx_under, snap=not args.no_sfx_snap, effect_gap=args.sfx_gap)
 
 
 def _make_clips(args: argparse.Namespace, highlights) -> int:
@@ -546,7 +547,9 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
               + (f"  ({r.removed:.1f} s of silence removed)" if r.removed else "")
-              + ("  (" + ", ".join(f"{s.sound.label} {s.at:.1f}s" for s in r.sounds) + ")" if r.sounds else ""))
+              + ("  (" + ", ".join(f"{s.sound.label} {s.at:.1f}s" + (f" moved {s.moved:+.1f}" if s.moved else "") for s in r.sounds) + ")" if r.sounds else ""))
+        for reason in r.skipped_sounds:
+            print(f"    left out: {reason}")
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")

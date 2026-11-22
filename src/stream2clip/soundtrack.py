@@ -52,7 +52,9 @@ __all__ = [
     "library_dir",
     "measure",
     "onset_near",
+    "place_effect",
     "plan_mix",
+    "sounding_spans",
     "render_builtin",
     "resolve_sound",
     "synth",
@@ -574,6 +576,41 @@ def onset_near(samples: np.ndarray, rate: int, moment: float, *, before: float =
     return round(best * 0.02, 3)
 
 
+def sounding_spans(samples: np.ndarray, rate: int, *, spread: float = 20.0, pause: float = 0.25) -> list[tuple[float, float]]:
+    """Where something is said (or shouted) in a recording: (start, end) seconds of the stretches within
+    ``spread`` dB of its loud parts, joined across pauses shorter than ``pause`` seconds.
+
+    Effects keep out of these (:func:`place_effect`): YouTube's automatic captions put their lines back to
+    back, so a gap between caption lines is rarely a pause in the talk, while the sound itself shows one.
+    """
+    hop = max(1, int(round(0.05 * rate)))
+    count = len(samples) // hop
+    if count == 0:
+        return []
+    frames = np.asarray(samples[: count * hop], dtype=np.float64).reshape(count, hop)
+    db = 10.0 * np.log10(np.maximum(np.mean(frames * frames, axis=1), 1e-12))
+    loud = float(np.percentile(db, 95))
+    if loud <= -70.0:
+        return []
+    active = db >= loud - spread
+    spans: list[tuple[float, float]] = []
+    i = 0
+    while i < count:
+        if not active[i]:
+            i += 1
+            continue
+        j = i
+        while j < count and active[j]:
+            j += 1
+        start, end = i * 0.05, j * 0.05
+        if spans and start - spans[-1][1] < pause:
+            spans[-1] = (spans[-1][0], end)
+        else:
+            spans.append((start, end))
+        i = j
+    return [(round(a, 2), round(b, 2)) for a, b in spans]
+
+
 def measure(path: str | os.PathLike[str], *, start: float | None = None, duration: float | None = 90.0, track: int | None = None, ffmpeg: str | None = None) -> tuple[float, float]:
     """(active level in dBFS, length in seconds of what was read) of a media file, decoded by ffmpeg at 16 kHz."""
     from .audio import decode_pcm
@@ -629,8 +666,12 @@ class Soundtrack:
     fade_out: float = 1.5
     effect_under: float = 3.0
     effect_volume: float | None = None
-    #: Move an effect at the peak to the nearest sharp rise in the clip's sound (see :func:`onset_near`).
+    #: Fit effects to the sound: one at the peak onto the nearest sharp rise (:func:`onset_near`), the others
+    #: out of the middle of talk (:func:`place_effect`). ``False`` puts each exactly where it was asked for.
     snap: bool = True
+    #: Seconds kept between the hits of two effects in one clip (0: none). An effect too close to one placed
+    #: before it (in the order given) moves by up to ``EFFECT_SHIFT`` seconds, or is left out.
+    effect_gap: float = 3.0
 
     def __post_init__(self) -> None:
         if any(s.kind != "bgm" for s in self.music):
@@ -639,6 +680,8 @@ class Soundtrack:
             raise ValueError("under is a number of dB in 0..40")
         if self.music_start < 0:
             raise ValueError("music_start is seconds into the track")
+        if self.effect_gap < 0:
+            raise ValueError("effect_gap is seconds, not negative")
 
     def __bool__(self) -> bool:
         return bool(self.music or self.effects)
@@ -656,14 +699,24 @@ _NO_VOICE = -20.0
 _DUCK_BELOW = 22.0
 
 
+#: How far an effect may move from where it was asked for to keep its distance from another effect.
+EFFECT_SHIFT = 1.5
+#: How far an effect may move to land between two subtitle lines instead of inside one.
+LINE_SHIFT = 0.75
+
+
 @dataclass
 class PlannedSound:
     sound: Sound
     at: float
     gain: float
+    #: Seconds the effect was moved from where it was asked for (spacing, a gap between lines).
+    moved: float = 0.0
 
     def to_dict(self) -> dict:
         data = {"name": self.sound.label, "kind": self.sound.kind, "at": round(self.at, 2), "gain": round(self.gain, 1), "license": self.sound.license or None}
+        if self.moved:
+            data["moved"] = round(self.moved, 2)
         if self.sound.credit_line():
             data["credit"] = self.sound.credit_line()
         return data
@@ -673,6 +726,38 @@ class PlannedSound:
 class MixPlan:
     mix: AudioMix
     sounds: list[PlannedSound] = field(default_factory=list)
+    #: Effects left out of this clip, with why (too close to another, after the end).
+    skipped: list[str] = field(default_factory=list)
+
+
+def _inside(t: float, spans: "Sequence[tuple[float, float]]") -> bool:
+    return any(a + 0.05 < t < b - 0.05 for a, b in spans)
+
+
+def place_effect(
+    wanted: float, taken: "Sequence[float]", *, gap: float, low: float, high: float, lines: "Sequence[tuple[float, float]]" = (), on_sound: bool = False,
+) -> float | None:
+    """Where an effect's hit goes: near ``wanted``, ``gap`` seconds or more from every hit in ``taken``,
+    within ``low``..``high``; ``None`` when there is no such place within ``EFFECT_SHIFT`` seconds.
+
+    Then, unless the moment is a sound's start (``on_sound``: the effect belongs on that shout), a
+    hit that falls inside a stretch of talk (``lines``, (start, end) seconds: :func:`sounding_spans`,
+    or subtitle lines) moves to the nearest end or start of one within ``LINE_SHIFT`` seconds, so it
+    does not cover a word.
+    """
+    def free(t: float) -> bool:
+        return low - 1e-6 <= t <= high + 1e-6 and all(abs(t - other) >= gap - 1e-6 for other in taken)
+
+    candidates = [wanted] + [other + side * gap for other in taken for side in (1, -1)]
+    fits = [t for t in candidates if free(t) and abs(t - wanted) <= EFFECT_SHIFT + 1e-6]
+    if not fits:
+        return None
+    hit = min(fits, key=lambda t: (abs(t - wanted), t))
+    if lines and not on_sound and _inside(hit, lines):
+        edges = [edge for span in lines for edge in span if abs(edge - hit) <= LINE_SHIFT and free(edge) and not _inside(edge, lines)]
+        if edges:
+            hit = min(edges, key=lambda t: abs(t - hit))
+    return hit
 
 
 def _gain(target: float, level: float) -> float:
@@ -686,6 +771,8 @@ def plan_mix(
     length: float,
     voice_level: float | None,
     peak: float | None = None,
+    peak_on_sound: bool = False,
+    lines: "Sequence[tuple[float, float]]" = (),
     reactions: "dict[str, float] | None" = None,
     levels: Callable[[Sound], tuple[float, float]],
     path_of: Callable[[Sound], "str | os.PathLike[str]"] = lambda s: s.path,
@@ -693,9 +780,12 @@ def plan_mix(
     """The mix of clip number ``index`` (0 first), ``length`` seconds long.
 
     ``voice_level`` is the active level of the clip's own sound (``None``: the clip has none).
-    ``peak`` is the highlight's top moment in seconds from the clip's start, ``reactions`` its
-    statistics (``react_laugh`` ...) for the ``auto`` effect. ``levels(sound)`` returns (active
-    level, length) of a sound; ``path_of(sound)`` the file ffmpeg reads.
+    ``peak`` is the highlight's top moment in seconds from the clip's start (``peak_on_sound``:
+    it was moved onto the start of a sound, see :func:`onset_near`), ``reactions`` its
+    statistics (``react_laugh`` ...) for the ``auto`` effect, ``lines`` the (start, end) of its
+    subtitle lines. Effects are placed in the order given, each kept ``effect_gap`` seconds
+    from the ones before it (:func:`place_effect`). ``levels(sound)`` returns (active level,
+    length) of a sound; ``path_of(sound)`` the file ffmpeg reads.
     """
     if not soundtrack or length <= 0:
         return None
@@ -711,6 +801,8 @@ def plan_mix(
         layers.append(AudioLayer(path_of(music), gain=gain, offset=soundtrack.music_start, loop=True, fade_in=soundtrack.fade_in,
                                  fade_out=soundtrack.fade_out, duck=soundtrack.duck and has_voice, duck_threshold=threshold))
         planned.append(PlannedSound(music, 0.0, gain))
+    hits: list[float] = []
+    skipped: list[str] = []
     for effect in soundtrack.effects:
         sound = builtin_sound(effect_for(reactions)) if effect.sound.builtin and effect.sound.name == AUTO_EFFECT else effect.sound
         level, seconds = levels(sound)
@@ -723,13 +815,23 @@ def plan_mix(
             at = moment - sound.hit
         at = max(0.0, at)
         if at >= length - 0.05:
-            continue  # after the end of this clip
+            skipped.append(f"{sound.label}: after the end")
+            continue
+        on_sound = effect.when == "peak" and peak_on_sound
+        last = length - min(0.3, max(0.05, seconds)) + sound.hit  # at least 0.3 s of it (or all of a shorter one) before the end
+        hit = place_effect(at + sound.hit, hits, gap=soundtrack.effect_gap, low=sound.hit, high=last, lines=lines if soundtrack.snap else (), on_sound=on_sound)
+        if hit is None:
+            skipped.append(f"{sound.label}: within {soundtrack.effect_gap:g} s of another effect")
+            continue
+        hits.append(hit)
+        moved = round(hit - sound.hit - at, 3)
+        at = round(hit - sound.hit, 3)
         gain = soundtrack.effect_volume if soundtrack.effect_volume is not None else _gain(voice - soundtrack.effect_under, level)
-        layers.append(AudioLayer(path_of(sound), gain=gain, at=round(at, 3)))
-        planned.append(PlannedSound(sound, at, gain))
+        layers.append(AudioLayer(path_of(sound), gain=gain, at=at))
+        planned.append(PlannedSound(sound, at, gain, moved=moved))
     if not layers:
         return None
-    return MixPlan(AudioMix(tuple(layers), length=length, voice=voice_level is not None), planned)
+    return MixPlan(AudioMix(tuple(layers), length=length, voice=voice_level is not None), planned, skipped)
 
 
 # --------------------------------------------------------------------------- credits and checks

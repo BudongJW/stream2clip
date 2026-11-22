@@ -40,6 +40,8 @@ class ClipResult:
     removed: float = 0.0
     #: Music and sound effects laid over the clip (``soundtrack``), with where they start and their gain.
     sounds: "list[PlannedSound]" = field(default_factory=list)
+    #: Effects left out of the clip, with why (too close to another, after the end).
+    skipped_sounds: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         data = {
@@ -52,6 +54,8 @@ class ClipResult:
         }
         if self.sounds:
             data["sounds"] = [s.to_dict() for s in self.sounds]
+        if self.skipped_sounds:
+            data["sounds_skipped"] = list(self.skipped_sounds)
         return data
 
 
@@ -462,25 +466,30 @@ def make_clips(
                     credit=credit, credit_position=credit_position, duration=length,
                 )
                 opts = replace(opts, subtitles=sub_path)
-            planned = []
+            planned, skipped = [], []
             if sounds is not None:
-                from .soundtrack import onset_near, plan_mix
+                from .soundtrack import onset_near, plan_mix, sounding_spans
                 from .subtitles import clip_time
 
                 heard = sounds.voice(clip_video, opts.start or 0.0, h.end - h.start)
-                peak = min(max(0.0, h.peak - h.start), h.end - h.start)
+                peak = chat_peak = min(max(0.0, h.peak - h.start), h.end - h.start)
                 if heard is not None and sounds.soundtrack.snap and any(e.when == "peak" for e in sounds.soundtrack.effects):
                     peak = onset_near(heard[1], 16000, peak)
+                if heard is not None:  # where the talk is, from the sound itself, on the clip's (shortened) clock
+                    talk = [(clip_time(a, keep), clip_time(b, keep)) if keep else (a, b) for a, b in sounding_spans(heard[1], 16000)]
+                else:
+                    talk = [(c.start, c.end) for c in clip_cues or []]
                 plan = plan_mix(
                     sounds.soundtrack, index - 1, length=length, voice_level=heard[0] if heard is not None else None,
-                    peak=clip_time(peak, keep) if keep else peak, reactions=h.stats, levels=sounds.levels, path_of=sounds.path_of,
+                    peak=clip_time(peak, keep) if keep else peak, peak_on_sound=peak != chat_peak, lines=[span for span in talk if span[1] > span[0]],
+                    reactions=h.stats, levels=sounds.levels, path_of=sounds.path_of,
                 )
                 if plan is not None:
                     opts = replace(opts, mix=plan.mix)
-                    planned = plan.sounds
+                    planned, skipped = plan.sounds, plan.skipped
 
             clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
-            result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned)
+            result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped)
             if source is not None:
                 used = [p.sound for p in planned]
                 text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used))

@@ -166,14 +166,54 @@ def test_music_sits_under_the_clip_and_tracks_take_turns():
 
 def test_effects_land_on_their_moment():
     boom, whoosh = builtin_sound("boom"), builtin_sound("whoosh")
-    track = Soundtrack(effects=(Effect(boom, "peak"), Effect(whoosh, "peak"), Effect(boom, "start"), Effect(boom, "end"), Effect(boom, 30.0)))
+    track = Soundtrack(effects=(Effect(boom, "peak"), Effect(whoosh, "peak"), Effect(boom, "start"), Effect(boom, "end"), Effect(boom, 30.0)), effect_gap=0)
     plan = plan_mix(track, 0, length=10.0, voice_level=-20.0, peak=4.0, levels=fixed_levels(-10.0, 1.1))
     assert [round(p.at, 2) for p in plan.sounds] == [4.0, 3.7, 0.0, 8.9]  # the whoosh swells into the peak; 30 s is past the end
+    assert plan.skipped == ["boom: after the end"]
     assert plan.sounds[0].gain == -13.0  # 3 dB under the clip's -20 dB
     auto = plan_mix(Soundtrack(effects=(Effect(builtin_sound("auto")),)), 0, length=10.0, voice_level=-20.0, peak=2.0, reactions={"react_shock": 5}, levels=fixed_levels())
     assert auto.sounds[0].sound.name == "boom"
     with pytest.raises(ValueError):
         Effect(boom, "middle")
+
+
+def test_effects_keep_their_distance():
+    boom, pop, whoosh = builtin_sound("boom"), builtin_sound("pop"), builtin_sound("whoosh")
+    track = Soundtrack(effects=(Effect(boom, "peak"), Effect(pop, 5.5), Effect(whoosh, "peak"), Effect(pop, "start"), Effect(pop, "end")))
+    plan = plan_mix(track, 0, length=12.0, voice_level=-20.0, peak=4.0, levels=fixed_levels(-10.0, 0.14))
+    assert [(p.sound.name, p.at, p.moved) for p in plan.sounds] == [("boom", 4.0, 0.0), ("pop", 7.0, 1.5), ("pop", 0.0, 0.0), ("pop", 11.86, 0.0)]
+    assert plan.skipped == ["whoosh: within 3 s of another effect"]  # 3 s away from the boom is more than it may move
+    hits = sorted(p.at + p.sound.hit for p in plan.sounds)
+    assert min(b - a for a, b in zip(hits, hits[1:])) >= 3.0 - 1e-6
+
+
+def test_effects_land_between_subtitle_lines():
+    from stream2clip.soundtrack import place_effect
+
+    lines = [(1.0, 3.0), (3.4, 6.0)]
+    assert place_effect(2.8, [], gap=3.0, low=0.0, high=10.0, lines=lines) == 3.0  # the end of the line, 0.2 s later
+    assert place_effect(2.0, [], gap=3.0, low=0.0, high=10.0, lines=lines) == 2.0  # mid-line, no edge within 0.75 s: stays
+    assert place_effect(2.8, [], gap=3.0, low=0.0, high=10.0, lines=lines, on_sound=True) == 2.8  # on the shout itself: stays
+    assert place_effect(3.2, [], gap=3.0, low=0.0, high=10.0, lines=lines) == 3.2  # already between lines
+    assert place_effect(5.0, [3.0], gap=3.0, low=0.0, high=10.0) == 6.0
+    assert place_effect(5.0, [3.0, 8.0], gap=3.0, low=0.0, high=10.0) is None
+    assert place_effect(9.5, [], gap=3.0, low=0.0, high=9.0) is None  # past the end, and nothing to step aside from
+    plan = plan_mix(Soundtrack(effects=(Effect(builtin_sound("ding"), 2.8),)), 0, length=10.0, voice_level=-20.0, lines=lines, levels=fixed_levels())
+    assert (plan.sounds[0].at, plan.sounds[0].moved) == (3.0, 0.2)
+    exact = plan_mix(Soundtrack(effects=(Effect(builtin_sound("ding"), 2.8),), snap=False), 0, length=10.0, voice_level=-20.0, lines=lines, levels=fixed_levels())
+    assert exact.sounds[0].at == 2.8  # asked to stay where it was put
+    snapped = plan_mix(Soundtrack(effects=(Effect(builtin_sound("ding")),)), 0, length=10.0, voice_level=-20.0, peak=2.8, peak_on_sound=True, lines=lines, levels=fixed_levels())
+    assert snapped.sounds[0].at == 2.8
+
+
+def test_talk_is_found_in_the_sound():
+    from stream2clip.soundtrack import sounding_spans
+
+    rate = 16000
+    quiet = np.zeros(int(0.1 * rate), dtype=np.float32)
+    talk = np.concatenate([tone(300, 1.0, rate=rate), np.zeros(rate, dtype=np.float32), tone(300, 0.5, rate=rate), quiet, tone(300, 0.5, rate=rate)])
+    assert sounding_spans(talk, rate) == [(0.0, 1.0), (2.0, 3.1)]  # a 0.1 s breath does not split a line
+    assert sounding_spans(np.zeros(rate, dtype=np.float32), rate) == [] and sounding_spans(np.zeros(10, dtype=np.float32), rate) == []
 
 
 def test_effect_specs_from_the_command_line(tmp_path):
@@ -380,9 +420,9 @@ def test_clip_options_build_a_soundtrack(tmp_path):
 
     song = write_wav(tone(500, 0.5), tmp_path / "song.wav")
     args = build_parser().parse_args(["clips", "v.mp4", "--highlights", "h.json", "-o", str(tmp_path), "--bgm", str(song), "--bgm-under", "15", "--no-duck",
-                                      "--sfx", "auto", "--sfx", "whoosh@start", "--sounds", str(tmp_path / "lib")])
+                                      "--sfx", "auto", "--sfx", "whoosh@start", "--sfx-gap", "2", "--sounds", str(tmp_path / "lib")])
     track = _soundtrack(args)
-    assert track.music[0].path == song and track.under == 15.0 and not track.duck
+    assert track.music[0].path == song and track.under == 15.0 and not track.duck and track.effect_gap == 2.0
     assert [(e.sound.name, e.when) for e in track.effects] == [("auto", "peak"), ("whoosh", "start")]
     assert _soundtrack(build_parser().parse_args(["clips", "v.mp4", "--highlights", "h.json", "-o", str(tmp_path)])) is None
 
@@ -489,9 +529,13 @@ def test_peak_effect_lands_on_the_shout(tmp_path):
         check=True,
     )
     h = Highlight(1, 0.0, 4.0, 2.0, 1.0)
-    snapped = make_clips(video, [h], tmp_path / "a", options=ExportOptions(format="mp4", fps=10), soundtrack=Soundtrack(effects=(Effect(builtin_sound("pop")),)))
+    crowded = Soundtrack(effects=(Effect(builtin_sound("pop")), Effect(builtin_sound("ding"), 1.0)))
+    snapped = make_clips(video, [h], tmp_path / "a", options=ExportOptions(format="mp4", fps=10), soundtrack=crowded)
     exact = make_clips(video, [h], tmp_path / "b", options=ExportOptions(format="mp4", fps=10), soundtrack=Soundtrack(effects=(Effect(builtin_sound("pop")),), snap=False))
     assert snapped[0].sounds[0].at == pytest.approx(1.3, abs=0.1) and exact[0].sounds[0].at == 2.0
+    assert [s.sound.name for s in snapped[0].sounds] == ["pop"] and snapped[0].skipped_sounds == ["ding: within 3 s of another effect"]
+    index = json.loads((tmp_path / "a" / "clips.json").read_text(encoding="utf-8"))
+    assert index["clips"][0]["sounds_skipped"] == ["ding: within 3 s of another effect"]
 
 
 # --------------------------------------------------------------------------- Openverse
