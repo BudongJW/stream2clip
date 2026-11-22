@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.14.1-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.15.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-578-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-605-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -106,6 +106,7 @@ stream2clip auto "방송 주소" --top 5 -o clips
 
 | &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 주요 변경 |
 |:---:|---|
+| v0.15 | 배경 음악, 효과음: 무료 음원을 클립 소리 아래에 깔고 말하는 동안 줄임, 내장 효과음 5종, 음원 목록의 출처와 라이선스로 설명란 크레디트와 점검 |
 | v0.14 | 방송 기록기: 방송 중 채팅, 표시, OBS 장면, VTube Studio 아바타 기록, 세션 파일로 하이라이트 검출과 아바타 영역 지정 |
 | v0.13 | 앱의 구성요소 점검 창 |
 | v0.12 | 무음 구간 제거(`--trim-silence`), 앱의 새 버전 알림 |
@@ -155,6 +156,7 @@ stream2clip auto "방송 주소" --top 5 -o clips
 | 방송 기록기 | 방송 중 채팅, 스트리머 표시(버튼, F11, VTube Studio 단축키), OBS 장면과 송출 시작, VTube Studio 아바타 외곽선과 파라미터를 세션 파일로 기록. 방송 후 채팅 다시보기 없이 하이라이트 검출, 대기 화면 장면 제외, 아바타 영역 자동 지정 |
 | YouTube 업로드 | 제작한 클립과 설명란을 YouTube에 업로드. 공개 범위 기본값은 비공개 |
 | 모음 영상, 출처 표기 | 클립을 이어 붙인 모음 영상과 챕터 목록 제작, 클립 구석에 원본 채널 표기 |
+| 배경 음악, 효과음 | 직접 내려받은 무료 음원을 클립 소리 아래에 깔고 말하는 동안 자동으로 줄임. 코드로 만드는 내장 효과음 5종(크레디트 불필요)을 최고 순간, 시작, 끝에 배치. 음원 목록에 기록한 출처와 라이선스로 설명란 크레디트 작성과 업로드 전 점검 |
 | 편집 프로그램 연계 | 하이라이트를 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내어 DaVinci Resolve, Premiere Pro 등에서 이어서 편집 |
 
 ### 이식
@@ -454,6 +456,52 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VID
 - 앱: 하이라이트 창의 **조용한 부분 줄이기** 선택 후 **클립 내보내기**
 - 실제 방송 1개의 클립 4개 기준 길이의 29% 단축. 음성 인식으로 찾은 발화 시간 중 3.6%가 제거 구간에 포함(277개 단어 중 5개). 게시 전 결과 확인 필요
 
+### 배경 음악, 효과음
+
+직접 내려받은 무료 음원을 클립에 깔고 효과음을 넣음. 음원 파일은 저장소와 설치 프로그램에 포함하지 않으며 내장 효과음은 프로그램이 직접 합성
+
+```bash
+stream2clip sounds add Downloads/cafe.mp3 --name cafe --license otologic --title "Cafe" --url https://otologic.jp/free/bgm/
+```
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --info vod/info.json --bgm cafe --sfx auto -o clips
+```
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
+|:---:|---|
+| `--bgm 파일 또는 이름` | 클립 소리 아래에 배경 음악 재생. 클립보다 짧으면 반복, 시작 0.5초 페이드 인, 끝 1.5초 페이드 아웃. 여러 번 지정 시 클립마다 차례로 사용 |
+| `--bgm-under dB` | 클립 소리보다 낮출 크기(기본값 12). 클립마다 소리 크기를 측정하여 계산 |
+| `--bgm-volume dB` | 측정 대신 고정 음량 지정 |
+| `--bgm-start 초` | 곡의 해당 위치부터 재생(전주 건너뛰기) |
+| `--no-duck` | 말하는 동안 음악을 더 줄이는 처리(덕킹) 끄기 |
+| `--sfx 이름@때` | 효과음 배치. 이름은 내장 효과음, `auto`, 음원 목록의 이름, 파일. 때는 `peak`(기본값, 하이라이트의 최고 순간), `start`, `end`, 초. 여러 번 지정 가능 |
+| `--sfx-under dB` | 클립 소리보다 낮출 크기(기본값 3) |
+| `--sounds 폴더` | 음원 목록 폴더(기본값: 앱 설정 폴더의 `sounds`) |
+
+| 내&NoBreak;장&nbsp;효&NoBreak;과&NoBreak;음 | 소리 |
+|:---:|---|
+| `pop` | 짧게 떨어지는 음 |
+| `ding` | 종소리 |
+| `whoosh` | 바람 소리. 소리가 가장 커지는 지점을 최고 순간에 맞춤 |
+| `boom` | 낮게 울리는 타격음 |
+| `sparkle` | 높고 짧은 음의 연속 |
+| `auto` | 하이라이트의 채팅 반응으로 선택. 웃음 `pop`, 놀람 `boom`, 귀여움 `sparkle`, 환호와 그 외 `ding` |
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 음원 목록 | `sounds add`로 파일, 출처 주소, 제목, 작가, 라이선스, 크레디트 문구를 `sounds.json`에 기록. `sounds list`, `sounds remove`, `sounds licenses`(라이선스 키와 공식 원문 주소), `sounds builtin`(내장 효과음 WAV 저장) |
+| 크레디트 | 설명란에 `BGM, 효과음` 항목 추가. 사이트가 정한 문구가 있으면 그 문구, 없으면 제목, 작가, 출처, 라이선스 순서. 모음 영상의 `compilation.txt`에도 포함 |
+| 라이선스 점검 | 변경 금지(ND), 영상 생성 프로그램에서의 사용 금지(Bensound 무료), 영상 사이트 게시 금지(BBC) 음원은 오류. 비영리(NC), 라이선스 미기록, 크레디트 정보 누락은 경고. 1분이 넘는 클립의 외부 음원은 경고(소유권 주장이 걸린 1분 초과 Shorts는 전 세계 차단) |
+| 소리 처리 | 음악과 효과음을 48kHz 스테레오로 맞춘 후 `amix`(`normalize=0`)로 합성하여 클립 소리 크기 유지. `sidechaincompress`로 덕킹, `alimiter`로 -1dBFS 이하 유지. ffmpeg 4.4 이상 |
+| 무음 구간 제거와 함께 사용 | 조용한 부분을 먼저 줄인 후 남은 길이에 음악을 깔고, 최고 순간 효과음은 줄어든 위치로 이동 |
+| 기록 | `clips.json`의 `sounds`에 클립별 음원, 시작 위치, 음량, 크레디트 기록 |
+
+- 앱: 하이라이트 창의 **배경 음악**에 파일 또는 음원 목록의 이름 입력, **효과음**과 넣을 때 선택 후 **클립 내보내기**. MP4, WebM에서 사용
+- 지원 라이선스 키: Creative Commons(CC0, BY, BY-SA, BY-NC, BY-ND 계열), YouTube 오디오 보관함, Pixabay, Incompetech, Uppbeat, Mixkit, Sonniss GDC, Bensound 무료, BBC RemArc, OpenTracks(구 DOVA-SYNDROME), 효과음 라보, 마왕혼, OtoLogic, 아마차 음악 공방, 포켓 사운드, 고모리 다이라, Springin' Sound Stock, 브금대통령, 셀바이뮤직 무료, 직접 제작 또는 구매(`own`)
+- 라이선스 점검은 점검 목록이며 법적 판단이 아님. 음원 사이트의 약관은 바뀔 수 있으므로 내려받을 때 원문 확인 필요
+- 조사 자료: [무료 BGM, 효과음 레퍼런스](reports/무료%20BGM%20효과음%20레퍼런스.md)
+
 ### 편집 프로그램용 내보내기
 
 찾은 하이라이트를 편집 프로그램에서 이어서 작업할 수 있도록 컷 목록과 타임스탬프 목록으로 저장
@@ -736,7 +784,7 @@ Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방�
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 578개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 605개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -905,8 +953,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.14.1-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.14.1-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
+| `dist/stream2clip-0.15.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.15.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -1007,6 +1055,7 @@ stream2clip gui
 | `language` | 앱 시작 시 적용되는 화면 언어 표시 |
 | `setup` | 기능별 필요 구성요소의 유무와 해결 방법 표시. `--ffmpeg`로 ffmpeg 내려받기 |
 | `compile` | 제작한 클립을 이어 붙인 모음 영상과 챕터 목록 제작 |
+| `sounds` | 배경 음악, 효과음 음원 목록 관리(추가, 목록, 삭제), 라이선스 키 목록, 내장 효과음 WAV 저장 |
 | `timeline` | 하이라이트를 편집 프로그램용 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내기 |
 
 전체 옵션: `stream2clip <명령> --help`
@@ -1187,6 +1236,7 @@ src/stream2clip/
 ├── handoff.py     편집 프로그램용 내보내기: EDL 컷 목록, 타임라인 마커, 타임스탬프 목록
 ├── updates.py     새 버전 확인 (GitHub 최신 릴리즈 번호 조회)
 ├── pipeline.py    하이라이트에서 완성 클립 일괄 생성
+├── soundtrack.py  배경 음악, 효과음: 내장 효과음 합성, 음원 목록, 음량 계획, 크레디트, 라이선스 점검
 ├── capture/       캡처 백엔드 (mss, numpy 배열, 플러그인) + 커서 합성
 ├── editor/        주석 모델, 렌더러, 되돌리기, JSON 직렬화
 ├── record/        실시간 영역 녹화 (무손실 FFV1 중간 파일을 원하는 포맷으로 변환)
@@ -1324,7 +1374,7 @@ python packaging/build_brand.py
 
 ### 예정
 
-| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 화면 언어 | 일본어, 영어 문구의 원어민 검수. 명령줄의 진행 출력은 영어만 제공 |
 | 가이드라인 | 한국 기획사 프로필. 공식 원문이 확인된 곳부터 추가(스텔라이브, 이세계아이돌은 원문 미확보) |
@@ -1333,11 +1383,12 @@ python packaging/build_brand.py
 | 실서비스 검증 | 실제 YouTube 업로드, Holodex API 키 사용 검증 |
 | 편집 연계 | 편집 프로그램에서의 EDL 가져오기 실측, FCPXML 내보내기, 말소리 인식 기반의 무음 구간 판정 |
 | 검출 신호 | SOOP 구독 및 팔로우 알림, Streamer.bot 이벤트, 사용자가 연결하는 판정 플러그인(LLM 등) |
+| 배경 음악, 효과음 | 2단계 `loudnorm` 음량 정규화(-14 LUFS), Openverse에서 CC 음원 검색, 하이라이트 창의 음원 목록 편집, 실제 방송 클립에서의 덕킹 값 청취 평가 |
 
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 49건</b></summary>
+<summary><b>버전별 완료 항목 50건</b></summary>
 
 <br>
 
@@ -1392,6 +1443,7 @@ python packaging/build_brand.py
 | v0.14 | 세션 파일 사용: `--session`으로 하이라이트 검출, `--skip-scene`으로 장면 제외, `--avatar session`으로 아바타 영역 지정, `session show` |
 | v0.14 | CHZZK 공식 Open API 수신(`chzzk login`, `--chat chzzk-api`), 시청자 `!clip` 투표 표시 |
 | v0.10 | 구성요소 점검 명령(`setup`): 기능별 필요 구성요소의 유무와 해결 방법 |
+| v0.15 | 배경 음악, 효과음(`--bgm`, `--sfx`, `sounds`, 하이라이트 창): 덕킹, 내장 효과음 5종, 음원 목록의 출처와 라이선스로 크레디트와 점검 |
 
 </details>
 
