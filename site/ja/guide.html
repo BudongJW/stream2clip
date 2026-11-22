@@ -248,6 +248,8 @@
         <tbody>
           <tr><th scope="row">出典表記</th><td>入力した文言をクリップの左上に小さく表示。例: 元配信: チャンネル名</td></tr>
           <tr><th scope="row">BGM、効果音</th><td>BGM に自分でダウンロードした音源ファイル、または音源リストの名前を入力。クリップの音の下に流れ、話している間はさらに下がる。効果音は内蔵の5種類、または自動 (チャットの反応に合わせる) を最高潮、最初、最後に配置。音源の出典とライセンスを <code>stream2clip sounds add</code> で記録すると概要欄のクレジットと点検に使用。MP4、WebM で使用</td></tr>
+          <tr><th scope="row">音源リスト</th><td>BGM の行のリストから、ダウンロードしたファイルをライセンス、タイトル、作者、URL、クレジット文言と一緒に追加。入力中に概要欄のクレジットと点検結果を表示。選んだ曲は BGM として使用</td></tr>
+          <tr><th scope="row">音量</th><td>-14 LUFS に合わせるを選ぶと、クリップの音を YouTube の基準音量に合わせる。一度測定してから一定に調整 (MP4、WebM)</td></tr>
           <tr><th scope="row">静かな部分を短縮</th><td>クリップ内で 0.7 秒を超えて静かな部分を短い間に短縮。字幕も一緒に移動。音量で判定するため、投稿前に結果を確認</td></tr>
           <tr><th scope="row">まとめ動画</th><td>選択すると、書き出したクリップを配信の順につないだ <code>compilation.mp4</code> とチャプター一覧 <code>compilation.txt</code> も保存</td></tr>
           <tr><th scope="row">編集用に書き出し</th><td>チェックした区間をカットリスト <code>highlights.edl</code>、タイムラインマーカー <code>markers.edl</code>、タイムスタンプ一覧 <code>timestamps.txt</code> として保存。DaVinci Resolve、Premiere Pro などで読み込んで編集を継続</td></tr>
