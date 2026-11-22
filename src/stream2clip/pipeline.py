@@ -42,11 +42,16 @@ class ClipResult:
     sounds: "list[PlannedSound]" = field(default_factory=list)
     #: Effects left out of the clip, with why (too close to another, after the end).
     skipped_sounds: list[str] = field(default_factory=list)
+    #: A suggested title (the line at the peak and a bracket tag, see :mod:`stream2clip.titles`) and hashtags.
+    title: str = ""
+    hashtags: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         data = {
             **self.highlight.to_dict(),
             "file": self.path.name,
+            "title": self.title or None,
+            "hashtags": list(self.hashtags),
             "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
@@ -377,6 +382,8 @@ def make_clips(
     audio_track: int | None = None,
     soundtrack: "Soundtrack | None" = None,
     loudness: float | None = None,
+    title_template: str | None = None,
+    add_hashtags: bool = True,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -391,6 +398,10 @@ def make_clips(
 
     ``loudness`` brings each clip's finished sound to that many LUFS (YouTube turns louder
     videos down to about -14 and leaves quieter ones as they are), measured in a first pass.
+
+    Every clip gets a suggested title in the language of its subtitles (:func:`stream2clip.titles.clip_title`;
+    ``title_template`` changes its form) and, with ``add_hashtags``, three hashtags at the end of
+    its description.
 
     ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
     dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
@@ -490,9 +501,13 @@ def make_clips(
 
             clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
             result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped)
+            named = _title_for(h, clip_cues or [], keep, source, profile, language=language, translate_to=translate_to if subtitle_translator else None,
+                               glossary=glossary if subtitle_translator else None, template=title_template)
+            result.title, result.hashtags = named.title, (named.hashtags if add_hashtags else ())
             if source is not None:
                 used = [p.sound for p in planned]
-                text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used))
+                text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used),
+                                         hashtags=result.hashtags)
                 result.description = out / f"{stem}.txt"
                 result.description.write_text(text, encoding="utf-8")
                 result.issues = check_upload(source, profile, description=text, registered=registered, uses_ai=ai, sounds=used, length=length)
@@ -510,6 +525,20 @@ def make_clips(
     }
     (out / "clips.json").write_text(json.dumps(index_data, ensure_ascii=False, indent=2), encoding="utf-8")
     return results
+
+
+def _title_for(h: Highlight, cues: "Sequence[Cue]", keep, source: SourceInfo | None, profile: AgencyProfile | None, *, language: str | None,
+               translate_to: str | None, glossary: "Glossary | None", template: str | None):
+    """The suggested title of one clip: the line at its peak (on the clip's own, possibly shortened, clock) and a tag."""
+    from .subtitles import clip_time
+    from .titles import AGENCY_NAMES, clip_title, title_language
+
+    peak = min(max(0.0, h.peak - h.start), h.end - h.start)
+    stream_title = source.title if source is not None else ""
+    lang = title_language(translate_to=translate_to, language=language, cues=cues, fallback=stream_title)
+    agency = profile.key if profile is not None and profile.key in AGENCY_NAMES else None
+    return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=source.channel if source is not None else "",
+                      stream_title=stream_title, agency=agency, language=lang, glossary=glossary, template=template, translated=translate_to is not None)
 
 
 def _credits(sounds: "Sequence[Sound]") -> list[str]:

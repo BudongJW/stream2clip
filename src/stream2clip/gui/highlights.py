@@ -1443,7 +1443,7 @@ class HighlightsWindow(QMainWindow):
             video = str(clip.path)
             if clip.description is not None and clip.description.is_file():
                 description = clip.description.read_text(encoding="utf-8")
-        title = str((self.result.source or {}).get("title", "")) if self.result is not None else ""
+        title = clip.title if clip is not None and clip.title else (str((self.result.source or {}).get("title", "")) if self.result is not None else "")
         self.upload_dialog = UploadDialog(video, title=title, description=description, parent=self)
         self.upload_dialog.dialogs = self.dialogs
         self.upload_dialog.show()
