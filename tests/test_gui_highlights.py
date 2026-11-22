@@ -755,12 +755,13 @@ def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, st
     monkeypatch.setattr(pipeline, "find_highlights", lambda *args, **kwargs: seen.update(find=kwargs) or find(*args, **kwargs))
     monkeypatch.setattr(pipeline, "make_clips", lambda *args, **kwargs: seen.update(make=kwargs) or make(*args, **kwargs))
 
-    assert window.preset_combo.currentData() == "shorts" and not window.context_check.isChecked()
+    assert window.preset_combo.currentData() == "shorts" and not window.context_check.isChecked() and window.karaoke_check.isChecked()
     window.apply_preset("long")
     assert window.layout_combo.currentData() == "none" and window.compile_check.isChecked() and window.top_spin.value() == 6
     window.apply_preset("clip")
     assert window.layout_combo.currentData() == "none" and not window.compile_check.isChecked()
     assert window.context_check.isChecked() and window.top_spin.value() == 8
+    assert not window.karaoke_check.isChecked()  # horizontal clips: sentence captions
 
     window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
     window.audio_check.setChecked(False)
@@ -772,10 +773,14 @@ def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, st
 
     window.teaser_check.setChecked(True)
     window.thumbnail_check.setChecked(True)
+    window.guests_edit.setText("니니아, 계춘회")
+    window.links_edit.setText("https://www.youtube.com/@official")
+    window.contact_check.setChecked(True)
     window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
     window.export()
     wait(app, lambda: not window.busy, 120)
-    assert (seen["make"]["context"], seen["make"]["teaser"], seen["make"]["thumbnails"]) == ("auto", 2.0, True)
+    assert (seen["make"]["context"], seen["make"]["teaser"], seen["make"]["thumbnails"], seen["make"]["karaoke"]) == ("auto", 2.0, True, False)
+    assert (seen["make"]["guests"], seen["make"]["links"], seen["make"]["contact_note"]) == (("니니아", "계춘회"), ("https://www.youtube.com/@official",), True)
     clip = window.last_results[0]
     assert clip.teaser > 0 and clip.thumbnail is not None and clip.thumbnail.exists()
     dialog = window.open_upload()

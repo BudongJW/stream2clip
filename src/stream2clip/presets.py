@@ -31,12 +31,16 @@ class Preset:
     fade: float = 0.0
     #: The line at the top of each clip's first seconds (``"auto"``: the stream's topic), or none.
     context: str | None = None
+    #: Words light up as they are spoken (karaoke); off: plain sentence captions.
+    karaoke: bool = True
 
 
+#: Horizontal clips show plain sentence captions: the Korean clip channels around one CHZZK VTuber caption
+#: every line in white or on a dark plate, with no colour moving across the words (reports/독케익 키리누키 채널 분석.md).
 PRESETS: dict[str, Preset] = {
     "shorts": Preset("shorts", "blur", lead=20.0, tail=10.0, min_length=15.0, max_length=90.0, top=10),
-    "clip": Preset("clip", "none", lead=45.0, tail=30.0, min_length=60.0, max_length=180.0, top=8, context="auto"),
-    "long": Preset("long", "none", lead=40.0, tail=25.0, min_length=45.0, max_length=150.0, top=6, compile=True, fade=0.3, context="auto"),
+    "clip": Preset("clip", "none", lead=45.0, tail=30.0, min_length=60.0, max_length=180.0, top=8, context="auto", karaoke=False),
+    "long": Preset("long", "none", lead=40.0, tail=25.0, min_length=45.0, max_length=150.0, top=6, compile=True, fade=0.3, context="auto", karaoke=False),
 }
 
 

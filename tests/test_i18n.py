@@ -63,7 +63,7 @@ def test_no_korean_literal_is_left_outside_tr():
     """A new text added without tr() would stay Korean in every language."""
     import re
 
-    from stream2clip import effects, highlights, subtitles, thumbnails, titles
+    from stream2clip import compliance, effects, highlights, subtitles, thumbnails, titles
 
     hangul = re.compile("[가-힣]")
     allowed = {
@@ -73,7 +73,10 @@ def test_no_korean_literal_is_left_outside_tr():
         # what viewers type, matched in the chat: patterns and commands, not texts of the program
         "highlights.py": {pattern for patterns in highlights.REACTIONS.values() for pattern in patterns} | set(highlights.ROUTINE) | set(highlights.DEFAULT_MARKERS),
         # what Korean clip titles and hashtags write: proper names and words of the title, not texts of the program
-        "titles.py": {names["ko"] for names in titles.AGENCY_NAMES.values()} | {titles.CLIP_WORDS["ko"], titles.GENERIC_TAGS["ko"], titles.TEMPLATES["ko"], titles._CHANNEL_NOISE.pattern},
+        "titles.py": {names["ko"] for names in titles.AGENCY_NAMES.values()} | {titles.CLIP_WORDS["ko"], titles.GENERIC_TAGS["ko"], titles.TEMPLATES["ko"], titles._CHANNEL_NOISE.pattern}
+                     | {tags["ko"] for tags in titles.PLATFORM_TAGS.values()} | {titles.KIRINUKI_TAGS["ko"]},
+        # what a Korean clip's description says to its viewers, in the clip's language rather than the app's
+        "compliance.py": set(compliance.DESCRIPTION_WORDS["ko"].values()),
         "thumbnails.py": {thumbnails.SENSATIONAL.pattern},  # words looked for in titles, not texts of the program
         "subtitles.py": set(subtitles.INVENTED_LINES),  # lines speech recognition writes, looked for in captions
         # reaction tags drawn in Korean clips: caption text, like the chat's reaction words

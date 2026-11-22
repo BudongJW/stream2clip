@@ -22,8 +22,8 @@ from typing import Any, Callable, Sequence
 
 from .i18n import tr
 
-__all__ = ["SCOPES", "PRIVACY", "THUMBNAIL_SCOPES", "video_resource", "scheduled_time", "shorts_problems", "load_credentials", "upload_video",
-           "video_url", "set_thumbnail", "wait_until_processed", "thumbnail_problem"]
+__all__ = ["CATEGORIES", "SCOPES", "PRIVACY", "THUMBNAIL_SCOPES", "video_resource", "scheduled_time", "shorts_problems", "load_credentials", "upload_video",
+           "video_url", "set_thumbnail", "wait_until_processed", "thumbnail_problem", "category_for", "resolve_category", "clips_source"]
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 #: A Short's thumbnail is set once YouTube has processed the video; reading that state on a private
@@ -35,6 +35,47 @@ PRIVACY = ("private", "unlisted", "public")
 TITLE_LIMIT = 100
 DESCRIPTION_LIMIT = 5000
 GAMING_CATEGORY = "20"
+PEOPLE_CATEGORY = "22"
+ENTERTAINMENT_CATEGORY = "24"
+#: The categories clip channels file under, by name. Of 139 Korean clips around one CHZZK VTuber, 72% were
+#: People & Blogs, 15% Gaming, 12% Entertainment (reports/독케익 키리누키 채널 분석.md).
+CATEGORIES = {"people": PEOPLE_CATEGORY, "gaming": GAMING_CATEGORY, "entertainment": ENTERTAINMENT_CATEGORY}
+
+
+def category_for(source: "Any" = None) -> str:
+    """The automatic category: Gaming for a game stream (the source's own category), else People & Blogs.
+
+    ``source`` is a :class:`~stream2clip.sources.SourceInfo` or the ``source`` of a ``clips.json``.
+    """
+    if source is None:
+        return PEOPLE_CATEGORY
+    category = source.get("category") if isinstance(source, dict) else getattr(source, "category", "")
+    return GAMING_CATEGORY if str(category or "").strip().lower() in ("gaming", "game") else PEOPLE_CATEGORY
+
+
+def resolve_category(value: str | None, source: "Any" = None) -> str:
+    """A category id from ``auto`` (by the source, :func:`category_for`), a name in :data:`CATEGORIES` or an id."""
+    text = (value or "auto").strip().lower()
+    if text == "auto":
+        return category_for(source)
+    if text in CATEGORIES:
+        return CATEGORIES[text]
+    if text.isdigit():
+        return text
+    raise ValueError(f"Unknown category {value!r}: auto, {', '.join(CATEGORIES)} or a YouTube category id")
+
+
+def clips_source(video: str | os.PathLike[str]) -> dict[str, Any] | None:
+    """The ``source`` that ``clips.json`` next to an exported clip records (the stream it came from), if any."""
+    import json
+
+    index = Path(video).parent / "clips.json"
+    try:
+        data = json.loads(index.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    source = data.get("source") if isinstance(data, dict) else None
+    return source if isinstance(source, dict) else None
 
 
 def video_resource(
@@ -42,7 +83,7 @@ def video_resource(
     description: str = "",
     *,
     tags: Sequence[str] = (),
-    category_id: str = GAMING_CATEGORY,
+    category_id: str = PEOPLE_CATEGORY,
     privacy: str = "private",
     made_for_kids: bool = False,
     synthetic_media: bool | None = None,

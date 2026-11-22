@@ -834,18 +834,33 @@ class HighlightsWindow(QMainWindow):
         self.reduced_motion_check.setToolTip(tr("화면 확대 대신 자막 단어를 더 크게 강조. 어지럼을 느끼는 시청자를 위한 선택"))
         grid.addWidget(self.reduced_motion_check, 16, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 17, 0)
+        grid.addWidget(QLabel(tr("합방 상대")), 17, 0)
+        self.guests_edit = QLineEdit()
+        self.guests_edit.setPlaceholderText(tr("(선택) 쉼표로 구분"))
+        self.guests_edit.setToolTip(tr("함께 방송한 사람. 제안 제목의 끝에 (w.이름)으로 붙임"))
+        grid.addWidget(self.guests_edit, 17, 1)
+        self.contact_check = QCheckBox(tr("연락 문구"))
+        self.contact_check.setToolTip(tr("가이드라인이 따로 없는 스트리머의 클립에, 문제가 있으면 알려 달라는 문구를 설명란에 넣음"))
+        grid.addWidget(self.contact_check, 17, 2)
+
+        grid.addWidget(QLabel(tr("채널 링크")), 18, 0)
+        self.links_edit = QLineEdit()
+        self.links_edit.setPlaceholderText(tr("(선택) 스트리머의 공식 YouTube, 치지직 채널 주소. 쉼표로 구분"))
+        self.links_edit.setToolTip(tr("설명란의 원본 채널 줄 아래에 한 줄씩 넣을 스트리머 채널 주소"))
+        grid.addWidget(self.links_edit, 18, 1, 1, 2)
+
+        grid.addWidget(QLabel(tr("저장")), 19, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 17, 1)
+        grid.addWidget(self.output_edit, 19, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 17, 2)
+        grid.addWidget(pick, 19, 2)
 
-        grid.addWidget(QLabel(tr("기록")), 18, 0)
+        grid.addWidget(QLabel(tr("기록")), 20, 0)
         self.feedback_check = QCheckBox(tr("고른 구간과 뺀 구간 기록"), checked=True)
         self.feedback_check.setToolTip(tr("내보낼 때마다 체크한 구간과 뺀 구간, 손으로 옮긴 구간을 이 PC의 설정 폴더(feedback.jsonl)에 기록.\n채널에 맞춘 검출 조정(evaluate --feedback)에 쓰이며, stream2clip feedback --clear로 삭제"))
-        grid.addWidget(self.feedback_check, 18, 1, 1, 2)
-        grid.setRowStretch(19, 1)
+        grid.addWidget(self.feedback_check, 20, 1, 1, 2)
+        grid.setRowStretch(21, 1)
         self._on_layout_changed()
         return card
 
@@ -890,14 +905,15 @@ class HighlightsWindow(QMainWindow):
         saved = load_section("highlights")
         for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion"), (self.loudness_check, "loudness"),
                            (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail"), (self.feedback_check, "feedback"),
-                           (self.reduced_motion_check, "reduced_motion")):
+                           (self.reduced_motion_check, "reduced_motion"), (self.contact_check, "contact_note")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
         for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset"), (self.fx_combo, "effects")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
-        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.skip_scene_edit, "skip_scenes"), (self.bgm_edit, "bgm"), (self.output_edit, "output")):
+        for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.skip_scene_edit, "skip_scenes"), (self.bgm_edit, "bgm"), (self.output_edit, "output"),
+                          (self.links_edit, "streamer_links")):
             if isinstance(saved.get(key), str) and saved[key]:
                 edit.setText(saved[key])
         if isinstance(saved.get("top"), int):
@@ -928,6 +944,7 @@ class HighlightsWindow(QMainWindow):
             "bgm": self.bgm_edit.text().strip(), "sfx": self.sfx_combo.currentData(), "sfx_when": self.sfx_time_combo.currentData(),
             "loudness": self.loudness_check.isChecked(), "preset": self.preset_combo.currentData(), "context": self.context_check.isChecked(),
             "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(), "feedback": self.feedback_check.isChecked(), "effects": self.fx_combo.currentData(), "reduced_motion": self.reduced_motion_check.isChecked(),
+            "contact_note": self.contact_check.isChecked(), "streamer_links": self.links_edit.text().strip(),  # the guests change with each stream: not kept
             "last_dir": self.last_dir,
         })
 
@@ -1123,6 +1140,7 @@ class HighlightsWindow(QMainWindow):
         self.layout_combo.setCurrentIndex(max(0, self.layout_combo.findData(preset.layout)))
         self.compile_check.setChecked(preset.compile)
         self.context_check.setChecked(preset.context is not None)
+        self.karaoke_check.setChecked(preset.karaoke)  # horizontal clips: sentence captions
         self.top_spin.setValue(preset.top)
         self._on_layout_changed()
 
@@ -1424,6 +1442,9 @@ class HighlightsWindow(QMainWindow):
         thumbnails = self.thumbnail_check.isChecked()
         fx_preset = self.fx_combo.currentData()
         reduced_motion = self.reduced_motion_check.isChecked()
+        guests = tuple(part.strip() for part in self.guests_edit.text().split(",") if part.strip())
+        links = tuple(part.strip() for part in self.links_edit.text().split(",") if part.strip())
+        contact_note = self.contact_check.isChecked()
         chosen_session = self.session_choice() if fx_preset != "off" else ("", "auto", 0.0)
         self.last_compilation = None
         if translator_spec and not subs_path and model is None:
@@ -1475,7 +1496,7 @@ class HighlightsWindow(QMainWindow):
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
                 subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track, soundtrack=soundtrack, loudness=loudness,
-                context=context, teaser=teaser, thumbnails=thumbnails,
+                context=context, teaser=teaser, thumbnails=thumbnails, guests=guests, links=links, contact_note=contact_note,
                 effects=None if fx_preset == "off" else fx_preset, reduced_motion=reduced_motion, hotkeys=hotkeys,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),

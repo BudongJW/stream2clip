@@ -28,6 +28,8 @@ def test_talent_name_from_the_channel():
     assert talent_name(CHANNEL, "ko") == "Pekora"
     assert talent_name("Shirakami Fubuki Ch.白上フブキ", "ja") == "白上フブキ"
     assert talent_name("", "ja") == ""
+    # VTuber as a word of its own describes the channel; inside a name it stays
+    assert talent_name("버튜버 독케익", "ko") == "독케익" and talent_name("VTuber Dokcake", "en") == "Dokcake" and talent_name("버튜버맛보기", "ko") == "버튜버맛보기"
 
 
 def test_the_hook_is_the_line_at_the_peak():
@@ -88,6 +90,42 @@ def test_clips_carry_their_title_and_hashtags(green_screen_video, tmp_path):
 def test_hook_needs_text():
     with pytest.raises(KeyError):
         clip_title(cues=[], language="ja", template="{nothing}")
+
+
+def test_korean_titles_of_a_streamer_without_an_agency():
+    """The forms of 523 clip titles around one CHZZK VTuber: the name in front, the collab partner after, the game in a bracket."""
+    from stream2clip.titles import guest_part
+
+    cues = [Cue(0, 3, "진짜 너무 맛있다")]
+    solo = clip_title(cues=cues, peak=1.0, channel="독케익", language="ko", platform="chzzk")
+    assert solo.title == "[독케익] 진짜 너무 맛있다"
+    # YouTube shows the first three above the title: the name, 버튜버, the platform
+    assert solo.hashtags == ("#독케익", "#버튜버", "#치지직", "#키리누키")
+    collab = clip_title(cues=cues, peak=1.0, channel="독케익", language="ko", guests=["니니아", " 계춘회 "], platform="soop")
+    assert collab.title == "[독케익] 진짜 너무 맛있다 (w.니니아, 계춘회)" and collab.hashtags[2] == "#숲"
+    game = clip_title(cues=cues, peak=1.0, channel="독케익", language="ko", template="game", game="명조:워더링 웨이브")
+    assert game.title == "[독케익][명조:워더링 웨이브] 진짜 너무 맛있다" and game.hashtags == ("#독케익", "#버튜버", "#키리누키")
+    assert clip_title(cues=cues, peak=1.0, channel="독케익", language="ko", template="game").title == "[독케익] 진짜 너무 맛있다"  # no game: no empty bracket
+    agency = clip_title(cues=cues, peak=1.0, channel=CHANNEL, agency="hololive", language="ko", platform="chzzk")
+    assert agency.title == "[홀로라이브] 진짜 너무 맛있다 | Pekora" and len(agency.hashtags) == 5
+    ja = clip_title(cues=[Cue(0, 3, "やばい")], peak=1.0, channel=CHANNEL, agency="hololive", language="ja", guests=["さくらみこ"], platform="chzzk")
+    assert ja.title == "やばい (w/さくらみこ)【兎田ぺこら/ホロライブ切り抜き】" and len(ja.hashtags) == 3  # Japanese and English keep three
+    assert clip_title(cues=[Cue(0, 3, "no way")], peak=1.0, channel=CHANNEL, language="en", template="game", game="Minecraft").title == "no way 【Minecraft | Pekora】"
+    assert guest_part([], "ko") == "" and guest_part(["A", "B"], "ja") == " (w/A、B)"
+
+
+def test_titles_take_the_game_from_the_source():
+    from stream2clip.pipeline import _title_for
+    from stream2clip.sources import SourceInfo
+
+    h = Highlight(1, 0.0, 2.0, 1.0, 5.0)
+    cues = [Cue(0, 2, "진짜 너무 맛있다")]
+    chzzk = SourceInfo(url="https://chzzk.naver.com/video/16230061", title="방송", channel="독케익", category="Gaming", game="명조:워더링 웨이브")
+    named = _title_for(h, cues, [], chzzk, None, language="ko", translate_to=None, glossary=None, template="game", guests=("니니아",))
+    assert named.title == "[독케익][명조:워더링 웨이브] 진짜 너무 맛있다 (w.니니아)" and "#치지직" in named.hashtags
+    youtube = SourceInfo(url="https://www.youtube.com/watch?v=abc", title="【마인크래프트】 오늘은 집 짓기", channel="독케익")
+    named = _title_for(h, cues, [], youtube, None, language="ko", translate_to=None, glossary=None, template="game")
+    assert named.title == "[독케익][마인크래프트] 진짜 너무 맛있다" and "#치지직" not in named.hashtags  # the bracket tag of the stream title
 
 
 # --------------------------------------------------------------------------- thumbnails
@@ -252,6 +290,9 @@ def test_presets_fill_what_was_not_given(tmp_path):
     assert (long.layout, long.top, long.compile_to, long.fade) == ("none", 6, "", 0.3)
     own = parsed("--preset", "long", "--layout", "blur", "--top", "3", "--context", "my words", "--fade", "0")
     assert (own.layout, own.top, own.context, own.fade) == ("blur", 3, "my words", 0.0)  # what is given wins
+    # Horizontal clips: plain sentence captions, as the Korean clip channels caption them; Shorts keep the karaoke.
+    assert (shorts.karaoke, clip.karaoke, long.karaoke) == (True, False, False)
+    assert parsed("--preset", "clip", "--karaoke").karaoke is True and parsed("--no-karaoke").karaoke is False
     assert set(PRESETS) == {"shorts", "clip", "long"} and get_preset(None).key == "shorts"
     with pytest.raises(ValueError):
         get_preset("square")

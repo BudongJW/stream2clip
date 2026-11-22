@@ -229,7 +229,7 @@ def _source(args: argparse.Namespace):
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    from .sources import download_chat, download_replay_chat, download_section, download_subs, fetch_info, platform_of, replay_expiry_note, ytdlp_command
+    from .sources import download_chat, download_replay_chat, download_section, download_subs, fetch_info, platform_of, replay_expiry_note, with_platform_details, ytdlp_command
 
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
@@ -238,6 +238,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     info = None
     try:
         info = fetch_info(args.url, ytdlp=ytdlp, comments=args.comments) if args.comments else fetch_info(args.url, ytdlp=ytdlp)
+        info = with_platform_details(args.url, info)  # CHZZK: game or not, the game, the day the stream began
         (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
         print(f"info   {out / 'info.json'}  ({info.get('title', '')})" + (f"  + {len(info.get('comments') or [])} comments" if args.comments else ""))
     except RuntimeError as exc:
@@ -343,7 +344,7 @@ def _apply_preset(args: argparse.Namespace) -> None:
 
     preset = get_preset(getattr(args, "preset", None))
     for name, value in (("top", preset.top), ("lead", preset.lead), ("tail", preset.tail), ("min_length", preset.min_length), ("max_length", preset.max_length),
-                        ("layout", preset.layout), ("fade", preset.fade), ("context", preset.context)):
+                        ("layout", preset.layout), ("fade", preset.fade), ("context", preset.context), ("karaoke", preset.karaoke)):
         if hasattr(args, name) and getattr(args, name) is None:
             setattr(args, name, value)
     if preset.compile and hasattr(args, "compile_to") and args.compile_to is None:
@@ -472,7 +473,8 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--subtitles", help="SRT / WebVTT / Whisper JSON for the whole VOD (YouTube auto-captions work)")
     s.add_argument("--transcribe", metavar="MODEL", help='transcribe each clip with faster-whisper (e.g. "small", "large-v3")')
     s.add_argument("--language", help="speech language for --transcribe (ja, ko, en ...)")
-    s.add_argument("--no-karaoke", action="store_true", help="plain captions instead of word-by-word highlighting")
+    s.add_argument("--karaoke", action=argparse.BooleanOptionalAction, default=None,
+                   help="light the words up as they are spoken; --no-karaoke: plain sentence captions (default: from --preset, karaoke for shorts, sentences for clip and long)")
     s.add_argument("--subtitle-style", default="default", choices=["default", "box", "pink", "small"], help="look of the captions: box = on a dark plate, pink = pink highlight, small = smaller and lighter")
     s.add_argument("--subtitle-position", default="bottom", choices=["bottom", "middle", "top"], help="where the captions sit (default bottom; top keeps them off a game's own text box)")
     s.add_argument("--font", metavar="FAMILY", help="caption font (default: an installed font for the language of the text)")
@@ -493,7 +495,12 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--channel", help="original channel name")
     c.add_argument("--registered", action="store_true", help="your clip channel is registered with the agency")
     c.add_argument("--credit", metavar="TEXT", help="burn a small source line into a corner of every clip; 'auto' writes the original channel's name (from --info or --channel)")
-    c.add_argument("--title-template", metavar="FORM", help="form of the suggested titles, with {hook} (the line at the peak), {talent}, {agency}, {clip}; default per language, e.g. Japanese '{hook}【{talent}/{agency}{clip}】'")
+    c.add_argument("--title-template", metavar="FORM", help="form of the suggested titles, with {hook} (the line at the peak), {talent}, {agency}, {clip}, {game}, {guests}; "
+                                                         "default per language, e.g. Japanese '{hook}{guests}【{talent}/{agency}{clip}】', Korean without an agency '[{talent}] {hook}{guests}'; "
+                                                         "'game' puts the game in a second bracket, e.g. '[{talent}][{game}] {hook}' (the game from CHZZK, else the stream title's bracket tag)")
+    c.add_argument("--guest", action="append", metavar="NAME", help="someone else in the collab, named after the hook as (w.NAME); repeat per guest")
+    c.add_argument("--streamer-link", action="append", metavar="URL", help="a link of the streamer's own (official YouTube channel, CHZZK channel) under the channel line of each description; repeat per link")
+    c.add_argument("--contact-note", action="store_true", help="add a line for a streamer without clip guidelines: tell me in the comments if something is a problem and I will fix or remove it")
     c.add_argument("--context", metavar="TEXT", help="a line of what is going on, at the top of each clip's first seconds; 'auto' takes the stream's topic from its title (the bracket tag that is not the agency or the talent)")
     c.add_argument("--context-seconds", type=float, default=3.0, metavar="SECONDS", help="--context: how long the line stays (default 3)")
     c.add_argument("--fx", default="off", metavar="PRESET|FILE",
@@ -502,7 +509,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--fx-reduced-motion", action="store_true", help="--fx without moving the picture: the emphasised word grows more instead of a zoom")
     c.add_argument("--teaser", type=float, nargs="?", const=2.0, metavar="SECONDS", help="open each clip with this many seconds of its peak (default 2), cut from just before the sound rises; MP4, WebM, MOV")
     c.add_argument("--thumbnail", action="store_true", help="also write <clip>.jpg (1280x720): the sharpest frame around the peak, zoomed onto the avatar box when the layout has one, with the first words of the title")
-    c.add_argument("--no-hashtags", action="store_true", help="leave the three suggested hashtags (agency, talent, general) out of the descriptions")
+    c.add_argument("--no-hashtags", action="store_true", help="leave the suggested hashtags (agency, talent, general; in Korean also the platform and kirinuki) out of the descriptions")
     c.add_argument("--credit-position", default="top-left", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="corner of the --credit line (default top-left)")
     m = p.add_argument_group("music & sound effects")
     m.add_argument("--bgm", action="append", metavar="FILE|NAME", help="background music under every clip: a file, or a name in the sound library (see 'stream2clip sounds'); give it more than once to take the tracks in turn")
@@ -632,12 +639,13 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     results = make_clips(
         video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
         section=(lambda h: sections[h.rank]) if sections is not None else None,
-        karaoke=not args.no_karaoke, source=source, profile=profile, registered=True if args.registered else None,
+        karaoke=args.karaoke is not False, source=source, profile=profile, registered=True if args.registered else None,
         subtitle_style=subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size),
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
         audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
         soundtrack=soundtrack, loudness=args.loudness, title_template=args.title_template, add_hashtags=not args.no_hashtags,
+        guests=tuple(args.guest or ()), links=tuple(args.streamer_link or ()), contact_note=args.contact_note,
         thumbnails=args.thumbnail, context=args.context, context_seconds=args.context_seconds, teaser=args.teaser or 0.0,
         speakers=speakers, speaker_tracks=tracks, speaker_names=args.speaker_names,
         effects=None if args.fx == "off" else args.fx, reduced_motion=args.fx_reduced_motion, hotkeys=hotkeys,
@@ -1201,12 +1209,12 @@ def cmd_setup(args: argparse.Namespace) -> int:
 
 def cmd_upload(args: argparse.Namespace) -> int:
     from .export import probe
-    from .upload import SCOPES, THUMBNAIL_SCOPES, load_credentials, set_thumbnail, shorts_problems, thumbnail_problem, upload_video, video_resource, video_url
+    from .upload import SCOPES, THUMBNAIL_SCOPES, clips_source, load_credentials, resolve_category, set_thumbnail, shorts_problems, thumbnail_problem, upload_video, video_resource, video_url
 
     description = Path(args.description_file).read_text(encoding="utf-8") if args.description_file else (args.description or "")
     tags = [t for t in (args.tags or "").split(",") if t.strip()]
     resource = video_resource(
-        args.title, description, tags=tags, category_id=args.category, privacy=args.privacy, made_for_kids=args.made_for_kids,
+        args.title, description, tags=tags, category_id=resolve_category(args.category, clips_source(args.video)), privacy=args.privacy, made_for_kids=args.made_for_kids,
         synthetic_media=True if args.synthetic_media else None, paid_placement=args.paid_placement, language=args.language, shorts=args.shorts, publish_at=args.publish_at,
     )
     if args.shorts:
@@ -1733,7 +1741,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tags", help="comma separated")
     p.add_argument("--privacy", choices=["private", "unlisted", "public"], default="private")
     p.add_argument("--publish-at", metavar="WHEN", help='keep the video private and make it public at this time, e.g. "2026-12-24 18:00" (your local time)')
-    p.add_argument("--category", default="20", help="YouTube category id (default 20 = Gaming)")
+    p.add_argument("--category", default="auto", help="auto (default: Gaming for a game stream, by the clips.json next to the video, else People & Blogs), people (22), gaming (20), entertainment (24) or a YouTube category id")
     p.add_argument("--language", help="default language of the title / description, e.g. ko")
     p.add_argument("--made-for-kids", action="store_true")
     p.add_argument("--synthetic-media", action="store_true", help="declare altered or synthetic content (AI voice, AI video ...)")

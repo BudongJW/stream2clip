@@ -148,6 +148,29 @@ def test_source_not_on_top_is_flagged():
     assert any("맨 위" in i.message for i in check_upload(SRC, get_profile("hololive"), description=desc))
 
 
+def test_descriptions_in_the_clips_language():
+    """Korean clip descriptions open with the day of the stream and link the replay and the streamer's channels."""
+    from stream2clip.compliance import stream_day
+
+    chzzk = SourceInfo(url="https://chzzk.naver.com/video/16230061", title="오늘은 명조 스토리", channel="독케익", channel_url="https://chzzk.naver.com/abc",
+                       stream_date="20261117")
+    text = build_description(chzzk, start=1800, end=1890, language="ko", links=["https://www.youtube.com/@official", " "], contact_note=True,
+                             uses_ai=True, credits=["음원: 곡 (CC BY)"], hashtags=("#독케익", "#버튜버", "#치지직", "#키리누키"))
+    lines = text.splitlines()
+    assert lines[:7] == ["원본 방송", "2026년 11월 17일 방송", "오늘은 명조 스토리", "https://chzzk.naver.com/video/16230061?currentTime=1800",
+                         "독케익  https://chzzk.naver.com/abc", "https://www.youtube.com/@official", "(30:00 ~ 31:30)"]
+    assert "BGM, 효과음" in lines and any("AI 도구" in line for line in lines) and any("댓글로 알려 주세요" in line for line in lines)
+    assert lines[-1] == "#독케익 #버튜버 #치지직 #키리누키"
+    ja = build_description(SRC, get_profile("hololive"), language="ja", permission_number="123", contact_note=True)
+    assert ja.startswith("【元配信】\n") and "許諾番号: 123" in ja and "ガイドライン" in ja and "방송" not in ja
+    en = build_description(SourceInfo(url="https://youtu.be/x", title="t", stream_date="20260305"), language="en")
+    assert en.splitlines()[:2] == ["Original stream", "Streamed 2026-03-05"]
+    assert build_description(SRC).startswith("【元配信 / 원본 방송】")  # no language: both, in the app's language
+    assert (stream_day("20261117", "ja"), stream_day(None, "ko"), stream_day("2026", "ko"), stream_day("20261117", "es")) == ("2026年11月17日 配信", "", "", "")
+    head = build_description(SRC, get_profile("hololive"), language="ko")  # the date line keeps the link within the top lines hololive asks for
+    assert not any("맨 위" in i.message for i in check_upload(SRC, get_profile("hololive"), description=head))
+
+
 # --------------------------------------------------------------------------- pipeline
 
 
@@ -160,7 +183,7 @@ def test_make_clips_end_to_end(green_screen_video, tmp_path):
     assert [r.path.name for r in results] == ["clip_01.mp4", "clip_02.mp4"]
     assert results[0].subtitles is not None and "PlayResX: 90" in results[0].subtitles.read_text(encoding="utf-8")
     assert probe(results[0].path).width == 90 and 0.8 <= probe(results[0].path).duration <= 1.3
-    assert results[0].description.read_text(encoding="utf-8").startswith("【元配信 / 원본 방송】")
+    assert results[0].description.read_text(encoding="utf-8").startswith("원본 방송\n")  # in the language of the clip's captions
     index = json.loads((tmp_path / "out" / "clips.json").read_text(encoding="utf-8"))
     assert index["agency"] == "hololive" and index["clips"][0]["file"] == "clip_01.mp4"
 

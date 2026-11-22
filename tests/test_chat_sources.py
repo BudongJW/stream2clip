@@ -130,6 +130,47 @@ def test_info_parsing():
     assert len(heatmap_from_info(info)) == 1
     assert source_from_info({"availability": "subscriber_only"}).members_only
     assert not source_from_info({"live_status": "is_live"}).archive_public
+    dated = source_from_info({"categories": ["Gaming"], "upload_date": "20261118", "release_date": "20261117", "game": "Minecraft"})
+    assert dated.is_game and dated.stream_date == "20261117" and dated.game == "Minecraft"  # the day the stream began
+    assert source_from_info({"upload_date": "20261118"}).stream_date == "20261118" and not source_from_info({}).is_game
+
+
+def test_replay_links_use_each_sites_time_parameter():
+    """CHZZK's and SOOP's own chapter share buttons copy currentTime= and change_second= links; YouTube and Twitch read t=."""
+    from stream2clip.sources import SourceInfo
+
+    assert SourceInfo(url="https://chzzk.naver.com/video/16230061").timestamp_url(1800.4) == "https://chzzk.naver.com/video/16230061?currentTime=1800"
+    assert SourceInfo(url="https://vod.sooplive.co.kr/player/212422389").timestamp_url(65) == "https://vod.sooplive.co.kr/player/212422389?change_second=65"
+    assert SourceInfo(url="https://www.twitch.tv/videos/1?filter=all").timestamp_url(5) == "https://www.twitch.tv/videos/1?filter=all&t=5"
+    assert SourceInfo().timestamp_url(5) == ""
+
+
+def test_chzzk_details_from_its_replay_api():
+    import json as _json
+
+    from stream2clip.sources import chzzk_details, with_platform_details
+
+    asked = []
+
+    def get(url, data=None):
+        asked.append(url)
+        return _json.dumps({"code": 200, "content": {"categoryType": "GAME", "videoCategoryValue": "명조:워더링 웨이브",
+                                                      "liveOpenDate": "2026-11-17 18:55:31", "publishDate": "2026-11-17 23:42:02"}}).encode()
+
+    url = "https://chzzk.naver.com/video/16230061"
+    assert chzzk_details(url, get=get) == {"categories": ["Gaming"], "game": "명조:워더링 웨이브", "release_date": "20261117"}
+    assert asked == ["https://api.chzzk.naver.com/service/v3/videos/16230061"]
+    talk = chzzk_details(url, get=lambda u, data=None: b'{"content": {"categoryType": "ETC", "videoCategoryValue": "talk", "liveOpenDate": "2026-11-03 21:00:00"}}')
+    assert talk == {"release_date": "20261103"}  # not a game stream: no category, no game
+    assert chzzk_details(url, get=lambda u, data=None: b'{"content": null}') == {}
+    merged = with_platform_details(url, {"title": "t", "upload_date": "20261118"}, get=get)
+    assert merged["title"] == "t" and merged["release_date"] == "20261117" and source_from_info(merged).is_game
+
+    def offline(u, data=None):
+        raise OSError("no network")
+
+    assert with_platform_details(url, {"title": "t"}, get=offline) == {"title": "t"}  # yt-dlp's info is still kept
+    assert with_platform_details("https://www.youtube.com/watch?v=x", {"title": "t"}, get=offline) == {"title": "t"}  # nothing asked elsewhere
 
 
 @needs_ffmpeg

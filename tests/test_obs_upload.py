@@ -201,7 +201,7 @@ def test_cli_replay_reports_a_missing_obs(capsys):
 def test_video_resource_defaults_to_private():
     body = video_resource("  레전드   장면  ", "원본: https://youtu.be/x", tags=["버튜버", " ", "clip"])
     assert body == {
-        "snippet": {"title": "레전드 장면", "description": "원본: https://youtu.be/x", "categoryId": "20", "tags": ["버튜버", "clip"]},
+        "snippet": {"title": "레전드 장면", "description": "원본: https://youtu.be/x", "categoryId": "22", "tags": ["버튜버", "clip"]},  # People & Blogs
         "status": {"privacyStatus": "private", "selfDeclaredMadeForKids": False},
         # Sent every time: since 2026-11-16 YouTube no longer takes a missing value as "no paid placement".
         "paidProductPlacementDetails": {"hasPaidProductPlacement": False},
@@ -209,6 +209,34 @@ def test_video_resource_defaults_to_private():
     public = video_resource("t", privacy="public", synthetic_media=True, paid_placement=True, language="ko", made_for_kids=True)
     assert public["status"] == {"privacyStatus": "public", "selfDeclaredMadeForKids": True, "containsSyntheticMedia": True}
     assert public["snippet"]["defaultLanguage"] == "ko" and public["paidProductPlacementDetails"] == {"hasPaidProductPlacement": True}
+
+
+def test_upload_category_follows_the_kind_of_stream(tmp_path):
+    """Clip channels file most clips under People & Blogs; a game stream's clips go under Gaming."""
+    from stream2clip.sources import SourceInfo
+    from stream2clip.upload import category_for, clips_source, resolve_category
+
+    assert category_for(None) == "22" and category_for(SourceInfo(category="Gaming")) == "20" and category_for({"category": "Entertainment"}) == "22"
+    assert resolve_category("auto", {"category": "Gaming"}) == "20" and resolve_category(None) == "22"
+    assert (resolve_category("people"), resolve_category("Gaming"), resolve_category("entertainment"), resolve_category("27")) == ("22", "20", "24", "27")
+    with pytest.raises(ValueError):
+        resolve_category("music videos")
+    clip = tmp_path / "clip_01.mp4"
+    assert clips_source(clip) is None  # no clips.json next to it
+    (tmp_path / "clips.json").write_text(json.dumps({"source": {"url": "https://chzzk.naver.com/video/1", "category": "Gaming"}}), encoding="utf-8")
+    assert clips_source(clip)["category"] == "Gaming" and resolve_category("auto", clips_source(clip)) == "20"
+    (tmp_path / "clips.json").write_text("{broken", encoding="utf-8")
+    assert clips_source(clip) is None
+
+
+def test_upload_command_picks_the_category_from_clips_json(tmp_path, capsys):
+    clip = tmp_path / "clip_01.mp4"
+    clip.write_bytes(b"0")
+    (tmp_path / "clips.json").write_text(json.dumps({"source": {"category": "Gaming"}}), encoding="utf-8")
+    assert main(["upload", str(clip), "--title", "t", "--dry-run"]) == 0
+    assert '"categoryId": "20"' in capsys.readouterr().out
+    assert main(["upload", str(clip), "--title", "t", "--category", "people", "--dry-run"]) == 0
+    assert '"categoryId": "22"' in capsys.readouterr().out
 
 
 def test_video_resource_rejects_what_youtube_rejects():

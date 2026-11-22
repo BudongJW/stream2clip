@@ -16,7 +16,7 @@ from .sources import SourceInfo
 if TYPE_CHECKING:  # pragma: no cover
     from .soundtrack import Sound
 
-__all__ = ["AgencyProfile", "Issue", "PROFILES", "REUSED_CONTENT_URL", "build_description", "check_upload", "get_profile", "originality_issues"]
+__all__ = ["AgencyProfile", "DESCRIPTION_WORDS", "Issue", "PROFILES", "REUSED_CONTENT_URL", "build_description", "check_upload", "get_profile", "originality_issues", "stream_day"]
 
 
 @dataclass(frozen=True)
@@ -110,6 +110,31 @@ def _clock(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
+#: What a description says in the clip's own language (its viewers'), whatever language the app is shown in.
+#: Korean clip descriptions around one CHZZK VTuber open with the day of the stream (``2026년 11월 3일 방송``)
+#: and link the replay, the streamer's CHZZK channel and official YouTube channel (reports/독케익 키리누키 채널 분석.md).
+DESCRIPTION_WORDS: dict[str, dict[str, str]] = {
+    "ja": {"source": "【元配信】", "date": "{y}年{m}月{d}日 配信", "permission": "許諾番号: {0}", "music": "BGM、効果音",
+           "ai": "自動字幕、見どころ検出などのAIツールを使って編集しました。",
+           "contact": "この配信者には二次創作のガイドラインがありません。問題があればコメントでお知らせください。すぐに修正または削除します。"},
+    "ko": {"source": "원본 방송", "date": "{y}년 {m}월 {d}일 방송", "permission": "허가 번호: {0}", "music": "BGM, 효과음",
+           "ai": "자동 자막, 하이라이트 검출 등 AI 도구를 사용해 편집했습니다.",
+           "contact": "따로 정해진 2차 창작 가이드라인이 없는 스트리머의 클립입니다. 문제가 있으면 댓글로 알려 주세요. 바로 고치거나 내리겠습니다."},
+    "en": {"source": "Original stream", "date": "Streamed {y}-{m:02d}-{d:02d}", "permission": "Permission number: {0}", "music": "Music and sound effects",
+           "ai": "Edited with AI tools such as automatic captions and highlight detection.",
+           "contact": "This streamer has no clip guidelines. If anything here is a problem, tell me in the comments and I will fix or remove it."},
+}
+
+
+def stream_day(date: str | None, language: str) -> str:
+    """``2026년 11월 17일 방송`` from ``20261117``, in ``language``; empty without a date."""
+    text = "".join(ch for ch in str(date or "") if ch.isdigit())
+    if len(text) < 8 or language not in DESCRIPTION_WORDS:
+        return ""
+    y, m, d = int(text[:4]), int(text[4:6]), int(text[6:8])
+    return DESCRIPTION_WORDS[language]["date"].format(y=y, m=m, d=d) if 1 <= m <= 12 and 1 <= d <= 31 else ""
+
+
 def build_description(
     source: SourceInfo,
     profile: AgencyProfile | None = None,
@@ -121,16 +146,29 @@ def build_description(
     permission_number: str | None = None,
     hashtags: tuple[str, ...] = (),
     credits: "Sequence[str]" = (),
+    language: str | None = None,
+    links: "Sequence[str]" = (),
+    contact_note: bool = False,
 ) -> str:
     """Video description with the source credit first (as hololive requires) and required labels.
 
     ``credits`` are the lines for the music and sound effects laid over the clip
     (:func:`stream2clip.soundtrack.credit_lines`), listed under their own heading.
+
+    With ``language`` (``ja``, ``ko``, ``en``: the clip's, from its title) the description is written in it,
+    opens with the day of the stream when the source has one, and ``links`` (the streamer's channels, such
+    as an official YouTube channel) follow the channel line. ``contact_note`` adds a line for a streamer
+    without clip guidelines: tell me if something is wrong and I will fix it. Without ``language`` the
+    headings are in both Japanese and Korean, in the app's language.
     """
     profile = profile or PROFILES["generic"]
+    words = DESCRIPTION_WORDS.get(language or "")
     lines: list[str] = []
     if source.url or source.title:
-        lines.append(tr("【元配信 / 원본 방송】"))
+        lines.append(words["source"] if words else tr("【元配信 / 원본 방송】"))
+        day = stream_day(source.stream_date, language) if words and language else ""
+        if day:
+            lines.append(day)
         if source.title:
             lines.append(source.title)
         link = source.timestamp_url(start) if start is not None and source.url else source.url
@@ -138,17 +176,20 @@ def build_description(
             lines.append(link)
         if source.channel:
             lines.append(f"{source.channel}" + (f"  {source.channel_url}" if source.channel_url else ""))
+        lines += [" ".join(item.split()) for item in links if item and item.strip()]
         if start is not None and end is not None:
             lines.append(f"({_clock(start)} ~ {_clock(end)})")
         lines.append("")
     if permission_number:
-        lines += [tr("許諾番号 / 허가 번호: {0}").format(permission_number), ""]
+        lines += [(words["permission"] if words else tr("許諾番号 / 허가 번호: {0}")).format(permission_number), ""]
     if summary:
         lines += [summary, ""]
     if credits:
-        lines += [tr("BGM, 효과음"), *credits, ""]
+        lines += [words["music"] if words else tr("BGM, 효과음"), *credits, ""]
     if uses_ai:
-        lines += [tr("자동 자막, 하이라이트 검출 등 AI 도구를 사용해 편집했습니다.") + (" #AI" if profile.ai_label_required else ""), ""]
+        lines += [(words["ai"] if words else tr("자동 자막, 하이라이트 검출 등 AI 도구를 사용해 편집했습니다.")) + (" #AI" if profile.ai_label_required else ""), ""]
+    if contact_note:
+        lines += [words["contact"] if words else tr("따로 정해진 2차 창작 가이드라인이 없는 스트리머의 클립입니다. 문제가 있으면 댓글로 알려 주세요. 바로 고치거나 내리겠습니다."), ""]
     if hashtags:
         lines.append(" ".join(t if t.startswith("#") else f"#{t}" for t in hashtags))
     return "\n".join(lines).strip() + "\n"

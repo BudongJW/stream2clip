@@ -412,6 +412,9 @@ def make_clips(
     loudness: float | None = None,
     title_template: str | None = None,
     add_hashtags: bool = True,
+    guests: Sequence[str] = (),
+    links: Sequence[str] = (),
+    contact_note: bool = False,
     thumbnails: bool = False,
     context: str | None = None,
     context_seconds: float = 3.0,
@@ -438,8 +441,11 @@ def make_clips(
     videos down to about -14 and leaves quieter ones as they are), measured in a first pass.
 
     Every clip gets a suggested title in the language of its subtitles (:func:`stream2clip.titles.clip_title`;
-    ``title_template`` changes its form) and, with ``add_hashtags``, three hashtags at the end of
-    its description. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
+    ``title_template`` changes its form, ``"game"`` adds the game; ``guests`` are named as ``(w.이름)``)
+    and, with ``add_hashtags``, hashtags at the end of its description (three; five in Korean, with the
+    platform and 키리누키). The description is written in the title's language and opens with the day of
+    the stream; ``links`` (the streamer's channels) follow the channel line, ``contact_note`` asks
+    viewers to report a problem for a streamer without clip guidelines. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
     peak, zoomed onto the layout's avatar box when there is one, with the first words of the title.
 
     ``context`` is a line at the top for the first ``context_seconds`` of each clip (what is going on;
@@ -581,14 +587,14 @@ def make_clips(
                                            speaker_colors=colors, speaker_names=speaker_names)
             result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped, teaser=opened)
             named = _title_for(h, clip_cues or [], keep, source, profile, language=language, translate_to=translate_to if subtitle_translator else None,
-                               glossary=glossary if subtitle_translator else None, template=title_template)
+                               glossary=glossary if subtitle_translator else None, template=title_template, guests=guests)
             result.title, result.hashtags = named.title, (named.hashtags if add_hashtags else ())
             if thumbnails:
                 result.thumbnail = _thumbnail(clip_video, h, offset, opts, named.hook, out / f"{stem}.jpg")
             if source is not None:
                 used = [p.sound for p in planned]
                 text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used),
-                                         hashtags=result.hashtags)
+                                         hashtags=result.hashtags, language=named.language, links=links, contact_note=contact_note)
                 result.description = out / f"{stem}.txt"
                 result.description.write_text(text, encoding="utf-8")
                 result.issues = check_upload(source, profile, description=text, registered=registered, uses_ai=ai, sounds=used, length=length)
@@ -623,17 +629,21 @@ def make_clips(
 
 
 def _title_for(h: Highlight, cues: "Sequence[Cue]", keep, source: SourceInfo | None, profile: AgencyProfile | None, *, language: str | None,
-               translate_to: str | None, glossary: "Glossary | None", template: str | None):
+               translate_to: str | None, glossary: "Glossary | None", template: str | None, guests: Sequence[str] = ()):
     """The suggested title of one clip: the line at its peak (on the clip's own, possibly shortened, clock) and a tag."""
+    from .sources import platform_of
     from .subtitles import clip_time
-    from .titles import AGENCY_NAMES, clip_title, title_language
+    from .titles import AGENCY_NAMES, clip_title, stream_topic, title_language
 
     peak = min(max(0.0, h.peak - h.start), h.end - h.start)
     stream_title = source.title if source is not None else ""
+    channel = source.channel if source is not None else ""
     lang = title_language(translate_to=translate_to, language=language, cues=cues, fallback=stream_title)
     agency = profile.key if profile is not None and profile.key in AGENCY_NAMES else None
-    return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=source.channel if source is not None else "",
-                      stream_title=stream_title, agency=agency, language=lang, glossary=glossary, template=template, translated=translate_to is not None)
+    game = (source.game if source is not None else "") or (stream_topic(stream_title, channel=channel) if template == "game" else "")
+    return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=channel, stream_title=stream_title, agency=agency, language=lang,
+                      glossary=glossary, template=template, translated=translate_to is not None, guests=guests, game=game,
+                      platform=platform_of(source.url) if source is not None and source.url else None)
 
 
 def _speakers_by_track(cues: "Sequence[Cue]", video: str | os.PathLike[str], start: float, length: float, tracks: Sequence[int]) -> list[Cue]:
