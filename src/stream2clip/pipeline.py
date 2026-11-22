@@ -48,6 +48,8 @@ class ClipResult:
     hashtags: tuple[str, ...] = ()
     #: A 1280x720 thumbnail (``thumbnails=True``, see :mod:`stream2clip.thumbnails`).
     thumbnail: Path | None = None
+    #: Seconds of the peak put in front of the clip (``teaser``); the file is that much longer.
+    teaser: float = 0.0
 
     def to_dict(self) -> dict:
         data = {
@@ -56,6 +58,7 @@ class ClipResult:
             "title": self.title or None,
             "hashtags": list(self.hashtags),
             "thumbnail": self.thumbnail.name if self.thumbnail else None,
+            "teaser": round(self.teaser, 2),
             "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
@@ -389,6 +392,9 @@ def make_clips(
     title_template: str | None = None,
     add_hashtags: bool = True,
     thumbnails: bool = False,
+    context: str | None = None,
+    context_seconds: float = 3.0,
+    teaser: float = 0.0,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -408,6 +414,11 @@ def make_clips(
     ``title_template`` changes its form) and, with ``add_hashtags``, three hashtags at the end of
     its description. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
     peak, zoomed onto the layout's avatar box when there is one, with the first words of the title.
+
+    ``context`` is a line at the top for the first ``context_seconds`` of each clip (what is going on;
+    ``"auto"``: the stream's topic, from its title). ``teaser`` puts that many seconds of the peak
+    (from just before the sound rises) in front of the clip, the way clip channels open with the
+    best moment (MP4, WebM, MOV).
 
     ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
     dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
@@ -463,6 +474,7 @@ def make_clips(
 
                 clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
             length, removed = h.end - h.start, 0.0
+            spoken = list(clip_cues or [])  # on the cut's own clock, before any silence is taken out (for the teaser)
             keep: list[tuple[float, float]] = []
             if trim_silence and trim_silence > 0:
                 keep = _sound_parts(clip_video, opts.start or 0.0, length, min_silence=trim_silence, level=silence_level, track=audio_track)
@@ -477,10 +489,11 @@ def make_clips(
                 else:
                     keep = []
             sub_path = None
-            if clip_cues or credit:
+            situation = _context_text(context, source)
+            if clip_cues or credit or situation:
                 sub_path = write_ass(
                     clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
-                    credit=credit, credit_position=credit_position, duration=length,
+                    credit=credit, credit_position=credit_position, duration=length, context=situation, context_seconds=context_seconds,
                 )
                 opts = replace(opts, subtitles=sub_path)
             planned, skipped = [], []
@@ -506,7 +519,11 @@ def make_clips(
                     planned, skipped = plan.sounds, plan.skipped
 
             clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
-            result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped)
+            opened = 0.0
+            if teaser > 0 and opts.format in ("mp4", "webm", "mov"):
+                opened = _open_with_teaser(clip_path, clip_video, h, offset, opts, spoken, teaser, out / f"{stem}.teaser.ass",
+                                           play_res=play_res, style=subtitle_style, karaoke=karaoke, credit=credit, credit_position=credit_position)
+            result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped, teaser=opened)
             named = _title_for(h, clip_cues or [], keep, source, profile, language=language, translate_to=translate_to if subtitle_translator else None,
                                glossary=glossary if subtitle_translator else None, template=title_template)
             result.title, result.hashtags = named.title, (named.hashtags if add_hashtags else ())
@@ -552,6 +569,65 @@ def _title_for(h: Highlight, cues: "Sequence[Cue]", keep, source: SourceInfo | N
     agency = profile.key if profile is not None and profile.key in AGENCY_NAMES else None
     return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=source.channel if source is not None else "",
                       stream_title=stream_title, agency=agency, language=lang, glossary=glossary, template=template, translated=translate_to is not None)
+
+
+def _context_text(context: str | None, source: SourceInfo | None) -> str:
+    """The top line of a clip's first seconds: given, or with ``"auto"`` the stream's topic from its title."""
+    if not context or not context.strip():
+        return ""
+    if context.strip().lower() != "auto":
+        return " ".join(context.split())
+    from .titles import context_line
+
+    return context_line(source.title, channel=source.channel) if source is not None else ""
+
+
+#: The teaser starts this long before the moment it shows, so the first word is not cut.
+TEASER_LEAD = 0.4
+
+
+def _open_with_teaser(
+    clip: Path, video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, cues: "Sequence[Cue]", seconds: float, ass: Path,
+    *, play_res, style, karaoke: bool, credit: str | None, credit_position: str,
+) -> float:
+    """Put ``seconds`` of the peak (with the same layout, captions and credit) in front of ``clip``; returns how long the teaser is."""
+    from .audio import decode_pcm
+    from .export import run_ffmpeg
+    from .ffmpeg import build_concat_command
+    from .soundtrack import onset_near
+
+    start, end = opts.start or 0.0, (opts.end if opts.end is not None else h.end - offset)
+    peak = min(max(h.peak - offset, start), end)
+    if probe(video).has_audio:  # chat says roughly when; the sound says when exactly
+        samples = decode_pcm(video, sample_rate=16000, start=start, duration=end - start, track=0)
+        peak = start + onset_near(samples, 16000, peak - start)
+    first = max(start, peak - TEASER_LEAD)
+    last = min(end, first + seconds + TEASER_LEAD)
+    if last - first < 0.5:
+        return 0.0
+    rel = first - start
+    teaser_cues = [replace(c, start=max(0.0, c.start - rel), end=c.end - rel, words=tuple(replace(w, start=max(0.0, w.start - rel), end=w.end - rel) for w in c.words))
+                   for c in cues if c.end > rel and c.start < rel + (last - first)]
+    subs = None
+    if teaser_cues or credit:
+        subs = write_ass(teaser_cues, ass, play_res=play_res, style=style, karaoke=karaoke, credit=credit, credit_position=credit_position, duration=last - first)
+    part = clip.with_name(clip.stem + ".teaser" + clip.suffix)
+    teaser_opts = replace(opts, start=first, end=last, keep=None, mix=None, subtitles=subs)
+    export(video, part, teaser_opts)
+    joined = clip.with_name(clip.stem + ".joined" + clip.suffix)
+    facts = [probe(part), probe(clip)]
+    try:
+        run_ffmpeg(build_concat_command(
+            [part, clip], joined, size=(facts[1].width, facts[1].height), durations=[float(f.duration or 0) for f in facts],
+            has_audio=[f.has_audio for f in facts], fps=facts[1].fps or opts.fps or 30.0, quality=opts.quality, format=opts.format,
+        ))
+        joined.replace(clip)
+    finally:
+        part.unlink(missing_ok=True)
+        joined.unlink(missing_ok=True)
+        if subs is not None:
+            Path(subs).unlink(missing_ok=True)
+    return round(float(facts[0].duration or 0.0), 2)
 
 
 def _thumbnail(video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, hook: str, out: Path) -> Path | None:

@@ -20,7 +20,7 @@ from .subtitles import Cue, _width, script_of
 if TYPE_CHECKING:  # pragma: no cover
     from .translation import Glossary
 
-__all__ = ["AGENCY_NAMES", "CLIP_WORDS", "GENERIC_TAGS", "TEMPLATES", "ClipTitle", "clip_title", "hashtags", "hook_line", "talent_name", "title_language"]
+__all__ = ["AGENCY_NAMES", "CLIP_WORDS", "GENERIC_TAGS", "TEMPLATES", "ClipTitle", "clip_title", "context_line", "hashtags", "hook_line", "talent_name", "title_language"]
 
 #: Agency names as clip titles write them, per language (proper names, not interface text).
 AGENCY_NAMES: dict[str, dict[str, str]] = {
@@ -171,6 +171,26 @@ def clip_title(
         hook = (hook[: max(room, 0)].rstrip() + "...") if room > 0 else ""
         title = _tidy(form.format(hook=hook, talent=talent, agency=agency_name, clip=CLIP_WORDS[language]))[:TITLE_LIMIT]
     return ClipTitle(title, hashtags(language, agency=agency, talent=talent), language, hook)
+
+
+_BRACKETED = re.compile(r"【([^】]+)】|\[([^\]]+)\]|〔([^〕]+)〕")
+_AGENCY_WORDS = re.compile("|".join(re.escape(name) for names in AGENCY_NAMES.values() for name in names.values()) + r"|hololive|holo|vtuber|ホロ", re.IGNORECASE)
+
+
+def context_line(stream_title: str, *, channel: str = "", width: float = 24) -> str:
+    """What is going on, for the line at the top of a clip's first seconds: the stream's topic.
+
+    Stream titles put the game or the kind of stream in a bracket tag (``【気のせいすぎるRPG】``); the first
+    tag that is not the agency or the talent's name is the topic. Without one, the title itself.
+    """
+    names = {part for part in re.split(r"[\s/|]+", channel) if len(part) > 1}
+    for match in _BRACKETED.finditer(stream_title or ""):
+        tag = next(group for group in match.groups() if group)
+        pieces = [p for p in re.split(r"[/|]", tag) if p.strip()]
+        if pieces and all(_AGENCY_WORDS.search(p) or p.strip() in names or any(n in p for n in names) for p in pieces):
+            continue  # 【ホロライブ/兎田ぺこら】 says who, not what
+        return _cut(" ".join(tag.split()), width)
+    return _cut(_clean(stream_title or ""), width)
 
 
 def _tidy(title: str) -> str:

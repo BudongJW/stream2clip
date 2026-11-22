@@ -513,9 +513,13 @@ def to_ass(
     credit: str | None = None,
     credit_position: str = "top-left",
     duration: float | None = None,
+    context: str | None = None,
+    context_seconds: float = 3.0,
 ) -> str:
     """Cues as an ASS script. ``credit`` is a small line shown in a corner for the whole clip
-    ("Source: channel name"); it needs ``duration``, the clip's length, when there are no cues to tell it."""
+    ("Source: channel name"); it needs ``duration``, the clip's length, when there are no cues to tell it.
+    ``context`` is a line of what is going on, on a dark plate at the top for the first ``context_seconds``
+    (Japanese clips open with such a 状況説明 line within the first second)."""
     st = style or SubtitleStyle()
     cues = sorted(cues, key=lambda c: c.start)
     font = pick_font(script_of("".join(_cue_text(c) for c in cues))) if st.font == "auto" else st.font
@@ -567,6 +571,18 @@ def to_ass(
             f"-1,0,0,0,100,100,0,0,1,{round(2 * k, 1):g},0,{CREDIT_POSITIONS[credit_position]},{round(40 * k)},{round(40 * k)},{margin_cv},1",
         )
         events.insert(0, f"Dialogue: 1,{_ass_time(0)},{_ass_time(until)},Credit,,0,0,0,,{_escape(credit)}")
+    context = " ".join((context or "").split())
+    if context:
+        until = min(context_seconds, duration) if duration else context_seconds
+        context_font = pick_font(script_of(context)) if st.font == "auto" else st.font
+        below_credit = bool(credit) and credit_position.startswith("top")
+        margin_top = round(H * ((0.1 if below_credit else 0.05) if H >= W else (0.13 if below_credit else 0.05)))
+        header.insert(
+            header.index("[Events]") - 1,
+            f"Style: Context,{context_font},{max(8, round(46 * k))},{_ass_color('#FFFFFF')},{_ass_color('#FFFFFF')},{_ass_color('#15131FCC')},&H00000000,"
+            f"-1,0,0,0,100,100,0,0,3,{round(12 * k, 1):g},0,8,{round(60 * k)},{round(60 * k)},{margin_top},1",
+        )
+        events.insert(0, f"Dialogue: 2,{_ass_time(0)},{_ass_time(until)},Context,,0,0,0,,{{\\fad(150,250)}}{_escape(context)}")
     return "\n".join(header + events) + "\n"
 
 

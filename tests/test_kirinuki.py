@@ -173,3 +173,60 @@ def test_clips_can_bring_a_thumbnail(green_screen_video, tmp_path):
     assert clip.thumbnail == tmp_path / "clip_01.jpg" and Image.open(clip.thumbnail).size == (1280, 720)
     assert json.loads((tmp_path / "clips.json").read_text(encoding="utf-8"))["clips"][0]["thumbnail"] == "clip_01.jpg"
     assert any(issue.level == "warning" and "放送事故" in issue.message for issue in clip.issues)
+
+
+# --------------------------------------------------------------------------- context line and teaser
+
+
+def test_context_line_is_the_streams_topic():
+    from stream2clip.titles import context_line
+
+    assert context_line(STREAM, channel=CHANNEL) == "気のせいすぎるRPG"
+    assert context_line("【マイクラ】建築【にじさんじ/月ノ美兎】", channel="月ノ美兎") == "マイクラ"
+    assert context_line("【#hololiveEnglish】Chill chat stream") == "Chill chat stream"  # the tag says who: the title says what
+    assert context_line("") == ""
+
+
+def test_context_line_in_the_captions():
+    from stream2clip.subtitles import to_ass
+
+    ass = to_ass([Cue(0.5, 2.0, "hi")], play_res=(1080, 1920), context="気のせいすぎるRPG", context_seconds=3.0, credit="Source: Ch", duration=10.0)
+    style = next(line for line in ass.splitlines() if line.startswith("Style: Context,"))
+    assert style.split(",")[15] == "3" and style.split(",")[18] == "8"  # a plate, at the top
+    assert style.split(",")[21] == str(round(1920 * 0.1))  # below the credit in the top corner
+    event = next(line for line in ass.splitlines() if ",Context," in line)
+    assert event.startswith("Dialogue: 2,0:00:00.00,0:00:03.00,Context,") and event.endswith("気のせいすぎるRPG")
+    alone = to_ass([], play_res=(1920, 1080), context="topic", duration=2.0)
+    assert ",0:00:02.00,Context," in alone and next(line for line in alone.splitlines() if line.startswith("Style: Context,")).split(",")[21] == str(round(1080 * 0.05))
+    assert "Context" not in to_ass([Cue(0, 1, "x")])
+
+
+@needs_ffmpeg
+def test_teaser_opens_the_clip_with_its_peak(green_screen_video, tmp_path):
+    import subprocess
+
+    import numpy as np
+
+    from stream2clip.export import probe
+    from stream2clip.ffmpeg import ExportOptions
+    from stream2clip.pipeline import make_clips
+
+    def square_x(path, at):
+        raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", str(at), "-i", str(path), "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True, check=True).stdout
+        frame = np.frombuffer(raw, dtype=np.uint8).reshape(120, 160, 3).astype(int)
+        red = (frame[..., 0] > 150) & (frame[..., 1] < 100)
+        return float(np.nonzero(red)[1].mean())
+
+    h = Highlight(1, 0.0, 1.8, 1.2, 5.0)
+    opts = ExportOptions(format="mp4", fps=10)
+    plain = make_clips(green_screen_video, [h], tmp_path / "plain", options=opts)[0]
+    teased = make_clips(green_screen_video, [h], tmp_path / "teased", options=opts, teaser=0.5, context="what is going on", cues=[Cue(1.0, 1.6, "now")])[0]
+    assert teased.teaser == pytest.approx(0.9, abs=0.15)  # 0.4 s before the peak and 0.5 s of it
+    assert probe(teased.path).duration == pytest.approx(probe(plain.path).duration + teased.teaser, abs=0.2)
+    assert square_x(teased.path, 0.05) == pytest.approx(square_x(plain.path, 0.85), abs=6)  # it opens on the peak's picture ...
+    assert square_x(teased.path, teased.teaser + 0.05) == pytest.approx(square_x(plain.path, 0.05), abs=6)  # ... then the clip from its start
+    assert "what is going on" in teased.subtitles.read_text(encoding="utf-8")
+    assert not list((tmp_path / "teased").glob("*.teaser*")) and not list((tmp_path / "teased").glob("*.joined*"))  # nothing left over
+    gif = make_clips(green_screen_video, [h], tmp_path / "gif", options=ExportOptions(format="gif", fps=5, width=80), teaser=0.5)[0]
+    assert gif.teaser == 0.0  # pictures without sound are not joined
