@@ -230,3 +230,31 @@ def test_teaser_opens_the_clip_with_its_peak(green_screen_video, tmp_path):
     assert not list((tmp_path / "teased").glob("*.teaser*")) and not list((tmp_path / "teased").glob("*.joined*"))  # nothing left over
     gif = make_clips(green_screen_video, [h], tmp_path / "gif", options=ExportOptions(format="gif", fps=5, width=80), teaser=0.5)[0]
     assert gif.teaser == 0.0  # pictures without sound are not joined
+
+
+# --------------------------------------------------------------------------- presets
+
+
+def test_presets_fill_what_was_not_given(tmp_path):
+    from stream2clip.cli import _apply_preset, build_parser
+    from stream2clip.presets import PRESETS, get_preset
+
+    def parsed(*extra):
+        args = build_parser().parse_args(["auto", "v.mp4", "-o", str(tmp_path), "--chat", "c.json", *extra])
+        _apply_preset(args)
+        return args
+
+    shorts = parsed()
+    assert (shorts.layout, shorts.top, shorts.min_length, shorts.max_length, shorts.compile_to, shorts.context) == ("blur", 10, 15.0, 90.0, None, None)
+    clip = parsed("--preset", "clip")
+    assert (clip.layout, clip.min_length, clip.max_length, clip.context, clip.compile_to) == ("none", 60.0, 180.0, "auto", None)
+    long = parsed("--preset", "long")
+    assert (long.layout, long.top, long.compile_to, long.fade) == ("none", 6, "", 0.3)
+    own = parsed("--preset", "long", "--layout", "blur", "--top", "3", "--context", "my words", "--fade", "0")
+    assert (own.layout, own.top, own.context, own.fade) == ("blur", 3, "my words", 0.0)  # what is given wins
+    assert set(PRESETS) == {"shorts", "clip", "long"} and get_preset(None).key == "shorts"
+    with pytest.raises(ValueError):
+        get_preset("square")
+    highlights = build_parser().parse_args(["highlights", "--preset", "clip", "--chat", "c.json"])
+    _apply_preset(highlights)
+    assert (highlights.lead, highlights.tail) == (45.0, 30.0)

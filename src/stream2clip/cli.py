@@ -264,14 +264,14 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--speech", metavar="SUBTITLES", help="experimental: also score reaction words in this subtitle file (what the streamer says); a way to find moments in a stream without chat")
     g.add_argument("--mark-singing", action="store_true", help="find the songs in the video and say which highlights overlap one")
     g.add_argument("--skip-singing", action="store_true", help="like --mark-singing, and leave out highlights that are mostly a song")
-    g.add_argument("--top", type=int, default=10, help="maximum number of highlights (default 10)")
+    g.add_argument("--top", type=int, help="maximum number of highlights (default: from --preset; shorts 10)")
     g.add_argument("--threshold", type=float, default=2.0, help="robust z-score needed for a peak (default 2.0)")
     g.add_argument("--window", type=float, default=5.0, help="analysis bucket in seconds (default 5)")
     g.add_argument("--delay", type=float, default=8.0, help="seconds chat lags behind the moment (default 8)")
-    g.add_argument("--lead", type=float, default=20.0, help="context before the moment (default 20 s)")
-    g.add_argument("--tail", type=float, default=10.0, help="context after the moment (default 10 s)")
-    g.add_argument("--min-length", type=float, default=15.0)
-    g.add_argument("--max-length", type=float, default=90.0)
+    g.add_argument("--lead", type=float, help="context before the moment (default: from --preset; shorts 20 s)")
+    g.add_argument("--tail", type=float, help="context after the moment (default: from --preset; shorts 10 s)")
+    g.add_argument("--min-length", type=float, help="shortest highlight in seconds (default: from --preset; shorts 15)")
+    g.add_argument("--max-length", type=float, help="longest highlight in seconds (default: from --preset; shorts 90)")
     g.add_argument("--keep-greetings", action="store_true", help="count greetings / goodbyes too (they flood the chat when a stream starts and ends)")
     g.add_argument("--skip-scene", action="append", metavar="NAME", help="with --session: leave out highlights that are mostly in an OBS scene whose name contains NAME (e.g. a waiting or ending screen); repeat for more")
     _add_marker_args(g)
@@ -315,10 +315,24 @@ def _markers(args: argparse.Namespace) -> dict:
     return {"markers": words, "marker_roles": ("any",) if args.marker_anyone else ("owner", "moderator")}
 
 
+def _apply_preset(args: argparse.Namespace) -> None:
+    """Fill what was not given on the command line from ``--preset`` (shorts, clip, long)."""
+    from .presets import get_preset
+
+    preset = get_preset(getattr(args, "preset", None))
+    for name, value in (("top", preset.top), ("lead", preset.lead), ("tail", preset.tail), ("min_length", preset.min_length), ("max_length", preset.max_length),
+                        ("layout", preset.layout), ("fade", preset.fade), ("context", preset.context)):
+        if hasattr(args, name) and getattr(args, name) is None:
+            setattr(args, name, value)
+    if preset.compile and hasattr(args, "compile_to") and args.compile_to is None:
+        args.compile_to = ""  # joined, under the default name
+
+
 def _detect(args: argparse.Namespace, video: str | None):
     from .highlights import HighlightConfig, render_timeline
     from .pipeline import find_highlights
 
+    _apply_preset(args)
     session, zero = _session(args)
     if not args.chat and not args.info and not (video and args.audio) and not args.speech and session is None:
         raise ValueError("Give --chat, --info (heatmap), --audio with a video, --speech with subtitles, or --session")
@@ -394,7 +408,7 @@ def cmd_highlights(args: argparse.Namespace) -> int:
 
 def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("clip output")
-    g.add_argument("--layout", default="blur", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default blur): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
+    g.add_argument("--layout", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default: from --preset; shorts blur, clip and long none): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
     g.add_argument("--avatar", type=_avatar, help="stack / pip layout: avatar box x,y,w,h in source pixels, 'auto' to find it with anime face detection, or 'session' to take it from the VTube Studio outline in --session")
     g.add_argument("--vts-region", type=_region, metavar="X,Y,W,H", help="--avatar session: where VTube Studio's whole view is in the video, when the session does not know where OBS put it")
     g.add_argument("--avatar-video", metavar="FILE", help="stack / pip layout: take the avatar from its own recording (green screen or alpha) instead of a box in the stream")
@@ -457,7 +471,11 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     m.add_argument("--no-sfx-snap", action="store_true", help="put effects exactly where asked: by default a peak effect moves to the nearest sharp rise in the sound (a shout, a laugh) within 2.5 s before to 1 s after the peak, and the others move out of the middle of talk by up to 0.75 s")
     m.add_argument("--sounds", metavar="DIR", help="sound library folder (default: 'sounds' in the app's settings folder)")
     p.add_argument("--compile", dest="compile_to", nargs="?", const="", metavar="FILE", help="also join the clips, in stream order, into one video with a chapter list (default name: compilation.mp4 in the output folder)")
-    p.add_argument("--fade", type=float, default=0.0, metavar="SECONDS", help="--compile: fade to black between the clips (default 0: hard cuts)")
+    p.add_argument("--fade", type=float, metavar="SECONDS", help="--compile: fade to black between the clips (default: from --preset; 0 = hard cuts, long 0.3)")
+
+
+def _add_preset_arg(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--preset", choices=["shorts", "clip", "long"], default="shorts", help="what to make: shorts (9:16, 15-90 s, the default), clip (horizontal 1-3 min with a context line, as Korean and English clip channels post), long (horizontal clips of 45-150 s joined into one video of about 8-9 min with chapters, as Japanese clip channels post); options given here win over the preset")
 
 
 def _soundtrack(args: argparse.Namespace):
@@ -478,6 +496,8 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     from .layouts import VerticalLayout
     from .pipeline import make_clips
     from .subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
+
+    _apply_preset(args)
 
     if args.ranks:
         wanted = {int(r) for r in args.ranks.split(",") if r.strip()}
@@ -1356,6 +1376,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_evaluate)
 
     p = sub.add_parser("highlights", help="find highlight moments from chat / audio / most-replayed")
+    _add_preset_arg(p)
     p.add_argument("--video", help="VOD file (duration, and loudness with --audio)")
     p.add_argument("-o", "--output", help="write highlights JSON")
     _add_highlight_args(p)
@@ -1387,6 +1408,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_timeline)
 
     p = sub.add_parser("clips", help="export highlights as vertical clips with subtitles and descriptions")
+    _add_preset_arg(p)
     p.add_argument("video", help="VOD file, or the stream's address: then only the highlights' footage is downloaded")
     p.add_argument("--highlights", required=True, help="JSON from `stream2clip highlights`")
     p.add_argument("-o", "--output", required=True, help="output directory")
@@ -1398,6 +1420,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_clips)
 
     p = sub.add_parser("auto", help="VOD + chat -> highlights -> clips in one go")
+    _add_preset_arg(p)
     p.add_argument("video", help="VOD file, or the stream's address: chat replay is fetched and only the highlights' footage is downloaded")
     p.add_argument("-o", "--output", required=True, help="output directory")
     p.add_argument("--strict", action="store_true", help="exit 1 when the guideline check finds errors")
