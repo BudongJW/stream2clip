@@ -459,6 +459,77 @@ def test_export_for_an_editing_program_then_credit_and_compilation(app, window, 
 
 
 @needs_ffmpeg
+def test_music_and_a_sound_effect_from_the_window(app, window, stream_files, tmp_path):
+    from stream2clip.soundtrack import SoundLibrary, write_wav
+
+    video, chat = stream_files
+    out = tmp_path / "clips"
+    song = write_wav(0.1 * np.sin(2 * np.pi * 1500 * np.arange(48000) / 48000), tmp_path / "song.wav")
+    SoundLibrary().add(song, name="song", license="cc-by-4.0", title="Song", author="Ann")  # the app's own library (an empty folder in tests)
+    window.set_paths(video=str(video), chat=str(chat), output=str(out))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("gif"))
+    window.bgm_edit.setText("song")
+    window.export()
+    assert "MP4, WebM" in window.status.text()  # a GIF has no sound to put music in
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    window.sfx_combo.setCurrentIndex(window.sfx_combo.findData("auto"))
+    window.sfx_time_combo.setCurrentIndex(window.sfx_time_combo.findData("start"))
+    window.export()
+    wait(app, lambda: not window.busy)
+    sounds = window.last_results[0].sounds
+    assert [(s.sound.label, s.at) for s in sounds] == [("song", 0.0), ("pop", 0.0)]  # chat laughed (草): the auto effect is a pop
+    assert "저장됨" in window.status.text()
+    window.remember()
+    again = HighlightsWindow()
+    assert again.bgm_edit.text() == "song" and again.sfx_combo.currentData() == "auto" and again.sfx_time_combo.currentData() == "start"
+    again.close()
+
+
+def test_sound_library_window(app, window, tmp_path):
+    from stream2clip.gui.sounds import SoundEntryDialog
+    from stream2clip.soundtrack import SoundLibrary, synth, write_wav
+
+    downloaded = write_wav(synth("ding"), tmp_path / "Downloads" / "cafe.wav")
+    entry = SoundEntryDialog(str(downloaded))
+    assert entry.name_edit.text() == "cafe" and not entry.ok_button.isEnabled()  # a license has to be chosen
+    entry.license_combo.setCurrentIndex(entry.license_combo.findData("otologic"))
+    entry.title_edit.setText("Cafe")
+    assert entry.ok_button.isEnabled() and "BGM by OtoLogic(CC BY 4.0)" in entry.preview.text()
+    entry.license_combo.setCurrentIndex(entry.license_combo.findData("cc-by-nd-4.0"))
+    assert "x " in entry.preview.text()  # an error: ND may not be put to picture
+    entry.license_combo.setCurrentIndex(entry.license_combo.findData("otologic"))
+    facts = entry.facts()
+    entry.close()
+
+    dialog = window.open_sound_library()  # tests: built, not shown modally
+    assert dialog.table.rowCount() == 0 and not dialog.use_button.isEnabled()
+    dialog.add_file(str(downloaded), facts)
+    dialog.add_file(str(downloaded), {**facts, "name": "pop2", "kind": "sfx", "license": "cc0"})
+    assert dialog.table.rowCount() == 2 and dialog.table.item(0, 2).text() == "OtoLogic, CC BY 4.0"
+    assert SoundLibrary().find("cafe").path.parent == SoundLibrary().folder  # copied into the app's library
+    dialog.table.selectRow(1)
+    dialog.use_selected()  # an effect is not music: nothing is picked
+    assert window.bgm_edit.text() == ""
+    dialog.table.selectRow(0)
+    dialog.use_selected()
+    assert window.bgm_edit.text() == "cafe"
+    dialog.table.selectRow(1)
+    dialog.remove_selected()
+    assert dialog.table.rowCount() == 1 and SoundLibrary().find("pop2") is None
+
+    assert not window.loudness_check.isChecked()
+    window.loudness_check.setChecked(True)
+    window.remember()
+    again = HighlightsWindow()
+    assert again.loudness_check.isChecked() and again.bgm_edit.text() == "cafe"
+    again.close()
+
+
+@needs_ffmpeg
 def test_quiet_parts_are_shortened_when_asked(app, window, tmp_path):
     from stream2clip.export import probe
 

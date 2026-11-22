@@ -15,6 +15,7 @@ Layers (each usable on its own):
 * :mod:`stream2clip.subtitles` - SRT/VTT/JSON cues, karaoke ASS, Whisper hook
 * :mod:`stream2clip.compliance` - agency clip-guideline descriptions and checks
 * :mod:`stream2clip.pipeline` - highlights -> finished clips
+* :mod:`stream2clip.soundtrack` - background music and sound effects: built-in effects, sound library, credits, licenses
 * :mod:`stream2clip.gui`     - optional PySide6 desktop app
 """
 
@@ -23,7 +24,7 @@ from .export import FFmpegError, MediaInfo, export, probe
 from .ffmpeg import ALPHA_FORMATS, FORMATS, ExportOptions, build_export_command, build_video_filter
 from .geometry import Region
 
-__version__ = "0.14.1"
+__version__ = "0.15.0"
 
 __all__ = [
     "ALPHA_FORMATS",

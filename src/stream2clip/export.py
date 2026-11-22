@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from .layouts import VerticalLayout
 
-__all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "has_alpha", "probe", "run_ffmpeg"]
+__all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "has_alpha", "measure_loudness", "probe", "run_ffmpeg"]
 
 
 class FFmpegError(RuntimeError):
@@ -59,12 +59,38 @@ def export(
     ffmpeg: str | None = None,
     timeout: float | None = None,
 ) -> Path:
-    """Convert a video file (or a section of it) into a GIF/WebP/MP4/WebM/MOV/APNG clip."""
+    """Convert a video file (or a section of it) into a GIF/WebP/MP4/WebM/MOV/APNG clip.
+
+    With ``options.loudness`` and nothing measured yet, the sound is measured first (one more
+    ffmpeg run that writes nothing); a clip without sound, or a silent one, is left as it is.
+    """
     options = options or ExportOptions()
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
+    if options.loudness is not None and options.loudness.measured is None:
+        options = measure_loudness(input_path, options, ffmpeg=ffmpeg, timeout=timeout)
     run_ffmpeg(build_export_command(input_path, out, options, ffmpeg=ffmpeg), timeout=timeout)
     return out
+
+
+def measure_loudness(input_path: str | os.PathLike[str], options: ExportOptions, *, ffmpeg: str | None = None, timeout: float | None = None) -> ExportOptions:
+    """``options`` with the first loudness pass filled in (``loudness`` dropped when there is no sound to bring up or down)."""
+    from dataclasses import replace
+
+    from .ffmpeg import build_loudness_command, parse_loudnorm
+
+    if options.loudness is None:
+        return options
+    layers = options.mix is not None and bool(options.mix.layers)
+    if not options.audio or (not layers and not probe(input_path).has_audio):
+        return replace(options, loudness=None)  # no sound at all: nothing to bring up or down
+    cmd = build_loudness_command(input_path, options, ffmpeg=ffmpeg)
+    proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout, check=False)
+    stderr = proc.stderr.decode("utf-8", "replace")
+    if proc.returncode != 0:
+        raise FFmpegError(cmd, proc.returncode, stderr)
+    measured = parse_loudnorm(stderr)
+    return replace(options, loudness=replace(options.loudness, measured=measured) if measured else None)
 
 
 def grab_frames(path: str | os.PathLike[str], times: Sequence[float], *, layout: "VerticalLayout | None" = None, ffmpeg: str | None = None) -> "list[np.ndarray]":

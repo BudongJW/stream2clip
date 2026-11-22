@@ -8,9 +8,13 @@ add their own rules, so always read the linked original before publishing.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Sequence
 
 from .i18n import mark, shown, tr
 from .sources import SourceInfo
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .soundtrack import Sound
 
 __all__ = ["AgencyProfile", "Issue", "PROFILES", "build_description", "check_upload", "get_profile"]
 
@@ -116,8 +120,13 @@ def build_description(
     uses_ai: bool = False,
     permission_number: str | None = None,
     hashtags: tuple[str, ...] = (),
+    credits: "Sequence[str]" = (),
 ) -> str:
-    """Video description with the source credit first (as hololive requires) and required labels."""
+    """Video description with the source credit first (as hololive requires) and required labels.
+
+    ``credits`` are the lines for the music and sound effects laid over the clip
+    (:func:`stream2clip.soundtrack.credit_lines`), listed under their own heading.
+    """
     profile = profile or PROFILES["generic"]
     lines: list[str] = []
     if source.url or source.title:
@@ -136,6 +145,8 @@ def build_description(
         lines += [tr("許諾番号 / 허가 번호: {0}").format(permission_number), ""]
     if summary:
         lines += [summary, ""]
+    if credits:
+        lines += [tr("BGM, 효과음"), *credits, ""]
     if uses_ai:
         lines += [tr("자동 자막, 하이라이트 검출 등 AI 도구를 사용해 편집했습니다.") + (" #AI" if profile.ai_label_required else ""), ""]
     if hashtags:
@@ -153,10 +164,23 @@ def check_upload(
     uses_voice_generation: bool = False,
     content_id: bool = False,
     permission_number: str | None = None,
+    sounds: "Sequence[Sound]" = (),
+    length: float | None = None,
 ) -> list[Issue]:
-    """Pre-upload checklist. ``error`` = violates the profile, ``warning`` = needs attention."""
+    """Pre-upload checklist. ``error`` = violates the profile, ``warning`` = needs attention.
+
+    ``sounds`` are the music and sound effects laid over the clip; their licenses are checked
+    too (:func:`stream2clip.soundtrack.check_sounds`), and ``length`` (seconds) warns about a
+    Short over a minute that carries outside music.
+    """
     profile = profile or PROFILES["generic"]
     issues: list[Issue] = []
+    if sounds:
+        from .soundtrack import check_sounds
+
+        issues += check_sounds(sounds, description=description)
+        if length is not None and length > 60 and any(not s.builtin for s in sounds):
+            issues.append(Issue("warning", tr("1분이 넘는 Shorts는 소유권 주장이 하나라도 걸리면 전 세계에서 차단됩니다. 음원을 넣은 클립은 1분 이내를 권장합니다.")))
     if profile.members_only_forbidden and source.members_only:
         issues.append(Issue("error", tr("멤버십, 유료 한정 방송은 클립으로 쓸 수 없습니다.")))
     if profile.before_archive_forbidden and not source.archive_public:

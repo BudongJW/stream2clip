@@ -416,6 +416,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--ranks", help="only these highlight ranks, e.g. 1,2,5")
     g.add_argument("--trim-silence", type=float, nargs="?", const=0.7, metavar="SECONDS", help="shorten pauses inside each clip: silences of this length or longer (default 0.7) are cut down to a short pause; captions move along")
     g.add_argument("--silence-level", type=float, default=24.0, metavar="DB", help="--trim-silence: how far below the clip's loud parts counts as silent (default 24 dB; smaller cuts more)")
+    g.add_argument("--loudness", type=float, nargs="?", const=-14.0, metavar="LUFS", help="bring each clip's sound to this loudness (default -14, where YouTube turns louder videos down), measured in a first pass; MP4, WebM, MOV")
     s = p.add_argument_group("subtitles")
     s.add_argument("--subtitles", help="SRT / WebVTT / Whisper JSON for the whole VOD (YouTube auto-captions work)")
     s.add_argument("--transcribe", metavar="MODEL", help='transcribe each clip with faster-whisper (e.g. "small", "large-v3")')
@@ -438,8 +439,32 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--registered", action="store_true", help="your clip channel is registered with the agency")
     c.add_argument("--credit", metavar="TEXT", help="burn a small source line into a corner of every clip; 'auto' writes the original channel's name (from --info or --channel)")
     c.add_argument("--credit-position", default="top-left", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="corner of the --credit line (default top-left)")
+    m = p.add_argument_group("music & sound effects")
+    m.add_argument("--bgm", action="append", metavar="FILE|NAME", help="background music under every clip: a file, or a name in the sound library (see 'stream2clip sounds'); give it more than once to take the tracks in turn")
+    m.add_argument("--bgm-under", type=float, default=12.0, metavar="DB", help="how far below the clip's own sound the music plays, measured on each clip (default 12; it goes lower still while someone speaks)")
+    m.add_argument("--bgm-volume", type=float, metavar="DB", help="fixed music gain in dB instead of --bgm-under")
+    m.add_argument("--bgm-start", type=float, default=0.0, metavar="SECONDS", help="start the music this far into the track (skip an intro)")
+    m.add_argument("--no-duck", action="store_true", help="keep the music at one level instead of lowering it while someone speaks")
+    m.add_argument("--sfx", action="append", metavar="NAME[@WHEN]", help="a sound effect in every clip: built-in pop / ding / whoosh / boom / sparkle, auto (picked by what chat reacted with), a library name or a file; WHEN = peak (default), start, end or seconds from the start; give it more than once for more effects")
+    m.add_argument("--sfx-under", type=float, default=3.0, metavar="DB", help="how far below the clip's own sound the effects play (default 3)")
+    m.add_argument("--sfx-gap", type=float, default=3.0, metavar="SECONDS", help="keep this much between two effects in one clip (default 3; 0: none). An effect too close to one given before it moves by up to 1.5 s, or is left out")
+    m.add_argument("--no-sfx-snap", action="store_true", help="put effects exactly where asked: by default a peak effect moves to the nearest sharp rise in the sound (a shout, a laugh) within 2.5 s before to 1 s after the peak, and the others move out of the middle of talk by up to 0.75 s")
+    m.add_argument("--sounds", metavar="DIR", help="sound library folder (default: 'sounds' in the app's settings folder)")
     p.add_argument("--compile", dest="compile_to", nargs="?", const="", metavar="FILE", help="also join the clips, in stream order, into one video with a chapter list (default name: compilation.mp4 in the output folder)")
     p.add_argument("--fade", type=float, default=0.0, metavar="SECONDS", help="--compile: fade to black between the clips (default 0: hard cuts)")
+
+
+def _soundtrack(args: argparse.Namespace):
+    """The --bgm / --sfx options as a Soundtrack (``None`` when neither is given)."""
+    if not (getattr(args, "bgm", None) or getattr(args, "sfx", None)):
+        return None
+    from .soundtrack import Effect, SoundLibrary, Soundtrack, resolve_sound
+
+    library = SoundLibrary(args.sounds) if args.sounds else SoundLibrary()
+    music = tuple(resolve_sound(spec, "bgm", library) for spec in args.bgm or ())
+    effects = tuple(Effect.parse(spec, library) for spec in args.sfx or ())
+    return Soundtrack(music=music, effects=effects, under=args.bgm_under, volume=args.bgm_volume, duck=not args.no_duck,
+                      music_start=args.bgm_start, effect_under=args.sfx_under, snap=not args.no_sfx_snap, effect_gap=args.sfx_gap)
 
 
 def _make_clips(args: argparse.Namespace, highlights) -> int:
@@ -505,6 +530,10 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         if not channel:
             raise ValueError("--credit auto needs the name of the original channel: give --info or --channel")
         credit = tr("원본: {0}").format(channel)
+    soundtrack = _soundtrack(args)
+    if soundtrack is not None:
+        for sound in soundtrack.music:
+            print(f"music  {sound.label}" + (f"  ({sound.license})" if sound.license else "  (license not recorded)"))
     results = make_clips(
         video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
         section=(lambda h: sections[h.rank]) if sections is not None else None,
@@ -513,10 +542,14 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
         audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
+        soundtrack=soundtrack, loudness=args.loudness,
     )
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
-              + (f"  ({r.removed:.1f} s of silence removed)" if r.removed else ""))
+              + (f"  ({r.removed:.1f} s of silence removed)" if r.removed else "")
+              + ("  (" + ", ".join(f"{s.sound.label} {s.at:.1f}s" + (f" moved {s.moved:+.1f}" if s.moved else "") for s in r.sounds) + ")" if r.sounds else ""))
+        for reason in r.skipped_sounds:
+            print(f"    left out: {reason}")
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")
@@ -1113,6 +1146,103 @@ def cmd_glossary(args: argparse.Namespace) -> int:
     return 0
 
 
+def _library(args: argparse.Namespace):
+    from .soundtrack import SoundLibrary
+
+    return SoundLibrary(args.sounds) if getattr(args, "sounds", None) else SoundLibrary()
+
+
+def cmd_sounds_list(args: argparse.Namespace) -> int:
+    from .soundtrack import BUILTIN_EFFECTS
+
+    library = _library(args)
+    print(f"library {library.folder}  ({len(library)} sounds)")
+    for sound in library:
+        missing = "" if sound.path.is_file() else "  (file missing)"
+        print(f"  {sound.kind}  {sound.name:<20} {sound.license or '(license not recorded)':<18} {sound.title or sound.path.name}{missing}")
+        line = sound.credit_line()
+        if line:
+            print(f"        credit: {line}")
+    print("built-in effects (no credit needed): " + ", ".join(BUILTIN_EFFECTS) + ", auto")
+    return 0
+
+
+def cmd_sounds_add(args: argparse.Namespace) -> int:
+    library = _library(args)
+    facts = {"license": args.license, "title": args.title, "author": args.author, "url": args.url, "credit": args.credit}
+    if args.openverse:
+        from .openverse import audio_detail
+
+        found = audio_detail(args.openverse)
+        print(f"openverse {found.title} by {found.creator} ({found.license} {found.license_version}, {found.provider})  {found.page}")
+        if not found.key and not args.license:
+            raise ValueError(f"Openverse lists the license {found.license} {found.license_version}, which has no license key here: read the page and give --license")
+        facts = {key: value if value else found.facts()[key] for key, value in facts.items()}
+    if not facts["license"]:
+        raise ValueError("Give --license (see 'stream2clip sounds licenses'), or --openverse ID")
+    sound = library.add(args.file, kind=args.kind, name=args.name or "", copy=not args.keep_in_place, hit=args.hit, tags=tuple(args.tag), **facts)
+    print(f"added  {sound.name}  ({sound.kind}, {sound.license})  {sound.path}")
+    line = sound.credit_line()
+    if line:
+        print(f"credit {line}")
+    from .soundtrack import check_sounds
+
+    for issue in check_sounds([sound]):
+        print(f"  {issue}")
+    return 0
+
+
+def cmd_sounds_search(args: argparse.Namespace) -> int:
+    from .openverse import search_audio
+
+    found = search_audio(args.query, commercial=not args.any_license, kind=args.kind, limit=args.limit)
+    for item in found:
+        length = f"{item.seconds:.0f}s" if item.seconds else "?"
+        key = item.key or f"{item.license} {item.license_version} (no key: read the page)"
+        print(f"{item.id}  {length:>5}  {key:<18} {item.title}  by {item.creator}  [{item.provider}]")
+        print(f"{'':38}{item.page}")
+    print(f"{len(found)} results from Openverse (openverse.org; it does not check the licenses it lists and does not endorse this program).")
+    print("Download from the page itself, then: stream2clip sounds add FILE --openverse ID")
+    return 0
+
+
+def cmd_sounds_remove(args: argparse.Namespace) -> int:
+    library = _library(args)
+    try:
+        sound = library.remove(args.name)
+    except KeyError:
+        raise ValueError(f"No sound named {args.name!r} in {library.folder}") from None
+    print(f"removed {sound.name}")
+    return 0
+
+
+def cmd_sounds_licenses(args: argparse.Namespace) -> int:
+    from .soundtrack import LICENSES
+
+    for lic in LICENSES.values():
+        allows = [f"credit {lic.attribution}"]
+        if not lic.commercial:
+            allows.append("non-commercial only")
+        if not lic.sync:
+            allows.append("not in videos")
+        if not lic.video_tools:
+            allows.append("not through video tools")
+        if not lic.social:
+            allows.append("not on video sites")
+        print(f"{lic.key:<24} {lic.name}  ({', '.join(allows)})")
+        if lic.url:
+            print(f"{'':<24} {lic.url}  (read {lic.checked})")
+    return 0
+
+
+def cmd_sounds_builtin(args: argparse.Namespace) -> int:
+    from .soundtrack import BUILTIN_EFFECTS, render_builtin
+
+    for name in args.names or BUILTIN_EFFECTS:
+        print(f"saved  {render_builtin(name, args.output)}")
+    return 0
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     from .compliance import PROFILES, check_upload, get_profile
     from .i18n import shown, tr
@@ -1407,6 +1537,42 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--api-key", help="Holodex API key (default: HOLODEX_API_KEY)")
     p.add_argument("--text", help="show this text with the glossary applied")
     p.set_defaults(func=cmd_glossary)
+
+    p = sub.add_parser("sounds", help="the sound library for --bgm / --sfx: free music and effects you downloaded, with their source and license")
+    p.add_argument("--sounds", metavar="DIR", help="library folder (default: 'sounds' in the app's settings folder)")
+    ss = p.add_subparsers(dest="sounds_command", metavar="command")
+    s = ss.add_parser("list", help="what the library holds (the default)")
+    s.set_defaults(func=cmd_sounds_list)
+    s = ss.add_parser("add", help="put a downloaded file in the library with where it came from and its license")
+    s.add_argument("file")
+    s.add_argument("--kind", choices=["bgm", "sfx"], default="bgm", help="background music (default) or a sound effect")
+    s.add_argument("--name", help="short name for --bgm / --sfx (default: the file name)")
+    s.add_argument("--license", help="license key (see 'stream2clip sounds licenses'), e.g. cc-by-4.0, pixabay, opentracks, own; needed unless --openverse gives it")
+    s.add_argument("--title", help="title of the track")
+    s.add_argument("--author", help="who made it (the name the license asks to be credited)")
+    s.add_argument("--url", help="the page it was downloaded from")
+    s.add_argument("--credit", help="the credit line exactly as the site asks for it (default: built from title, author, page and license)")
+    s.add_argument("--hit", type=float, default=0.0, metavar="SECONDS", help="sfx: where in the file its hit is, so that this moment lands on the peak")
+    s.add_argument("--tag", action="append", default=[], help="a word to sort by (funny, chill, hype ...); give it more than once")
+    s.add_argument("--keep-in-place", action="store_true", help="remember the file where it is instead of copying it into the library folder")
+    s.set_defaults(func=cmd_sounds_add)
+    s.add_argument("--openverse", metavar="ID", help="fill title, author, page, license and credit from this Openverse track (see 'sounds search'); options given here win")
+    s = ss.add_parser("search", help="search Creative Commons music and effects on Openverse (no key needed): title, license and the page to download from")
+    s.add_argument("query")
+    s.add_argument("--kind", choices=["music", "sound_effect"], help="only music or only sound effects")
+    s.add_argument("--any-license", action="store_true", help="also list licenses that forbid commercial use or changes (by default only ones a monetized clip can use)")
+    s.add_argument("--limit", type=int, default=10, help="how many results (default 10, at most 20)")
+    s.set_defaults(func=cmd_sounds_search)
+    s = ss.add_parser("remove", help="forget a sound (a file copied into the library folder stays there)")
+    s.add_argument("name")
+    s.set_defaults(func=cmd_sounds_remove)
+    s = ss.add_parser("licenses", help="the license keys a sound can name, what each allows and where its official text is")
+    s.set_defaults(func=cmd_sounds_licenses)
+    s = ss.add_parser("builtin", help="write the built-in effects as WAV files, to listen to them or use them in an editing program")
+    s.add_argument("names", nargs="*", help="which effects (default: all)")
+    s.add_argument("-o", "--output", default=".", help="folder (default: the current one)")
+    s.set_defaults(func=cmd_sounds_builtin)
+    p.set_defaults(func=cmd_sounds_list)
 
     p = sub.add_parser("check", help="pre-upload checklist against an agency's clip guideline")
     p.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")

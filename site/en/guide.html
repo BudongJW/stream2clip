@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.14</dd>
+    <dt>Version</dt><dd>v0.15</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -247,6 +247,9 @@
         <thead><tr><th>Item</th><th>Description</th></tr></thead>
         <tbody>
           <tr><th scope="row">Source credit</th><td>The text is shown small in the top left corner of each clip. Example: Source: channel name</td></tr>
+          <tr><th scope="row">Music, sound effect</th><td>Enter a downloaded music file, or a name in the sound library, under Music. It plays under the clip's sound and goes lower while someone speaks. The sound effect is one of five built-in ones, or Auto (matched to chat's reaction), at the peak, the start or the end. Record a track's source and license with <code>stream2clip sounds add</code>: the description credit and the check use them. MP4 and WebM only</td></tr>
+          <tr><th scope="row">Sound library</th><td>Library on the music row adds a downloaded file with its license, title, author, page and credit wording. The description credit and the check result are shown while typing. A chosen track becomes the music</td></tr>
+          <tr><th scope="row">Loudness</th><td>Bring to -14 LUFS sets the clip's sound to YouTube's reference loudness, measured once and then raised or lowered by one fixed amount (MP4, WebM)</td></tr>
           <tr><th scope="row">Shorten quiet parts</th><td>Stretches of a clip that stay quiet for more than 0.7 s are cut down to a short pause. Captions move along. Judged by loudness, so check the result before posting</td></tr>
           <tr><th scope="row">Compilation</th><td>When ticked, the exported clips are also joined in stream order into <code>compilation.mp4</code>, with the chapter list <code>compilation.txt</code></td></tr>
           <tr><th scope="row">Export for editing</th><td>Saves the ticked spans as a cut list <code>highlights.edl</code>, timeline markers <code>markers.edl</code> and a timestamp list <code>timestamps.txt</code>, to go on in DaVinci Resolve, Premiere Pro and others</td></tr>
