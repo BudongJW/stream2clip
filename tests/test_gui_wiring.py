@@ -749,7 +749,7 @@ def test_upload_form_is_filled_from_the_exported_clip(app, window, stream_files,
     # The clip's suggested title (no captions: the stream title without its tag, in the Japanese clip form).
     assert dialog.title_edit.text() == window.last_results[0].title == "朝活【切り抜き】"
     assert "https://www.youtube.com/watch?v=abc" in dialog.description_edit.toPlainText()
-    assert dialog.dialogs is False and dialog.privacy_combo.currentData() == "private"
+    assert dialog.dialogs is False and dialog.privacy_combo.currentData() == "private" and dialog.thumbnail_edit.text() == ""  # none was made
     dialog.close()
     deadline = time.time() + 0.05
     while time.time() < deadline:
@@ -963,3 +963,42 @@ def test_live_mode_reads_twitch_chat_for_a_twitch_address(app, tmp_path):
     assert isinstance(win.live_source("https://chzzk.naver.com/live/" + "ab" * 16, tmp_path), ChzzkLiveChat)
     assert isinstance(win.live_source("https://play.sooplive.co.kr/some_id", tmp_path), SoopLiveChat)
     win.close()
+
+
+@needs_ffmpeg
+def test_upload_dialog_sets_the_thumbnail_after_the_video(app, green_screen_video, tmp_path):
+    secrets = tmp_path / "client_secret.json"
+    secrets.write_text("{}", encoding="utf-8")
+    image = tmp_path / "clip_01.jpg"
+    image.write_bytes(b"\xff\xd8\xff" + b"0" * 100)
+    dialog = UploadDialog(str(green_screen_video), title="t", thumbnail=str(image))
+    dialog.dialogs = False
+    dialog.secrets_edit.setText(str(secrets))
+    dialog.shorts_check.setChecked(True)
+    dialog.uploader = lambda video, resource, client_secrets, on_progress: {"id": "abc123", "status": {"privacyStatus": "private"}}
+    calls = []
+
+    def thumbnailer(video_id, path, client_secrets, shorts, on_wait):
+        calls.append((video_id, path, shorts))
+        on_wait("processing")
+
+    dialog.thumbnailer = thumbnailer
+    dialog.upload()
+    wait(app, lambda: not dialog.busy)
+    assert calls == [("abc123", str(image), True)] and "썸네일 설정됨" in dialog.status.text()
+
+    def refused(*args):
+        raise RuntimeError("이 채널은 맞춤 썸네일을 올릴 수 없음")
+
+    dialog.thumbnailer = refused
+    dialog.upload()
+    wait(app, lambda: not dialog.busy)
+    assert dialog.video_url.endswith("abc123") and "썸네일 실패" in dialog.status.text()  # the video is up all the same
+
+    webp = tmp_path / "clip_01.webp"
+    webp.write_bytes(b"RIFF")
+    dialog.thumbnail_edit.setText(str(webp))
+    calls.clear()
+    dialog.upload()
+    assert not dialog.busy and "JPEG" in dialog.status.text()  # refused before anything is sent
+    dialog.close()

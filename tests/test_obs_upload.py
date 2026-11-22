@@ -274,3 +274,94 @@ def test_cli_upload_dry_run_sends_nothing(green_screen_video, tmp_path, capsys):
     assert "--client-secrets" in capsys.readouterr().err
     assert main(["upload", str(green_screen_video), "--title", "t", "--client-secrets", str(tmp_path / "none.json")]) == 1
     assert capsys.readouterr().err.strip() != ""
+
+
+# ----------------------------------------------------------------------------- thumbnails
+
+
+class FakeThumbnails:
+    """videos.list (processing state) and thumbnails.set of the YouTube API, in memory."""
+
+    def __init__(self, states, fail=None):
+        self.states, self.fail, self.calls = list(states), fail, []
+
+    def videos(self):
+        return self
+
+    def thumbnails(self):
+        return self
+
+    def list(self, **kwargs):
+        self.calls.append(("list", kwargs))
+        state = self.states.pop(0)
+        self._result = {"items": [{"processingDetails": {"processingStatus": state}}]}
+        return self
+
+    def set(self, **kwargs):
+        self.calls.append(("set", kwargs))
+        self._result = {"items": [{"default": {"url": "https://i.ytimg.com/x.jpg"}}]}
+        return self
+
+    def execute(self):
+        if self.fail is not None and self.calls[-1][0] == "set":
+            raise self.fail
+        return self._result
+
+
+def test_thumbnail_is_set_once_a_short_is_processed(tmp_path):
+    from stream2clip.upload import set_thumbnail, thumbnail_problem
+
+    image = tmp_path / "clip_01.jpg"
+    image.write_bytes(b"\xff\xd8\xff" + b"0" * 100)
+    assert thumbnail_problem(image) is None
+    webp = tmp_path / "clip_01.webp"
+    webp.write_bytes(b"RIFF")
+    assert "JPEG" in thumbnail_problem(webp)  # YouTube takes JPEG and PNG
+    assert thumbnail_problem(tmp_path / "missing.png") is not None
+
+    service, pauses, seen = FakeThumbnails(["processing", "processing", "succeeded"]), [], []
+    set_thumbnail("abc123", image, service=service, media="MEDIA", shorts=True, sleep=pauses.append, on_wait=seen.append)
+    assert [name for name, _ in service.calls] == ["list", "list", "list", "set"]  # a Short waits for processing
+    assert service.calls[-1][1] == {"videoId": "abc123", "media_body": "MEDIA"} and pauses == [15.0, 15.0] and seen == ["processing", "processing"]
+
+    service = FakeThumbnails([])
+    set_thumbnail("abc123", image, service=service, media="MEDIA")
+    assert [name for name, _ in service.calls] == ["set"]  # a regular video takes it straight away
+
+    with pytest.raises(RuntimeError, match="failed"):
+        set_thumbnail("abc123", image, service=FakeThumbnails(["failed"]), media="MEDIA", shorts=True, sleep=lambda s: None)
+    with pytest.raises(TimeoutError):
+        set_thumbnail("abc123", image, service=FakeThumbnails(["processing"] * 5), media="MEDIA", shorts=True, sleep=lambda s: None, timeout=30)
+
+    class Forbidden(Exception):
+        resp = type("Resp", (), {"status": 403})()
+
+    with pytest.raises(RuntimeError, match="썸네일"):  # no custom thumbnails on this channel: said plainly
+        set_thumbnail("abc123", image, service=FakeThumbnails([], fail=Forbidden("forbidden")), media="MEDIA")
+    with pytest.raises(ValueError):
+        set_thumbnail("abc123", tmp_path / "clip_01.webp", service=FakeThumbnails([]), media="MEDIA")
+
+
+def test_a_token_without_a_scope_asks_for_consent_again(tmp_path):
+    from stream2clip.upload import SCOPES, THUMBNAIL_SCOPES, _granted
+
+    token = tmp_path / "token.json"
+    token.write_text(json.dumps({"refresh_token": "r", "scopes": SCOPES}), encoding="utf-8")
+    assert _granted(token, SCOPES) and not _granted(token, THUMBNAIL_SCOPES)
+    token.write_text(json.dumps({"scopes": THUMBNAIL_SCOPES}), encoding="utf-8")
+    assert _granted(token, SCOPES) and _granted(token, THUMBNAIL_SCOPES)
+    token.write_text("not json", encoding="utf-8")
+    assert not _granted(token, SCOPES)
+
+
+@needs_ffmpeg
+def test_cli_upload_with_a_thumbnail(green_screen_video, tmp_path, capsys):
+    image = tmp_path / "clip_01.jpg"
+    image.write_bytes(b"\xff\xd8\xff" + b"0" * 100)
+    args = ["upload", str(green_screen_video), "--title", "t", "--shorts", "--thumbnail", str(image), "--dry-run"]
+    assert main(args) == 0
+    assert f"thumbnail {image}" in capsys.readouterr().out
+    webp = tmp_path / "clip_01.webp"
+    webp.write_bytes(b"RIFF")
+    assert main(["upload", str(green_screen_video), "--title", "t", "--thumbnail", str(webp), "--dry-run"]) == 1
+    assert "JPEG" in capsys.readouterr().err  # refused before anything is sent

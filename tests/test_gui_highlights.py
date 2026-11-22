@@ -778,6 +778,9 @@ def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, st
     assert (seen["make"]["context"], seen["make"]["teaser"], seen["make"]["thumbnails"]) == ("auto", 2.0, True)
     clip = window.last_results[0]
     assert clip.teaser > 0 and clip.thumbnail is not None and clip.thumbnail.exists()
+    dialog = window.open_upload()
+    assert dialog.thumbnail_edit.text() == str(clip.thumbnail)  # the clip's thumbnail goes up with it
+    dialog.close()
 
     window.remember()
     again = HighlightsWindow()

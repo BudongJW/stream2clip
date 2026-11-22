@@ -22,9 +22,15 @@ from typing import Any, Callable, Sequence
 
 from .i18n import tr
 
-__all__ = ["SCOPES", "PRIVACY", "video_resource", "scheduled_time", "shorts_problems", "load_credentials", "upload_video", "video_url"]
+__all__ = ["SCOPES", "PRIVACY", "THUMBNAIL_SCOPES", "video_resource", "scheduled_time", "shorts_problems", "load_credentials", "upload_video",
+           "video_url", "set_thumbnail", "wait_until_processed", "thumbnail_problem"]
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+#: A Short's thumbnail is set once YouTube has processed the video; reading that state on a private
+#: video needs read access to the channel, so these are asked for only then.
+THUMBNAIL_SCOPES = [*SCOPES, "https://www.googleapis.com/auth/youtube.readonly"]
+THUMBNAIL_LIMIT = 50 * 1024 * 1024  # thumbnails.set, since 2026-09-14
+THUMBNAIL_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
 PRIVACY = ("private", "unlisted", "public")
 TITLE_LIMIT = 100
 DESCRIPTION_LIMIT = 5000
@@ -124,13 +130,111 @@ def load_credentials(client_secrets: str | os.PathLike[str], token_path: str | o
     if not secrets.is_file():
         raise FileNotFoundError(f"OAuth client file not found: {secrets} (create an OAuth client of type Desktop app in Google Cloud and download it)")
     token = Path(token_path) if token_path else secrets.with_name("token.json")
-    credentials = Credentials.from_authorized_user_file(str(token), list(scopes)) if token.is_file() else None
+    credentials = Credentials.from_authorized_user_file(str(token), list(scopes)) if token.is_file() and _granted(token, scopes) else None
     if credentials and credentials.expired and credentials.refresh_token:  # pragma: no cover - needs Google
         credentials.refresh(Request())
     if not credentials or not credentials.valid:  # pragma: no cover - needs a browser and Google
         credentials = InstalledAppFlow.from_client_secrets_file(str(secrets), list(scopes)).run_local_server(port=0)
     token.write_text(credentials.to_json(), encoding="utf-8")  # pragma: no cover
     return credentials  # pragma: no cover
+
+
+def _granted(token: Path, scopes: Sequence[str]) -> bool:
+    """Whether the saved token was consented for every scope asked for now (else consent is asked again)."""
+    import json
+
+    try:
+        saved = json.loads(token.read_text(encoding="utf-8")).get("scopes") or []
+    except (OSError, ValueError):
+        return False
+    return set(scopes) <= set(saved if isinstance(saved, list) else str(saved).split())
+
+
+def thumbnail_problem(path: str | os.PathLike[str]) -> str | None:
+    """Why YouTube would refuse this file as a thumbnail (missing, not JPEG or PNG, over 50 MB), else ``None``."""
+    image = Path(path)
+    if not image.is_file():
+        return tr("썸네일 파일이 없음: {0}").format(image)
+    if image.suffix.lower() not in THUMBNAIL_TYPES:
+        return tr("썸네일은 JPEG 또는 PNG: {0}").format(image.name)
+    if image.stat().st_size > THUMBNAIL_LIMIT:
+        return tr("썸네일이 50MB를 넘음: {0}").format(image.name)
+    return None
+
+
+def wait_until_processed(
+    video_id: str,
+    *,
+    service: Any,
+    timeout: float = 900.0,
+    every: float = 15.0,
+    sleep: Callable[[float], None] | None = None,
+    on_wait: Callable[[str], None] | None = None,
+) -> None:
+    """Wait until YouTube has processed the video (``processingDetails.processingStatus`` is ``succeeded``).
+
+    Raises ``RuntimeError`` when processing failed and ``TimeoutError`` after ``timeout`` seconds.
+    """
+    import time
+
+    pause = sleep or time.sleep
+    waited = 0.0
+    while True:
+        found = service.videos().list(part="processingDetails", id=video_id).execute().get("items") or []
+        state = ((found[0].get("processingDetails") or {}).get("processingStatus") if found else None) or "processing"
+        if state == "succeeded":
+            return
+        if state in ("failed", "terminated"):
+            raise RuntimeError(f"YouTube could not process the video ({state})")
+        if waited >= timeout:
+            raise TimeoutError(f"YouTube was still processing the video after {timeout:.0f} s")
+        if on_wait is not None:
+            on_wait(state)
+        pause(every)
+        waited += every
+
+
+def set_thumbnail(
+    video_id: str,
+    image: str | os.PathLike[str],
+    *,
+    credentials: Any = None,
+    service: Any = None,
+    media: Any = None,
+    shorts: bool = False,
+    timeout: float = 900.0,
+    sleep: Callable[[float], None] | None = None,
+    on_wait: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    """Set a custom thumbnail (``thumbnails.set``, about 50 quota units).
+
+    For a Short it waits until YouTube has processed the video first: a thumbnail set earlier
+    might not be applied (allowed for Shorts since 2026-11-03). The channel needs custom thumbnails
+    turned on (a verified channel); YouTube answers 403 otherwise.
+    """
+    problem = thumbnail_problem(image)
+    if problem:
+        raise ValueError(problem)
+    if service is None or media is None:
+        try:
+            from googleapiclient.discovery import build  # type: ignore[import-not-found]
+            from googleapiclient.http import MediaFileUpload  # type: ignore[import-not-found]
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise RuntimeError('YouTube upload needs extra packages: pip install "stream2clip[upload]"') from exc
+        if service is None:  # pragma: no cover - needs Google
+            if credentials is None:
+                raise ValueError("credentials or service is required")
+            service = build("youtube", "v3", credentials=credentials, cache_discovery=False)
+        if media is None:  # pragma: no cover - needs Google
+            media = MediaFileUpload(str(image), mimetype=THUMBNAIL_TYPES[Path(image).suffix.lower()])
+    if shorts:
+        wait_until_processed(video_id, service=service, timeout=timeout, sleep=sleep, on_wait=on_wait)
+    try:
+        return service.thumbnails().set(videoId=video_id, media_body=media).execute()
+    except Exception as exc:
+        if getattr(getattr(exc, "resp", None), "status", None) == 403:
+            raise RuntimeError(tr("이 채널은 맞춤 썸네일을 올릴 수 없음 (YouTube 채널 인증 필요). 영상은 올라감")) from exc
+        raise
 
 
 def upload_video(

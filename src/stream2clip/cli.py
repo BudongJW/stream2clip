@@ -1118,7 +1118,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
 
 def cmd_upload(args: argparse.Namespace) -> int:
     from .export import probe
-    from .upload import load_credentials, shorts_problems, upload_video, video_resource, video_url
+    from .upload import SCOPES, THUMBNAIL_SCOPES, load_credentials, set_thumbnail, shorts_problems, thumbnail_problem, upload_video, video_resource, video_url
 
     description = Path(args.description_file).read_text(encoding="utf-8") if args.description_file else (args.description or "")
     tags = [t for t in (args.tags or "").split(",") if t.strip()]
@@ -1130,18 +1130,31 @@ def cmd_upload(args: argparse.Namespace) -> int:
         info = probe(args.video)
         for problem in shorts_problems(info.width, info.height, info.duration):
             print(f"! {problem}", file=sys.stderr)
+    if args.thumbnail and thumbnail_problem(args.thumbnail):
+        raise ValueError(thumbnail_problem(args.thumbnail))  # before anything is sent
     if args.dry_run:
         print(json.dumps(resource, ensure_ascii=False, indent=2))
+        if args.thumbnail:
+            print(f"thumbnail {args.thumbnail}" + ("  (set once YouTube has processed the Short)" if args.shorts else ""))
         print("dry run: nothing was uploaded")
         return 0
     if not args.client_secrets:
         raise ValueError("--client-secrets is required to upload (your own OAuth client file); use --dry-run to only see what would be sent")
-    credentials = load_credentials(args.client_secrets, args.token)
+    # A Short's thumbnail waits for YouTube's processing, which takes read access to see.
+    credentials = load_credentials(args.client_secrets, args.token, scopes=THUMBNAIL_SCOPES if args.thumbnail and args.shorts else SCOPES)
     print(f"uploading {args.video} as {args.privacy} ...", flush=True)
     response = upload_video(args.video, resource, credentials=credentials, on_progress=lambda f: print(f"  {f:4.0%}", flush=True))
     print(f"uploaded {video_url(response['id'])}  ({response.get('status', {}).get('privacyStatus', args.privacy)})")
     if resource["status"].get("publishAt"):
         print(f"scheduled to become public at {resource['status']['publishAt']}")
+    if args.thumbnail:
+        try:
+            set_thumbnail(response["id"], args.thumbnail, credentials=credentials, shorts=args.shorts,
+                          on_wait=lambda state: print(f"  YouTube is processing the video ({state}) ...", flush=True))
+        except (RuntimeError, TimeoutError, ValueError) as exc:
+            print(f"! thumbnail not set: {exc} (the video is uploaded)", file=sys.stderr)
+            return 1
+        print(f"thumbnail {args.thumbnail}")
     return 0
 
 
@@ -1597,6 +1610,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--synthetic-media", action="store_true", help="declare altered or synthetic content (AI voice, AI video ...)")
     p.add_argument("--paid-placement", action="store_true", help="declare paid product placement, sponsorship or endorsement; without it the video is declared free of them")
     p.add_argument("--shorts", action="store_true", help="add #Shorts and warn when the video is not vertical or longer than 3 minutes")
+    p.add_argument("--thumbnail", metavar="IMAGE", help="set this JPEG or PNG as the thumbnail after the upload (clips --thumbnail makes one); for --shorts it waits until YouTube has processed the video")
     p.add_argument("--client-secrets", help="your Google Cloud OAuth client file (Desktop app)")
     p.add_argument("--token", help="where to keep the refresh token (default: token.json next to the client file)")
     p.add_argument("--dry-run", action="store_true", help="print what would be sent and stop")

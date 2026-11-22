@@ -1500,7 +1500,8 @@ class HighlightsWindow(QMainWindow):
             if clip.description is not None and clip.description.is_file():
                 description = clip.description.read_text(encoding="utf-8")
         title = clip.title if clip is not None and clip.title else (str((self.result.source or {}).get("title", "")) if self.result is not None else "")
-        self.upload_dialog = UploadDialog(video, title=title, description=description, parent=self)
+        thumbnail = str(clip.thumbnail) if clip is not None and clip.thumbnail is not None and clip.thumbnail.is_file() else ""
+        self.upload_dialog = UploadDialog(video, title=title, description=description, thumbnail=thumbnail, parent=self)
         self.upload_dialog.dialogs = self.dialogs
         self.upload_dialog.show()
         return self.upload_dialog
