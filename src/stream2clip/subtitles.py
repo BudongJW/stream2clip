@@ -58,6 +58,8 @@ class Cue:
     end: float
     text: str
     words: tuple[Word, ...] = field(default_factory=tuple)
+    #: Who says it (a name or a diarization label such as ``SPEAKER_00``; empty: not known).
+    speaker: str = ""
 
 
 # --------------------------------------------------------------------------- parsing
@@ -143,7 +145,7 @@ def _from_json(data: Any) -> list[Cue]:
     cues = []
     for seg in segments:
         words = tuple(Word(float(w["start"]), float(w["end"]), str(w.get("word", w.get("text", ""))).strip()) for w in seg.get("words", []) or [] if "start" in w)
-        cues.append(Cue(float(seg["start"]), float(seg["end"]), str(seg.get("text", "")).strip(), words))
+        cues.append(Cue(float(seg["start"]), float(seg["end"]), str(seg.get("text", "")).strip(), words, str(seg.get("speaker") or "")))  # whisperX: speaker
     return cues
 
 
@@ -170,7 +172,7 @@ def slice_cues(cues: Iterable[Cue], start: float, end: float) -> list[Cue]:
         if c.end <= start or c.start >= end:
             continue
         words = tuple(Word(max(w.start, start) - start, min(w.end, end) - start, w.text) for w in c.words if w.end > start and w.start < end)
-        out.append(Cue(max(c.start, start) - start, min(c.end, end) - start, c.text, words))
+        out.append(Cue(max(c.start, start) - start, min(c.end, end) - start, c.text, words, c.speaker))
     return out
 
 
@@ -202,7 +204,7 @@ def retime_cues(cues: Iterable[Cue], keep: "Iterable[tuple[float, float]]") -> l
         start, end = at(c.start), at(c.end)
         if end - start < 0.05:
             continue
-        out.append(Cue(start, end, c.text, tuple(Word(at(w.start), at(w.end), w.text) for w in c.words)))
+        out.append(Cue(start, end, c.text, tuple(Word(at(w.start), at(w.end), w.text) for w in c.words), c.speaker))
     return out
 
 
@@ -513,9 +515,17 @@ def to_ass(
     credit: str | None = None,
     credit_position: str = "top-left",
     duration: float | None = None,
+    context: str | None = None,
+    context_seconds: float = 3.0,
+    speaker_colors: "dict[str, str] | None" = None,
+    speaker_names: bool = False,
 ) -> str:
     """Cues as an ASS script. ``credit`` is a small line shown in a corner for the whole clip
-    ("Source: channel name"); it needs ``duration``, the clip's length, when there are no cues to tell it."""
+    ("Source: channel name"); it needs ``duration``, the clip's length, when there are no cues to tell it.
+    ``context`` is a line of what is going on, on a dark plate at the top for the first ``context_seconds``
+    (Japanese clips open with such a 状況説明 line within the first second).
+    ``speaker_colors`` (speaker to colour) outlines each speaker's lines in their colour, as clip
+    editors colour the captions of a collab per talent; ``speaker_names`` puts the name in front."""
     st = style or SubtitleStyle()
     cues = sorted(cues, key=lambda c: c.start)
     font = pick_font(script_of("".join(_cue_text(c) for c in cues))) if st.font == "auto" else st.font
@@ -545,8 +555,25 @@ def to_ass(
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
+    styles: dict[str, str] = {}
+    for speaker in dict.fromkeys(c.speaker for c in cues if c.speaker and (speaker_colors or {}).get(c.speaker)):
+        name = f"Speaker{len(styles) + 1}"
+        styles[speaker] = name
+        edge = speaker_colors[speaker] if not st.box else speaker_colors[speaker] + "D9"  # type: ignore[index]
+        header.insert(
+            header.index("[Events]") - 1,
+            f"Style: {name},{font},{size},{_ass_color(primary)},{_ass_color(secondary)},{_ass_color(edge)},&H64000000,"
+            f"{-1 if st.bold else 0},0,0,0,100,100,0,0,{border},{outline:g},0,{st.alignment},{margin_h},{margin_h},{margin_v},1",
+        )
+
+    def said(c: Cue) -> str:
+        line = _cue_line(c, st, karaoke, font)
+        if speaker_names and c.speaker:
+            return f"{{\\fscx80\\fscy80}}{_escape(c.speaker)}: {{\\fscx100\\fscy100}}" + line
+        return line
+
     events = [
-        f"Dialogue: 0,{_ass_time(c.start)},{_ass_time(c.end)},Default,,0,0,0,,{_cue_line(c, st, karaoke, font)}"
+        f"Dialogue: 0,{_ass_time(c.start)},{_ass_time(c.end)},{styles.get(c.speaker, 'Default')},{_escape(c.speaker).replace(',', ' ')},0,0,0,,{said(c)}"
         for c in cues
         if c.end > c.start and (c.text.strip() or c.words)
     ]
@@ -567,6 +594,18 @@ def to_ass(
             f"-1,0,0,0,100,100,0,0,1,{round(2 * k, 1):g},0,{CREDIT_POSITIONS[credit_position]},{round(40 * k)},{round(40 * k)},{margin_cv},1",
         )
         events.insert(0, f"Dialogue: 1,{_ass_time(0)},{_ass_time(until)},Credit,,0,0,0,,{_escape(credit)}")
+    context = " ".join((context or "").split())
+    if context:
+        until = min(context_seconds, duration) if duration else context_seconds
+        context_font = pick_font(script_of(context)) if st.font == "auto" else st.font
+        below_credit = bool(credit) and credit_position.startswith("top")
+        margin_top = round(H * ((0.1 if below_credit else 0.05) if H >= W else (0.13 if below_credit else 0.05)))
+        header.insert(
+            header.index("[Events]") - 1,
+            f"Style: Context,{context_font},{max(8, round(46 * k))},{_ass_color('#FFFFFF')},{_ass_color('#FFFFFF')},{_ass_color('#15131FCC')},&H00000000,"
+            f"-1,0,0,0,100,100,0,0,3,{round(12 * k, 1):g},0,8,{round(60 * k)},{round(60 * k)},{margin_top},1",
+        )
+        events.insert(0, f"Dialogue: 2,{_ass_time(0)},{_ass_time(until)},Context,,0,0,0,,{{\\fad(150,250)}}{_escape(context)}")
     return "\n".join(header + events) + "\n"
 
 

@@ -264,14 +264,14 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--speech", metavar="SUBTITLES", help="experimental: also score reaction words in this subtitle file (what the streamer says); a way to find moments in a stream without chat")
     g.add_argument("--mark-singing", action="store_true", help="find the songs in the video and say which highlights overlap one")
     g.add_argument("--skip-singing", action="store_true", help="like --mark-singing, and leave out highlights that are mostly a song")
-    g.add_argument("--top", type=int, default=10, help="maximum number of highlights (default 10)")
+    g.add_argument("--top", type=int, help="maximum number of highlights (default: from --preset; shorts 10)")
     g.add_argument("--threshold", type=float, default=2.0, help="robust z-score needed for a peak (default 2.0)")
     g.add_argument("--window", type=float, default=5.0, help="analysis bucket in seconds (default 5)")
     g.add_argument("--delay", type=float, default=8.0, help="seconds chat lags behind the moment (default 8)")
-    g.add_argument("--lead", type=float, default=20.0, help="context before the moment (default 20 s)")
-    g.add_argument("--tail", type=float, default=10.0, help="context after the moment (default 10 s)")
-    g.add_argument("--min-length", type=float, default=15.0)
-    g.add_argument("--max-length", type=float, default=90.0)
+    g.add_argument("--lead", type=float, help="context before the moment (default: from --preset; shorts 20 s)")
+    g.add_argument("--tail", type=float, help="context after the moment (default: from --preset; shorts 10 s)")
+    g.add_argument("--min-length", type=float, help="shortest highlight in seconds (default: from --preset; shorts 15)")
+    g.add_argument("--max-length", type=float, help="longest highlight in seconds (default: from --preset; shorts 90)")
     g.add_argument("--keep-greetings", action="store_true", help="count greetings / goodbyes too (they flood the chat when a stream starts and ends)")
     g.add_argument("--skip-scene", action="append", metavar="NAME", help="with --session: leave out highlights that are mostly in an OBS scene whose name contains NAME (e.g. a waiting or ending screen); repeat for more")
     _add_marker_args(g)
@@ -315,10 +315,24 @@ def _markers(args: argparse.Namespace) -> dict:
     return {"markers": words, "marker_roles": ("any",) if args.marker_anyone else ("owner", "moderator")}
 
 
+def _apply_preset(args: argparse.Namespace) -> None:
+    """Fill what was not given on the command line from ``--preset`` (shorts, clip, long)."""
+    from .presets import get_preset
+
+    preset = get_preset(getattr(args, "preset", None))
+    for name, value in (("top", preset.top), ("lead", preset.lead), ("tail", preset.tail), ("min_length", preset.min_length), ("max_length", preset.max_length),
+                        ("layout", preset.layout), ("fade", preset.fade), ("context", preset.context)):
+        if hasattr(args, name) and getattr(args, name) is None:
+            setattr(args, name, value)
+    if preset.compile and hasattr(args, "compile_to") and args.compile_to is None:
+        args.compile_to = ""  # joined, under the default name
+
+
 def _detect(args: argparse.Namespace, video: str | None):
     from .highlights import HighlightConfig, render_timeline
     from .pipeline import find_highlights
 
+    _apply_preset(args)
     session, zero = _session(args)
     if not args.chat and not args.info and not (video and args.audio) and not args.speech and session is None:
         raise ValueError("Give --chat, --info (heatmap), --audio with a video, --speech with subtitles, or --session")
@@ -394,7 +408,7 @@ def cmd_highlights(args: argparse.Namespace) -> int:
 
 def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("clip output")
-    g.add_argument("--layout", default="blur", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default blur): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
+    g.add_argument("--layout", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default: from --preset; shorts blur, clip and long none): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
     g.add_argument("--avatar", type=_avatar, help="stack / pip layout: avatar box x,y,w,h in source pixels, 'auto' to find it with anime face detection, or 'session' to take it from the VTube Studio outline in --session")
     g.add_argument("--vts-region", type=_region, metavar="X,Y,W,H", help="--avatar session: where VTube Studio's whole view is in the video, when the session does not know where OBS put it")
     g.add_argument("--avatar-video", metavar="FILE", help="stack / pip layout: take the avatar from its own recording (green screen or alpha) instead of a box in the stream")
@@ -431,6 +445,10 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
     s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
     s.add_argument("--bilingual", action="store_true", help="keep the original line above the translation")
+    s.add_argument("--speaker", action="append", metavar="LABEL=NAME:#COLOR", help="name and caption colour of a speaker in a collab, e.g. SPEAKER_00=ぺこら:#57C7FF (a diarization label, or an audio track number with --speaker-tracks); name and colour optional; repeat per speaker")
+    s.add_argument("--speakers-rttm", metavar="FILE", help="who speaks when, from a diarization tool (RTTM, on the video's clock): each subtitle line is given its speaker; whisperX JSON subtitles carry speakers themselves")
+    s.add_argument("--speaker-tracks", metavar="N,N", help="audio tracks with one microphone each (0 is the first): each line's speaker is the loudest track; name them with --speaker N=NAME")
+    s.add_argument("--speaker-names", action="store_true", help="put the speaker's name in front of each line")
     c = p.add_argument_group("description & guideline check")
     c.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")
     c.add_argument("--source-url", help="original stream URL (default: from --info)")
@@ -438,6 +456,12 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--channel", help="original channel name")
     c.add_argument("--registered", action="store_true", help="your clip channel is registered with the agency")
     c.add_argument("--credit", metavar="TEXT", help="burn a small source line into a corner of every clip; 'auto' writes the original channel's name (from --info or --channel)")
+    c.add_argument("--title-template", metavar="FORM", help="form of the suggested titles, with {hook} (the line at the peak), {talent}, {agency}, {clip}; default per language, e.g. Japanese '{hook}【{talent}/{agency}{clip}】'")
+    c.add_argument("--context", metavar="TEXT", help="a line of what is going on, at the top of each clip's first seconds; 'auto' takes the stream's topic from its title (the bracket tag that is not the agency or the talent)")
+    c.add_argument("--context-seconds", type=float, default=3.0, metavar="SECONDS", help="--context: how long the line stays (default 3)")
+    c.add_argument("--teaser", type=float, nargs="?", const=2.0, metavar="SECONDS", help="open each clip with this many seconds of its peak (default 2), cut from just before the sound rises; MP4, WebM, MOV")
+    c.add_argument("--thumbnail", action="store_true", help="also write <clip>.jpg (1280x720): the sharpest frame around the peak, zoomed onto the avatar box when the layout has one, with the first words of the title")
+    c.add_argument("--no-hashtags", action="store_true", help="leave the three suggested hashtags (agency, talent, general) out of the descriptions")
     c.add_argument("--credit-position", default="top-left", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="corner of the --credit line (default top-left)")
     m = p.add_argument_group("music & sound effects")
     m.add_argument("--bgm", action="append", metavar="FILE|NAME", help="background music under every clip: a file, or a name in the sound library (see 'stream2clip sounds'); give it more than once to take the tracks in turn")
@@ -451,7 +475,11 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     m.add_argument("--no-sfx-snap", action="store_true", help="put effects exactly where asked: by default a peak effect moves to the nearest sharp rise in the sound (a shout, a laugh) within 2.5 s before to 1 s after the peak, and the others move out of the middle of talk by up to 0.75 s")
     m.add_argument("--sounds", metavar="DIR", help="sound library folder (default: 'sounds' in the app's settings folder)")
     p.add_argument("--compile", dest="compile_to", nargs="?", const="", metavar="FILE", help="also join the clips, in stream order, into one video with a chapter list (default name: compilation.mp4 in the output folder)")
-    p.add_argument("--fade", type=float, default=0.0, metavar="SECONDS", help="--compile: fade to black between the clips (default 0: hard cuts)")
+    p.add_argument("--fade", type=float, metavar="SECONDS", help="--compile: fade to black between the clips (default: from --preset; 0 = hard cuts, long 0.3)")
+
+
+def _add_preset_arg(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--preset", choices=["shorts", "clip", "long"], default="shorts", help="what to make: shorts (9:16, 15-90 s, the default), clip (horizontal 1-3 min with a context line, as Korean and English clip channels post), long (horizontal clips of 45-150 s joined into one video of about 10 min with chapters, as Japanese clip channels post); options given here win over the preset")
 
 
 def _soundtrack(args: argparse.Namespace):
@@ -472,6 +500,8 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     from .layouts import VerticalLayout
     from .pipeline import make_clips
     from .subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
+
+    _apply_preset(args)
 
     if args.ranks:
         wanted = {int(r) for r in args.ranks.split(",") if r.strip()}
@@ -511,6 +541,21 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         )
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
+    speakers, tracks = None, ()
+    if args.speaker:
+        from .speakers import SpeakerMap
+
+        speakers = SpeakerMap.parse(args.speaker)
+    if args.speakers_rttm:
+        from .speakers import assign_from_spans, read_rttm
+
+        if cues is None:
+            raise ValueError("--speakers-rttm gives the subtitle lines their speakers: give --subtitles too")
+        cues = assign_from_spans(cues, read_rttm(args.speakers_rttm))
+    if args.speaker_tracks:
+        tracks = tuple(int(part) for part in args.speaker_tracks.split(",") if part.strip())
+        if len(tracks) < 2:
+            raise ValueError("--speaker-tracks needs two or more audio tracks, e.g. 1,2")
     transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
     subtitle_translator = glossary = None
     if args.translate:
@@ -542,14 +587,21 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
         audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
-        soundtrack=soundtrack, loudness=args.loudness,
+        soundtrack=soundtrack, loudness=args.loudness, title_template=args.title_template, add_hashtags=not args.no_hashtags,
+        thumbnails=args.thumbnail, context=args.context, context_seconds=args.context_seconds, teaser=args.teaser or 0.0,
+        speakers=speakers, speaker_tracks=tracks, speaker_names=args.speaker_names,
     )
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
               + (f"  ({r.removed:.1f} s of silence removed)" if r.removed else "")
+              + (f"  (opens with {r.teaser:.1f} s of the peak)" if r.teaser else "")
               + ("  (" + ", ".join(f"{s.sound.label} {s.at:.1f}s" + (f" moved {s.moved:+.1f}" if s.moved else "") for s in r.sounds) + ")" if r.sounds else ""))
         for reason in r.skipped_sounds:
             print(f"    left out: {reason}")
+        if r.title:
+            print(f"    title: {r.title}" + (f"  {' '.join(r.hashtags)}" if r.hashtags else ""))
+        if r.thumbnail:
+            print(f"    thumbnail: {r.thumbnail.name}")
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")
@@ -1344,6 +1396,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_evaluate)
 
     p = sub.add_parser("highlights", help="find highlight moments from chat / audio / most-replayed")
+    _add_preset_arg(p)
     p.add_argument("--video", help="VOD file (duration, and loudness with --audio)")
     p.add_argument("-o", "--output", help="write highlights JSON")
     _add_highlight_args(p)
@@ -1375,6 +1428,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_timeline)
 
     p = sub.add_parser("clips", help="export highlights as vertical clips with subtitles and descriptions")
+    _add_preset_arg(p)
     p.add_argument("video", help="VOD file, or the stream's address: then only the highlights' footage is downloaded")
     p.add_argument("--highlights", required=True, help="JSON from `stream2clip highlights`")
     p.add_argument("-o", "--output", required=True, help="output directory")
@@ -1386,6 +1440,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_clips)
 
     p = sub.add_parser("auto", help="VOD + chat -> highlights -> clips in one go")
+    _add_preset_arg(p)
     p.add_argument("video", help="VOD file, or the stream's address: chat replay is fetched and only the highlights' footage is downloaded")
     p.add_argument("-o", "--output", required=True, help="output directory")
     p.add_argument("--strict", action="store_true", help="exit 1 when the guideline check finds errors")

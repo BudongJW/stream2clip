@@ -50,7 +50,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.15</dd>
+    <dt>Version</dt><dd>v0.16</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -253,6 +253,20 @@
           <tr><th scope="row">Shorten quiet parts</th><td>Stretches of a clip that stay quiet for more than 0.7 s are cut down to a short pause. Captions move along. Judged by loudness, so check the result before posting</td></tr>
           <tr><th scope="row">Compilation</th><td>When ticked, the exported clips are also joined in stream order into <code>compilation.mp4</code>, with the chapter list <code>compilation.txt</code></td></tr>
           <tr><th scope="row">Export for editing</th><td>Saves the ticked spans as a cut list <code>highlights.edl</code>, timeline markers <code>markers.edl</code> and a timestamp list <code>timestamps.txt</code>, to go on in DaVinci Resolve, Premiere Pro and others</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Video type and opening</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Item</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Video type</th><td>Shorts (vertical, 15-90 s), horizontal clip (1-3 min) or horizontal compilation (about 10 minutes of 6 clips, with chapters). Sets the layout, the compilation, the context line and the number of spans together; picked before finding highlights, it also sets their length. Most clip channels post horizontal videos</td></tr>
+          <tr><th scope="row">Context line</th><td>One line on the stream's topic at the top for the first 3 seconds, such as the game name in the brackets of the stream title</td></tr>
+          <tr><th scope="row">Peak teaser</th><td>Opens the clip with 2 seconds of its peak before the clip itself (MP4, WebM)</td></tr>
+          <tr><th scope="row">Thumbnail</th><td>A 1280x720 image (<code>clip_01.jpg</code>) of the sharpest frame near the peak, with the start of the title in large type. Zoomed onto the avatar when its position is set</td></tr>
+          <tr><th scope="row">Title, hashtags</th><td>A suggested title per clip from the line at the peak, the talent's name and the agency's name, filled into the upload window. Three hashtags at the end of the description. Exaggerated words are flagged by the check</td></tr>
+          <tr><th scope="row">Reused content check</th><td>Flags clips only cut from the stream, with no captions, context line or teaser. Under YouTube's reused content policy, commentary or captions by the editor are needed before posting</td></tr>
         </tbody>
       </table>
     </div>

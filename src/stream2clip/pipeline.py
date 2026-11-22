@@ -17,12 +17,14 @@ from .compliance import AgencyProfile, Issue, build_description, check_upload
 from .export import export, probe
 from .ffmpeg import ExportOptions, extension_for, find_ffmpeg
 from .highlights import Highlight, HighlightConfig, HighlightResult, detect_highlights
+from .i18n import tr
 from .layouts import VerticalLayout
 from .sources import SourceInfo
 from .subtitles import Cue, SubtitleStyle, Transcriber, slice_cues, write_ass
 
 if TYPE_CHECKING:
     from .soundtrack import PlannedSound, Sound, Soundtrack
+    from .speakers import SpeakerMap
     from .translate import Translator
     from .translation import Glossary
 
@@ -42,11 +44,22 @@ class ClipResult:
     sounds: "list[PlannedSound]" = field(default_factory=list)
     #: Effects left out of the clip, with why (too close to another, after the end).
     skipped_sounds: list[str] = field(default_factory=list)
+    #: A suggested title (the line at the peak and a bracket tag, see :mod:`stream2clip.titles`) and hashtags.
+    title: str = ""
+    hashtags: tuple[str, ...] = ()
+    #: A 1280x720 thumbnail (``thumbnails=True``, see :mod:`stream2clip.thumbnails`).
+    thumbnail: Path | None = None
+    #: Seconds of the peak put in front of the clip (``teaser``); the file is that much longer.
+    teaser: float = 0.0
 
     def to_dict(self) -> dict:
         data = {
             **self.highlight.to_dict(),
             "file": self.path.name,
+            "title": self.title or None,
+            "hashtags": list(self.hashtags),
+            "thumbnail": self.thumbnail.name if self.thumbnail else None,
+            "teaser": round(self.teaser, 2),
             "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
@@ -377,6 +390,15 @@ def make_clips(
     audio_track: int | None = None,
     soundtrack: "Soundtrack | None" = None,
     loudness: float | None = None,
+    title_template: str | None = None,
+    add_hashtags: bool = True,
+    thumbnails: bool = False,
+    context: str | None = None,
+    context_seconds: float = 3.0,
+    teaser: float = 0.0,
+    speakers: "SpeakerMap | None" = None,
+    speaker_tracks: Sequence[int] = (),
+    speaker_names: bool = False,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -391,6 +413,21 @@ def make_clips(
 
     ``loudness`` brings each clip's finished sound to that many LUFS (YouTube turns louder
     videos down to about -14 and leaves quieter ones as they are), measured in a first pass.
+
+    Every clip gets a suggested title in the language of its subtitles (:func:`stream2clip.titles.clip_title`;
+    ``title_template`` changes its form) and, with ``add_hashtags``, three hashtags at the end of
+    its description. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
+    peak, zoomed onto the layout's avatar box when there is one, with the first words of the title.
+
+    ``context`` is a line at the top for the first ``context_seconds`` of each clip (what is going on;
+    ``"auto"``: the stream's topic, from its title). ``teaser`` puts that many seconds of the peak
+    (from just before the sound rises) in front of the clip, the way clip channels open with the
+    best moment (MP4, WebM, MOV).
+
+    Lines that say who speaks (whisperX transcripts, an RTTM file, see :mod:`stream2clip.speakers`) are
+    outlined in that speaker's colour; ``speaker_tracks`` finds the speaker of each line from audio
+    tracks with one microphone each (the loudest one). ``speakers`` names the labels and picks the
+    colours, ``speaker_names`` puts the name in front of each line.
 
     ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
     dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
@@ -446,6 +483,15 @@ def make_clips(
 
                 clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
             length, removed = h.end - h.start, 0.0
+            if clip_cues and speaker_tracks:
+                clip_cues = _speakers_by_track(clip_cues, clip_video, max(0.0, h.start - offset), h.end - h.start, speaker_tracks)
+            if clip_cues and any(c.speaker for c in clip_cues):
+                from .speakers import SpeakerMap
+
+                speakers = speakers if speakers is not None else SpeakerMap()
+                clip_cues = speakers.name(clip_cues)
+            colors = speakers.colors() if speakers is not None else None
+            spoken = list(clip_cues or [])  # on the cut's own clock, before any silence is taken out (for the teaser)
             keep: list[tuple[float, float]] = []
             if trim_silence and trim_silence > 0:
                 keep = _sound_parts(clip_video, opts.start or 0.0, length, min_silence=trim_silence, level=silence_level, track=audio_track)
@@ -460,10 +506,12 @@ def make_clips(
                 else:
                     keep = []
             sub_path = None
-            if clip_cues or credit:
+            situation = _context_text(context, source)
+            if clip_cues or credit or situation:
                 sub_path = write_ass(
                     clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
-                    credit=credit, credit_position=credit_position, duration=length,
+                    credit=credit, credit_position=credit_position, duration=length, context=situation, context_seconds=context_seconds,
+                    speaker_colors=colors, speaker_names=speaker_names,
                 )
                 opts = replace(opts, subtitles=sub_path)
             planned, skipped = [], []
@@ -489,13 +537,34 @@ def make_clips(
                     planned, skipped = plan.sounds, plan.skipped
 
             clip_path = export(clip_video, out / f"{stem}{extension_for(opts.format)}", opts)
-            result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped)
+            opened = 0.0
+            if teaser > 0 and opts.format in ("mp4", "webm", "mov"):
+                opened = _open_with_teaser(clip_path, clip_video, h, offset, opts, spoken, teaser, out / f"{stem}.teaser.ass",
+                                           play_res=play_res, style=subtitle_style, karaoke=karaoke, credit=credit, credit_position=credit_position,
+                                           speaker_colors=colors, speaker_names=speaker_names)
+            result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped, teaser=opened)
+            named = _title_for(h, clip_cues or [], keep, source, profile, language=language, translate_to=translate_to if subtitle_translator else None,
+                               glossary=glossary if subtitle_translator else None, template=title_template)
+            result.title, result.hashtags = named.title, (named.hashtags if add_hashtags else ())
+            if thumbnails:
+                result.thumbnail = _thumbnail(clip_video, h, offset, opts, named.hook, out / f"{stem}.jpg")
             if source is not None:
                 used = [p.sound for p in planned]
-                text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used))
+                text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used),
+                                         hashtags=result.hashtags)
                 result.description = out / f"{stem}.txt"
                 result.description.write_text(text, encoding="utf-8")
                 result.issues = check_upload(source, profile, description=text, registered=registered, uses_ai=ai, sounds=used, length=length)
+            from .thumbnails import sensational_words
+
+            loud = sensational_words(result.title, named.hook)
+            if loud:
+                result.issues.insert(0, Issue("warning", tr("제목과 썸네일 문구에 과장된 표현({0})이 있습니다. 기획사 가이드라인은 과장되거나 오해를 부르는 제목과 썸네일을 금지합니다.").format(", ".join(loud))))
+            from .compliance import originality_issues
+
+            own = originality_issues(captions=bool(clip_cues), translated=subtitle_translator is not None and bool(clip_cues), context=bool(situation),
+                                     teaser=opened > 0, profile=profile)
+            result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)
     finally:
         if scratch is not None:
@@ -510,6 +579,105 @@ def make_clips(
     }
     (out / "clips.json").write_text(json.dumps(index_data, ensure_ascii=False, indent=2), encoding="utf-8")
     return results
+
+
+def _title_for(h: Highlight, cues: "Sequence[Cue]", keep, source: SourceInfo | None, profile: AgencyProfile | None, *, language: str | None,
+               translate_to: str | None, glossary: "Glossary | None", template: str | None):
+    """The suggested title of one clip: the line at its peak (on the clip's own, possibly shortened, clock) and a tag."""
+    from .subtitles import clip_time
+    from .titles import AGENCY_NAMES, clip_title, title_language
+
+    peak = min(max(0.0, h.peak - h.start), h.end - h.start)
+    stream_title = source.title if source is not None else ""
+    lang = title_language(translate_to=translate_to, language=language, cues=cues, fallback=stream_title)
+    agency = profile.key if profile is not None and profile.key in AGENCY_NAMES else None
+    return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=source.channel if source is not None else "",
+                      stream_title=stream_title, agency=agency, language=lang, glossary=glossary, template=template, translated=translate_to is not None)
+
+
+def _speakers_by_track(cues: "Sequence[Cue]", video: str | os.PathLike[str], start: float, length: float, tracks: Sequence[int]) -> list[Cue]:
+    """Each line's speaker: the audio track (one microphone each) loudest while it is said."""
+    from .audio import decode_pcm
+    from .speakers import assign_from_tracks
+
+    rate = 8000
+    heard = {number: decode_pcm(video, sample_rate=rate, start=start, duration=length, track=number) for number in tracks}
+    return assign_from_tracks(cues, heard, rate)
+
+
+def _context_text(context: str | None, source: SourceInfo | None) -> str:
+    """The top line of a clip's first seconds: given, or with ``"auto"`` the stream's topic from its title."""
+    if not context or not context.strip():
+        return ""
+    if context.strip().lower() != "auto":
+        return " ".join(context.split())
+    from .titles import context_line
+
+    return context_line(source.title, channel=source.channel) if source is not None else ""
+
+
+#: The teaser starts this long before the moment it shows, so the first word is not cut.
+TEASER_LEAD = 0.4
+
+
+def _open_with_teaser(
+    clip: Path, video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, cues: "Sequence[Cue]", seconds: float, ass: Path,
+    *, play_res, style, karaoke: bool, credit: str | None, credit_position: str, speaker_colors=None, speaker_names: bool = False,
+) -> float:
+    """Put ``seconds`` of the peak (with the same layout, captions and credit) in front of ``clip``; returns how long the teaser is."""
+    from .audio import decode_pcm
+    from .export import run_ffmpeg
+    from .ffmpeg import build_concat_command
+    from .soundtrack import onset_near
+
+    start, end = opts.start or 0.0, (opts.end if opts.end is not None else h.end - offset)
+    peak = min(max(h.peak - offset, start), end)
+    if probe(video).has_audio:  # chat says roughly when; the sound says when exactly
+        samples = decode_pcm(video, sample_rate=16000, start=start, duration=end - start, track=0)
+        peak = start + onset_near(samples, 16000, peak - start)
+    first = max(start, peak - TEASER_LEAD)
+    last = min(end, first + seconds + TEASER_LEAD)
+    if last - first < 0.5:
+        return 0.0
+    rel = first - start
+    teaser_cues = [replace(c, start=max(0.0, c.start - rel), end=c.end - rel, words=tuple(replace(w, start=max(0.0, w.start - rel), end=w.end - rel) for w in c.words))
+                   for c in cues if c.end > rel and c.start < rel + (last - first)]
+    subs = None
+    if teaser_cues or credit:
+        subs = write_ass(teaser_cues, ass, play_res=play_res, style=style, karaoke=karaoke, credit=credit, credit_position=credit_position, duration=last - first,
+                         speaker_colors=speaker_colors, speaker_names=speaker_names)
+    part = clip.with_name(clip.stem + ".teaser" + clip.suffix)
+    teaser_opts = replace(opts, start=first, end=last, keep=None, mix=None, subtitles=subs)
+    export(video, part, teaser_opts)
+    joined = clip.with_name(clip.stem + ".joined" + clip.suffix)
+    facts = [probe(part), probe(clip)]
+    try:
+        run_ffmpeg(build_concat_command(
+            [part, clip], joined, size=(facts[1].width, facts[1].height), durations=[float(f.duration or 0) for f in facts],
+            has_audio=[f.has_audio for f in facts], fps=facts[1].fps or opts.fps or 30.0, quality=opts.quality, format=opts.format,
+        ))
+        joined.replace(clip)
+    finally:
+        part.unlink(missing_ok=True)
+        joined.unlink(missing_ok=True)
+        if subs is not None:
+            Path(subs).unlink(missing_ok=True)
+    return round(float(facts[0].duration or 0.0), 2)
+
+
+def _thumbnail(video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, hook: str, out: Path) -> Path | None:
+    """The sharpest of seven frames from 1.5 s before to 1.5 s after the peak, with the first words of the hook."""
+    from .export import grab_frames
+    from .thumbnails import make_thumbnail, pick_frame, thumbnail_text
+
+    first, last = opts.start or 0.0, (opts.end if opts.end is not None else h.end - offset)
+    peak = min(max(h.peak - offset, first), last)
+    times = sorted({round(min(max(peak + d, first), max(first, last - 0.1)), 3) for d in (-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5)})
+    frames = grab_frames(video, times)
+    if not frames:
+        return None
+    face = opts.layout.avatar if opts.layout is not None and getattr(opts.layout, "avatar", None) is not None and not opts.layout.uses_avatar_video else None
+    return make_thumbnail(pick_frame(frames), thumbnail_text(hook), out, face=face)
 
 
 def _credits(sounds: "Sequence[Sound]") -> list[str]:

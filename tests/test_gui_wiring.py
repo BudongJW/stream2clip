@@ -733,7 +733,9 @@ def test_upload_form_is_filled_from_the_exported_clip(app, window, stream_files,
     window.export()
     wait(app, lambda: not window.busy)
     dialog = window.open_upload()
-    assert dialog.video_edit.text() == str(tmp_path / "clips" / "clip_01.mp4") and dialog.title_edit.text() == "【雑談】朝活"
+    assert dialog.video_edit.text() == str(tmp_path / "clips" / "clip_01.mp4")
+    # The clip's suggested title (no captions: the stream title without its tag, in the Japanese clip form).
+    assert dialog.title_edit.text() == window.last_results[0].title == "朝活【切り抜き】"
     assert "https://www.youtube.com/watch?v=abc" in dialog.description_edit.toPlainText()
     assert dialog.dialogs is False and dialog.privacy_combo.currentData() == "private"
     dialog.close()

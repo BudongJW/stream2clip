@@ -16,7 +16,7 @@ from .sources import SourceInfo
 if TYPE_CHECKING:  # pragma: no cover
     from .soundtrack import Sound
 
-__all__ = ["AgencyProfile", "Issue", "PROFILES", "build_description", "check_upload", "get_profile"]
+__all__ = ["AgencyProfile", "Issue", "PROFILES", "REUSED_CONTENT_URL", "build_description", "check_upload", "get_profile", "originality_issues"]
 
 
 @dataclass(frozen=True)
@@ -152,6 +152,27 @@ def build_description(
     if hashtags:
         lines.append(" ".join(t if t.startswith("#") else f"#{t}" for t in hashtags))
     return "\n".join(lines).strip() + "\n"
+
+
+#: YouTube's reused-content rules (inauthentic content since 2025-07-15).
+REUSED_CONTENT_URL = "https://support.google.com/youtube/answer/1311392"
+
+
+def originality_issues(*, captions: bool, translated: bool = False, context: bool = False, teaser: bool = False, profile: AgencyProfile | None = None) -> list[Issue]:
+    """What YouTube's reused-content rules and the agencies say about a clip with this much of the editor in it.
+
+    YouTube does not monetize clips "edited together with little or no narrative" or copied without
+    substantive changes, and since October 2026 recommends Shorts that only re-upload others' footage
+    less; small technical edits and template-made changes do not count as one's own input. ぶいすぽっ!
+    forbids videos that only cut the original. A checklist: whether a clip qualifies is decided by YouTube.
+    """
+    issues: list[Issue] = []
+    if not (captions or translated or context or teaser):
+        bare = tr("자막, 상황 설명, 예고 없이 잘라내기만 한 클립입니다. YouTube 재사용 콘텐츠 정책에 따라 수익 창출이 거부되거나 추천이 줄 수 있습니다.")
+        level = "error" if profile is not None and profile.key == "vspo" else "warning"
+        issues.append(Issue(level, bare))
+    issues.append(Issue("info", tr("자동 편집만으로는 독창적 기여로 인정되지 않을 수 있습니다. 게시 전에 직접 해설, 츳코미 자막 등을 더하세요: {0}").format(REUSED_CONTENT_URL)))
+    return issues
 
 
 def check_upload(
