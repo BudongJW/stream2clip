@@ -541,6 +541,11 @@ def make_clips(
             loud = sensational_words(result.title, named.hook)
             if loud:
                 result.issues.insert(0, Issue("warning", tr("제목과 썸네일 문구에 과장된 표현({0})이 있습니다. 기획사 가이드라인은 과장되거나 오해를 부르는 제목과 썸네일을 금지합니다.").format(", ".join(loud))))
+            from .compliance import originality_issues
+
+            own = originality_issues(captions=bool(clip_cues), translated=subtitle_translator is not None and bool(clip_cues), context=bool(situation),
+                                     teaser=opened > 0, profile=profile)
+            result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)
     finally:
         if scratch is not None:

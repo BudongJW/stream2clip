@@ -258,3 +258,29 @@ def test_presets_fill_what_was_not_given(tmp_path):
     highlights = build_parser().parse_args(["highlights", "--preset", "clip", "--chat", "c.json"])
     _apply_preset(highlights)
     assert (highlights.lead, highlights.tail) == (45.0, 30.0)
+
+
+# --------------------------------------------------------------------------- originality
+
+
+def test_originality_check():
+    from stream2clip.compliance import REUSED_CONTENT_URL, get_profile, originality_issues
+
+    bare = originality_issues(captions=False)
+    assert [i.level for i in bare] == ["warning", "info"] and "재사용" in bare[0].message and REUSED_CONTENT_URL in bare[1].message
+    assert originality_issues(captions=False, profile=get_profile("vspo"))[0].level == "error"  # VSPO forbids cut-only videos
+    for added in ({"captions": True}, {"captions": False, "context": True}, {"captions": False, "teaser": True}):
+        assert [i.level for i in originality_issues(**added)] == ["info"]
+
+
+@needs_ffmpeg
+def test_cut_only_clips_are_flagged(green_screen_video, tmp_path):
+    from stream2clip.ffmpeg import ExportOptions
+    from stream2clip.pipeline import make_clips
+
+    h = Highlight(1, 0.0, 1.8, 0.8, 5.0)
+    bare = make_clips(green_screen_video, [h], tmp_path / "a", options=ExportOptions(format="mp4", fps=10))[0]
+    assert bare.issues[0].level == "warning" and "재사용" in bare.issues[0].message
+    captioned = make_clips(green_screen_video, [h], tmp_path / "b", options=ExportOptions(format="mp4", fps=10), cues=[Cue(0.2, 1.0, "hi")])[0]
+    assert not [i for i in captioned.issues if i.level != "info"]
+    assert json.loads((tmp_path / "a" / "clips.json").read_text(encoding="utf-8"))["clips"][0]["issues"][0]["level"] == "warning"
