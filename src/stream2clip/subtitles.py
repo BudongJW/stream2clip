@@ -33,6 +33,7 @@ __all__ = [
     "installed_fonts",
     "pick_font",
     "script_of",
+    "caption_issues",
     "Transcriber",
     "FasterWhisperTranscriber",
     "parse_srt",
@@ -621,6 +622,79 @@ def to_srt(cues: Iterable[Cue]) -> str:
         return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
 
     return "\n".join(f"{i}\n{stamp(c.start)} --> {stamp(c.end)}\n{c.text}\n" for i, c in enumerate(cues, start=1))
+
+
+# --------------------------------------------------------------------------- checking captions before upload
+
+#: Letters per second a viewer can still read in a burned-in caption, by the script of the line.
+#: A rule of thumb for fast-talking clips, looser than film subtitle norms; other scripts use ``OTHER_READING_SPEED``.
+READING_SPEED = {"ja": 8.0, "zh": 8.0, "ko": 15.0}
+OTHER_READING_SPEED = 25.0
+#: A caption shown for less than this is a flash, not something to read.
+SHORTEST_CUE = 0.3
+#: Lines speech recognition tends to write over silence or music (from the video subtitles it learned on).
+INVENTED_LINES = ("ご視聴ありがとうございました", "チャンネル登録", "시청해 주셔서 감사합니다", "시청해주셔서 감사합니다", "구독과 좋아요", "thanks for watching", "please subscribe")
+_LOOP = re.compile(r"(.{3,}?)\1{2,}")
+_SMALLEST = 0.55  # :func:`_shrink` sets a long line no smaller than this
+
+
+def caption_issues(cues: Sequence[Cue], style: SubtitleStyle | None = None) -> list[str]:
+    """What to look at in a clip's captions before it goes up: too fast to read, too wide for the frame,
+    flashes, and what speech recognition gets wrong on its own (a line repeated over and over, a
+    phrase looping inside a line, a sign-off invented over silence). Each entry names one example."""
+    from .i18n import tr
+
+    style = style or SubtitleStyle()
+    fast: list[str] = []
+    wide: list[str] = []
+    short: list[str] = []
+    invented: list[str] = []
+    loops: list[str] = []
+    repeated: list[tuple[int, str]] = []
+    previous, run = "", 0
+    for cue in [*cues, Cue(0.0, 0.0, "")]:
+        lines = [line.strip() for line in cue.text.split("\n") if line.strip()]
+        text = " ".join(lines)
+        if text and text == previous:
+            run += 1
+        else:
+            if run >= 3:
+                repeated.append((run, previous))
+            previous, run = text, 1 if text else 0
+        if not text:
+            continue
+        length = cue.end - cue.start
+        letters = max(sum(1 for ch in line if ch.isalnum()) for line in lines)  # an original above its translation is read as one or the other
+        if length < SHORTEST_CUE:
+            short.append(text)
+        elif letters / length > READING_SPEED.get(script_of(text), OTHER_READING_SPEED):
+            fast.append(text)
+        widest = max(_width(line) / min(style.max_lines, max(1, math.ceil(_width(line) / style.max_chars))) for line in lines)
+        if widest * _SMALLEST > style.max_chars:
+            wide.append(text)
+        if any(phrase in text.lower() for phrase in INVENTED_LINES):
+            invented.append(text)
+        loop = _LOOP.search(text.replace(" ", ""))
+        if loop and len(set(loop.group(1))) > 1:  # "ははははは" is laughter, not a loop
+            loops.append(text)
+
+    def example(text: str) -> str:
+        return text if len(text) <= 24 else text[:24] + "..."
+
+    issues = []
+    if fast:
+        issues.append(tr("자막 {0}줄이 읽기에 빠름: {1}").format(len(fast), example(fast[0])))
+    if wide:
+        issues.append(tr("자막 {0}줄이 길어 화면 밖으로 나갈 수 있음: {1}").format(len(wide), example(wide[0])))
+    if short:
+        issues.append(tr("자막 {0}줄이 {1}초보다 짧게 표시됨: {2}").format(len(short), SHORTEST_CUE, example(short[0])))
+    for count, text in repeated:
+        issues.append(tr("같은 자막이 {0}번 이어짐(받아쓰기 반복 오류일 수 있음): {1}").format(count, example(text)))
+    if loops:
+        issues.append(tr("한 줄 안에서 같은 말이 되풀이됨(받아쓰기 반복 오류일 수 있음): {0}").format(example(loops[0])))
+    if invented:
+        issues.append(tr("받아쓰기가 조용한 부분에서 지어내기 쉬운 문구가 있음: {0}").format(example(invented[0])))
+    return issues
 
 
 # --------------------------------------------------------------------------- speech to text

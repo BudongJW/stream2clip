@@ -622,6 +622,8 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             print(f"    title: {r.title}" + (f"  {' '.join(r.hashtags)}" if r.hashtags else ""))
         if r.thumbnail:
             print(f"    thumbnail: {r.thumbnail.name}")
+        for note in r.captions:
+            print(f"    captions: {note}")
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")

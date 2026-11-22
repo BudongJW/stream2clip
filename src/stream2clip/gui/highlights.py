@@ -1465,6 +1465,9 @@ class HighlightsWindow(QMainWindow):
         self.progress.setValue(len(value))
         warnings = sum(1 for r in value for i in r.issues if i.level in ("error", "warning"))
         note = tr(", 가이드라인 확인 필요 {0}건 (clips.json)").format(warnings) if warnings else ""
+        captions = sum(len(r.captions) for r in value)
+        if captions:
+            note += tr(", 자막 확인 {0}건").format(captions)
         if getattr(self, "last_compilation", None) is not None:
             note += tr(", 모음 영상 {0}").format(self.last_compilation.path.name)
         quiet = sum(r.removed for r in value)

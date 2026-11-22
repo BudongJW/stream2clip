@@ -51,6 +51,8 @@ class ClipResult:
     thumbnail: Path | None = None
     #: Seconds of the peak put in front of the clip (``teaser``); the file is that much longer.
     teaser: float = 0.0
+    #: What to look at in the captions before uploading (:func:`stream2clip.subtitles.caption_issues`).
+    captions: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         data = {
@@ -60,6 +62,7 @@ class ClipResult:
             "hashtags": list(self.hashtags),
             "thumbnail": self.thumbnail.name if self.thumbnail else None,
             "teaser": round(self.teaser, 2),
+            "captions": list(self.captions),
             "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
@@ -569,6 +572,9 @@ def make_clips(
 
             own = originality_issues(captions=bool(clip_cues), translated=subtitle_translator is not None and bool(clip_cues), context=bool(situation),
                                      teaser=opened > 0, profile=profile)
+            from .subtitles import caption_issues
+
+            result.captions = caption_issues(clip_cues or [], subtitle_style)  # per clip, apart from the guideline check
             result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)
     finally:
