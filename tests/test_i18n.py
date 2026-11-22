@@ -63,7 +63,7 @@ def test_no_korean_literal_is_left_outside_tr():
     """A new text added without tr() would stay Korean in every language."""
     import re
 
-    from stream2clip import highlights, subtitles, thumbnails, titles
+    from stream2clip import effects, highlights, subtitles, thumbnails, titles
 
     hangul = re.compile("[가-힣]")
     allowed = {
@@ -76,6 +76,9 @@ def test_no_korean_literal_is_left_outside_tr():
         "titles.py": {names["ko"] for names in titles.AGENCY_NAMES.values()} | {titles.CLIP_WORDS["ko"], titles.GENERIC_TAGS["ko"], titles.TEMPLATES["ko"], titles._CHANNEL_NOISE.pattern},
         "thumbnails.py": {thumbnails.SENSATIONAL.pattern},  # words looked for in titles, not texts of the program
         "subtitles.py": set(subtitles.INVENTED_LINES),  # lines speech recognition writes, looked for in captions
+        # reaction tags drawn in Korean clips: caption text, like the chat's reaction words
+        "effects.py": {text for table in (effect.get("text") or {} for preset in effects.PRESETS.values() for effect in preset["effects"])
+                       for by_reaction in table.values() for text in by_reaction.values()},
     }
     left = []
     for path in sorted(SRC.rglob("*.py")):

@@ -65,6 +65,8 @@ _EFFECT_TIMES = [("peak", tr("최고 순간")), ("start", tr("시작")), ("end",
 #: Speech recognition models the app offers (faster-whisper names); the command line takes any.
 _WHISPER_MODELS = ("small", "medium", "large-v3-turbo", "large-v3")
 #: What to make (stream2clip.presets): Shorts, horizontal clips, a long horizontal compilation.
+#: Effects at each clip's peak (stream2clip.effects).
+_FX_PRESETS = [("off", tr("끄기")), ("subtle", tr("절제 (확대, 단어 강조)")), ("variety", tr("예능 (반응 꼬리표 추가)"))]
 _PRESETS = [("shorts", tr("Shorts (세로, 15~90초)")), ("clip", tr("가로 클립 (1~3분)")), ("long", tr("가로 모음 (8~10분, 챕터)"))]
 #: Which moment of the session is second 0 of the video (see stream2clip.session.Session.origin).
 _SESSION_ORIGINS = [("auto", tr("자동")), ("stream", tr("OBS 송출 시작")), ("record", tr("OBS 녹화 시작")), ("session", tr("세션 시작"))]
@@ -822,18 +824,28 @@ class HighlightsWindow(QMainWindow):
         opening.addStretch(1)
         grid.addLayout(opening, 15, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 16, 0)
+        grid.addWidget(QLabel(tr("효과")), 16, 0)
+        self.fx_combo = QComboBox()
+        for key, label in _FX_PRESETS:
+            self.fx_combo.addItem(label, key)
+        self.fx_combo.setToolTip(tr("최고 순간에 거는 효과. 절제: 소리가 커지는 순간의 짧은 확대와 자막 단어 1개 강조.\n예능: 조금 더 큰 확대, 단어 2개, 채팅 반응 꼬리표(草, ㅋㅋㅋ, !? 등). 뚜렷한 순간이 없으면 넣지 않음"))
+        grid.addWidget(self.fx_combo, 16, 1)
+        self.reduced_motion_check = QCheckBox(tr("움직임 줄이기"))
+        self.reduced_motion_check.setToolTip(tr("화면 확대 대신 자막 단어를 더 크게 강조. 어지럼을 느끼는 시청자를 위한 선택"))
+        grid.addWidget(self.reduced_motion_check, 16, 2)
+
+        grid.addWidget(QLabel(tr("저장")), 17, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 16, 1)
+        grid.addWidget(self.output_edit, 17, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 16, 2)
+        grid.addWidget(pick, 17, 2)
 
-        grid.addWidget(QLabel(tr("기록")), 17, 0)
+        grid.addWidget(QLabel(tr("기록")), 18, 0)
         self.feedback_check = QCheckBox(tr("고른 구간과 뺀 구간 기록"), checked=True)
         self.feedback_check.setToolTip(tr("내보낼 때마다 체크한 구간과 뺀 구간, 손으로 옮긴 구간을 이 PC의 설정 폴더(feedback.jsonl)에 기록.\n채널에 맞춘 검출 조정(evaluate --feedback)에 쓰이며, stream2clip feedback --clear로 삭제"))
-        grid.addWidget(self.feedback_check, 17, 1, 1, 2)
-        grid.setRowStretch(18, 1)
+        grid.addWidget(self.feedback_check, 18, 1, 1, 2)
+        grid.setRowStretch(19, 1)
         self._on_layout_changed()
         return card
 
@@ -877,10 +889,11 @@ class HighlightsWindow(QMainWindow):
     def _restore(self) -> None:
         saved = load_section("highlights")
         for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion"), (self.loudness_check, "loudness"),
-                           (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail"), (self.feedback_check, "feedback")):
+                           (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail"), (self.feedback_check, "feedback"),
+                           (self.reduced_motion_check, "reduced_motion")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
-        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset")):
+        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset"), (self.fx_combo, "effects")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
@@ -914,7 +927,7 @@ class HighlightsWindow(QMainWindow):
             "avatar_motion": self.motion_check.isChecked(), "audio_track": self.track_spin.value(),
             "bgm": self.bgm_edit.text().strip(), "sfx": self.sfx_combo.currentData(), "sfx_when": self.sfx_time_combo.currentData(),
             "loudness": self.loudness_check.isChecked(), "preset": self.preset_combo.currentData(), "context": self.context_check.isChecked(),
-            "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(), "feedback": self.feedback_check.isChecked(),
+            "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(), "feedback": self.feedback_check.isChecked(), "effects": self.fx_combo.currentData(), "reduced_motion": self.reduced_motion_check.isChecked(),
             "last_dir": self.last_dir,
         })
 
@@ -1140,7 +1153,7 @@ class HighlightsWindow(QMainWindow):
             return
         found = self.found_spans if len(self.found_spans) == len(highlights) else None
         try:
-            record(None, highlights, kept, found=found, source=dict(self.result.source or {}), video=self.video_edit.text().strip(),
+            record(None, highlights, kept, found=found, source=dict(self.result.source or {}), video=self.video_edit.text().strip(), effects=self.fx_combo.currentData(),
                    duration=self.result.duration, action=action)
         except OSError:
             pass  # a record that cannot be written never stops an export
@@ -1409,6 +1422,9 @@ class HighlightsWindow(QMainWindow):
         context = "auto" if self.context_check.isChecked() else None
         teaser = 2.0 if self.teaser_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm") else 0.0
         thumbnails = self.thumbnail_check.isChecked()
+        fx_preset = self.fx_combo.currentData()
+        reduced_motion = self.reduced_motion_check.isChecked()
+        chosen_session = self.session_choice() if fx_preset != "off" else ("", "auto", 0.0)
         self.last_compilation = None
         if translator_spec and not subs_path and model is None:
             self._on_failed(tr("번역하려면 자막이 필요합니다. 자막 파일을 고르거나 받아쓰기를 켜세요."))
@@ -1431,6 +1447,8 @@ class HighlightsWindow(QMainWindow):
             from ..translation import Glossary
 
             cues = load_subtitles(subs_path) if subs_path else None
+            session, zero = open_session(*chosen_session)  # the expression hotkeys the streamer pressed: the clearest moments for effects
+            hotkeys = [at for at, _name in session.hotkeys(zero)] if session is not None else []
             glossary = Glossary.load(glossary_path) if glossary_path else None
             transcriber = FasterWhisperTranscriber(model, hotwords=glossary.names() if glossary is not None else ()) if model else None
             source = source_from_info(load_info(info_path)) if info_path else None
@@ -1458,6 +1476,7 @@ class HighlightsWindow(QMainWindow):
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
                 subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track, soundtrack=soundtrack, loudness=loudness,
                 context=context, teaser=teaser, thumbnails=thumbnails,
+                effects=None if fx_preset == "off" else fx_preset, reduced_motion=reduced_motion, hotkeys=hotkeys,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )

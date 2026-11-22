@@ -42,9 +42,11 @@ def record(
     video: str = "",
     duration: float | None = None,
     action: str = "clips",
+    effects: str = "",
     now: datetime | None = None,
 ) -> Path:
-    """Add one export to the record. ``found`` holds each candidate's span before it was moved by hand."""
+    """Add one export to the record. ``found`` holds each candidate's span before it was moved by hand;
+    ``effects`` is the effect preset the clips were made with, so the record says which effects people kept."""
     if len(kept) != len(highlights) or (found is not None and len(found) != len(highlights)):
         raise ValueError("kept (and found) need one entry per highlight")
     out = Path(path) if path is not None else default_path()
@@ -60,7 +62,7 @@ def record(
     entry = {
         "schema": SCHEMA, "at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds"), "action": action,
         "source": {k: v for k, v in (source or {}).items() if k in ("url", "title", "channel") and v},
-        "video": Path(video).name if video else "", "duration": round(duration, 1) if duration else None,
+        "video": Path(video).name if video else "", "duration": round(duration, 1) if duration else None, "effects": effects or "off",
         "candidates": candidates,
     }
     out.parent.mkdir(parents=True, exist_ok=True)

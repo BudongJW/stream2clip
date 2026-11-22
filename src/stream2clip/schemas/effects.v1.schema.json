@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/BudongJW/stream2clip/schemas/effects.v1.schema.json",
+  "title": "stream2clip effect preset",
+  "description": "Effects placed at a clip's peak (stream2clip --fx FILE). Built-in presets: stream2clip fx NAME -o FILE.",
+  "type": "object",
+  "required": ["schema_version", "effects"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "budget": {
+      "type": "object",
+      "description": "how many effects one clip may get: one hero effect (the zoom) and a few secondary ones (caption effects)",
+      "properties": {
+        "max_hero": {"type": "integer", "minimum": 0},
+        "max_secondary": {"type": "integer", "minimum": 0}
+      }
+    },
+    "skip_in_teaser": {"type": "boolean", "description": "leave the effects out of the peak teaser at the start, so they play once"},
+    "effects": {"type": "array", "items": {"$ref": "#/$defs/effect"}}
+  },
+  "$defs": {
+    "anchor": {
+      "type": "object",
+      "properties": {
+        "order": {"type": "array", "items": {"enum": ["vts_hotkey", "onset", "peak"]}, "description": "the first of these found near the peak is the moment"},
+        "skip_if_none": {"type": "boolean", "description": "leave the effect out when no hotkey or sound onset is near the peak"}
+      }
+    },
+    "effect": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"enum": ["zoom", "caption_emphasis", "caption_tag"]},
+        "group": {"enum": ["hero", "secondary"]},
+        "anchor": {"$ref": "#/$defs/anchor"},
+        "scale": {"type": "number", "minimum": 1.0, "maximum": 1.5},
+        "in_ms": {"type": "number", "minimum": 0},
+        "out_ms": {"type": "number", "minimum": 0},
+        "hold_max_ms": {"type": "number", "minimum": 0},
+        "focus": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}, "minItems": 2, "maxItems": 2,
+                  "description": "zoom centre as fractions of the frame (x, y)"},
+        "by_reaction": {
+          "type": "object",
+          "description": "per chat reaction (laugh, shock, cute, hype): other settings, or null for no zoom",
+          "additionalProperties": {"oneOf": [{"type": "null"}, {"type": "object"}]}
+        },
+        "reduced_motion": {"type": "string"},
+        "window_ms": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+        "max_words": {"type": "integer", "minimum": 1},
+        "pop_ms": {"type": "number", "minimum": 0},
+        "min_share": {"type": "number", "minimum": 0, "maximum": 1},
+        "min_count": {"type": "number", "minimum": 0},
+        "duration_ms": {"type": "number", "minimum": 0},
+        "text": {
+          "type": "object",
+          "description": "per language (ko, ja, en, or * for any): per reaction, the tag's text",
+          "additionalProperties": {"type": "object", "additionalProperties": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

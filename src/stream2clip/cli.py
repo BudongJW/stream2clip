@@ -496,6 +496,10 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--title-template", metavar="FORM", help="form of the suggested titles, with {hook} (the line at the peak), {talent}, {agency}, {clip}; default per language, e.g. Japanese '{hook}【{talent}/{agency}{clip}】'")
     c.add_argument("--context", metavar="TEXT", help="a line of what is going on, at the top of each clip's first seconds; 'auto' takes the stream's topic from its title (the bracket tag that is not the agency or the talent)")
     c.add_argument("--context-seconds", type=float, default=3.0, metavar="SECONDS", help="--context: how long the line stays (default 3)")
+    c.add_argument("--fx", default="off", metavar="PRESET|FILE",
+                   help="effects at each clip's peak: off (default), subtle (a punch-in zoom on the sound onset, one word of the captions popping), "
+                        "variety (stronger zoom, two words, a reaction tag such as 草 or !?), or a JSON preset (stream2clip fx subtle -o my.json)")
+    c.add_argument("--fx-reduced-motion", action="store_true", help="--fx without moving the picture: the emphasised word grows more instead of a zoom")
     c.add_argument("--teaser", type=float, nargs="?", const=2.0, metavar="SECONDS", help="open each clip with this many seconds of its peak (default 2), cut from just before the sound rises; MP4, WebM, MOV")
     c.add_argument("--thumbnail", action="store_true", help="also write <clip>.jpg (1280x720): the sharpest frame around the peak, zoomed onto the avatar box when the layout has one, with the first words of the title")
     c.add_argument("--no-hashtags", action="store_true", help="leave the three suggested hashtags (agency, talent, general) out of the descriptions")
@@ -539,6 +543,10 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     from .subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
 
     _apply_preset(args)
+    hotkeys: list[float] = []
+    if getattr(args, "session", None) and args.fx != "off":
+        session, zero = _session(args)
+        hotkeys = [at for at, _name in session.hotkeys(zero)]
 
     if args.ranks:
         wanted = {int(r) for r in args.ranks.split(",") if r.strip()}
@@ -632,6 +640,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         soundtrack=soundtrack, loudness=args.loudness, title_template=args.title_template, add_hashtags=not args.no_hashtags,
         thumbnails=args.thumbnail, context=args.context, context_seconds=args.context_seconds, teaser=args.teaser or 0.0,
         speakers=speakers, speaker_tracks=tracks, speaker_names=args.speaker_names,
+        effects=None if args.fx == "off" else args.fx, reduced_motion=args.fx_reduced_motion, hotkeys=hotkeys,
     )
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
@@ -646,6 +655,11 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             print(f"    thumbnail: {r.thumbnail.name}")
         for note in r.captions:
             print(f"    captions: {note}")
+        if r.effects:
+            placed = ", ".join(_effect_note(e) for e in r.effects["placed"])
+            print(f"    effects: {placed or 'none'}")
+            for reason in r.effects["skipped"]:
+                print(f"      left out: {reason}")
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")
@@ -1079,6 +1093,33 @@ def cmd_chzzk_logout(args: argparse.Namespace) -> int:
         print(f"removed {path}")
     else:
         print("not signed in")
+    return 0
+
+
+def _effect_note(effect: dict) -> str:
+    kind = effect.get("type")
+    if kind == "zoom":
+        return f"zoom x{effect['scale']:g} at {effect['at']:.1f}s ({effect['anchor']})"
+    if kind == "caption_emphasis":
+        return "emphasis " + " ".join(effect.get("words") or [])
+    if kind == "caption_tag":
+        return f"tag {effect.get('text')} ({effect.get('reaction')})"
+    return str(effect.get("id"))
+
+
+def cmd_fx(args: argparse.Namespace) -> int:
+    from .effects import PRESETS, builtin_preset, write_preset
+
+    if not args.preset:
+        for name, preset in PRESETS.items():
+            kinds = ", ".join(e["type"] for e in preset["effects"]) or "no effects"
+            print(f"{name:<8} {kinds}")
+        print("write one out to edit it: stream2clip fx subtle -o my.json, then clips --fx my.json")
+        return 0
+    if args.output:
+        print(f"saved {write_preset(args.preset, args.output)}")
+    else:
+        print(json.dumps(builtin_preset(args.preset), ensure_ascii=False, indent=2))
     return 0
 
 
@@ -1659,6 +1700,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.set_defaults(func=cmd_chzzk_login)
     c = cs.add_parser("logout", help="forget the CHZZK tokens kept on this PC")
     c.set_defaults(func=cmd_chzzk_logout)
+
+    p = sub.add_parser("fx", help="the built-in effect presets (--fx): list them, show one as JSON or save it to edit")
+    p.add_argument("preset", nargs="?", choices=["off", "subtle", "variety"], help="the preset to show or save")
+    p.add_argument("-o", "--output", help="save it as this JSON file")
+    p.set_defaults(func=cmd_fx)
 
     p = sub.add_parser("feedback", help="the record of which highlights were kept or left out at each export from the app (kept on this PC)")
     p.add_argument("--file", help="the record to read (default: feedback.jsonl in the app's settings folder)")

@@ -850,3 +850,34 @@ def test_exports_note_what_was_kept_and_moved(app, window, stream_files, tmp_pat
     window.export()
     wait(app, lambda: not window.busy)
     assert len(feedback.load()) == 1  # nothing more once turned off
+
+
+@needs_ffmpeg
+def test_effects_from_the_window(app, window, stream_files, tmp_path, monkeypatch):
+    from stream2clip import feedback, pipeline
+
+    seen = {}
+    make = pipeline.make_clips
+    monkeypatch.setattr(pipeline, "make_clips", lambda *args, **kwargs: seen.update(kwargs) or make(*args, **kwargs))
+    assert [window.fx_combo.itemData(i) for i in range(window.fx_combo.count())] == ["off", "subtle", "variety"]
+    assert window.fx_combo.currentData() == "off"  # off unless chosen
+
+    video, chat = stream_files
+    window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    window.fx_combo.setCurrentIndex(window.fx_combo.findData("variety"))
+    window.reduced_motion_check.setChecked(True)
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    window.export()
+    wait(app, lambda: not window.busy, 120)
+    assert (seen["effects"], seen["reduced_motion"], seen["hotkeys"]) == ("variety", True, [])
+    assert window.last_results[0].effects["preset"] == "variety"
+    assert feedback.load()[-1]["effects"] == "variety"
+
+    window.remember()
+    again = HighlightsWindow()
+    assert again.fx_combo.currentData() == "variety" and again.reduced_motion_check.isChecked()
+    again.close()
