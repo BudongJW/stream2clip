@@ -5,18 +5,19 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
-from .ffmpeg import ExportOptions, build_export_command, find_ffprobe
+from .ffmpeg import H264_ENCODERS, ExportOptions, build_export_command, find_ffmpeg, find_ffprobe
 
 if TYPE_CHECKING:
     import numpy as np
 
     from .layouts import VerticalLayout
 
-__all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "has_alpha", "measure_loudness", "probe", "run_ffmpeg"]
+__all__ = ["FFmpegError", "MediaInfo", "export", "grab_frames", "h264_encoder", "has_alpha", "measure_loudness", "probe", "resolve_encoder", "run_ffmpeg"]
 
 
 class FFmpegError(RuntimeError):
@@ -51,6 +52,32 @@ def run_ffmpeg(cmd: list[str], *, timeout: float | None = None) -> None:
         raise FFmpegError(cmd, proc.returncode, proc.stderr.decode("utf-8", "replace"))
 
 
+@lru_cache(maxsize=4)
+def h264_encoder(ffmpeg: str | None = None) -> str:
+    """The first GPU H.264 encoder that encodes a few frames on this PC, else ``libx264``.
+
+    ffmpeg builds list NVENC, QSV and AMF whether or not the PC has the GPU, so each one is
+    tried on a tiny picture (about a second at most); the answer is kept for the session.
+    """
+    exe = ffmpeg or find_ffmpeg()
+    for encoder in H264_ENCODERS:
+        cmd = [exe, "-hide_banner", "-loglevel", "error", "-nostdin", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.2",
+               "-frames:v", "3", "-pix_fmt", "yuv420p", "-c:v", encoder, "-f", "null", "-"]
+        try:
+            if subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20, check=False).returncode == 0:
+                return encoder
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    return "libx264"
+
+
+def resolve_encoder(options: ExportOptions, *, ffmpeg: str | None = None) -> ExportOptions:
+    """``options`` with ``encoder="auto"`` replaced by the encoder this PC has (MP4 only)."""
+    if options.format == "mp4" and options.encoder == "auto":
+        return replace(options, encoder=h264_encoder(ffmpeg))
+    return options
+
+
 def export(
     input_path: str | os.PathLike[str],
     output_path: str | os.PathLike[str],
@@ -63,13 +90,20 @@ def export(
 
     With ``options.loudness`` and nothing measured yet, the sound is measured first (one more
     ffmpeg run that writes nothing); a clip without sound, or a silent one, is left as it is.
+    ``encoder="auto"`` takes the GPU encoder this PC has; if a GPU encoder fails on a clip (a
+    driver too old, the GPU busy with too many encodes), the clip is encoded again with libx264.
     """
-    options = options or ExportOptions()
+    options = resolve_encoder(options or ExportOptions(), ffmpeg=ffmpeg)
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     if options.loudness is not None and options.loudness.measured is None:
         options = measure_loudness(input_path, options, ffmpeg=ffmpeg, timeout=timeout)
-    run_ffmpeg(build_export_command(input_path, out, options, ffmpeg=ffmpeg), timeout=timeout)
+    try:
+        run_ffmpeg(build_export_command(input_path, out, options, ffmpeg=ffmpeg), timeout=timeout)
+    except FFmpegError:
+        if options.format != "mp4" or options.encoder not in H264_ENCODERS:
+            raise
+        run_ffmpeg(build_export_command(input_path, out, replace(options, encoder="libx264"), ffmpeg=ffmpeg), timeout=timeout)
     return out
 
 

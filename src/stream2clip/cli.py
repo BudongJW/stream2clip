@@ -59,6 +59,8 @@ def _add_export_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--width", type=int, help="scale to this width (keeps aspect ratio)")
     g.add_argument("--height", type=int, help="scale to this height (keeps aspect ratio)")
     g.add_argument("--quality", type=int, default=80, help="1-100 (WebP quality / video CRF mapping)")
+    g.add_argument("--encoder", choices=["auto", "cpu", "nvenc", "qsv", "amf"], default="auto",
+                   help="MP4 video encoder: auto (default) takes the GPU this PC has (NVIDIA NVENC, Intel QSV, AMD AMF) and falls back to the CPU (libx264)")
     g.add_argument("--colors", type=int, default=256, help="GIF palette size (2-256)")
     g.add_argument("--dither", default="sierra2_4a", help="GIF dithering (sierra2_4a, bayer, floyd_steinberg, none, ...)")
     g.add_argument("--loop", type=int, default=0, help="loop count for GIF/WebP/APNG (0 = forever)")
@@ -83,8 +85,15 @@ def _export_options(args: argparse.Namespace, output: Path, *, default_fps: floa
         key_color=None if args.key_color.lower() == "none" else args.key_color,
         similarity=args.similarity,
         blend=args.blend,
+        encoder=_encoder(args),
         **extra,
     )
+
+
+def _encoder(args: argparse.Namespace) -> str:
+    """The ``--encoder`` choice as an ffmpeg encoder name (``auto`` is resolved when the clip is made)."""
+    choice = getattr(args, "encoder", "auto") or "auto"
+    return {"cpu": "libx264", "nvenc": "h264_nvenc", "qsv": "h264_qsv", "amf": "h264_amf"}.get(choice, "auto")
 
 
 # ----------------------------------------------------------------------------- commands
@@ -431,6 +440,8 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("-f", "--format", choices=FORMATS, default="mp4")
     g.add_argument("--fps", type=float, default=30)
     g.add_argument("--quality", type=int, default=85)
+    g.add_argument("--encoder", choices=["auto", "cpu", "nvenc", "qsv", "amf"], default="auto",
+                   help="MP4 video encoder: auto (default) takes the GPU this PC has (NVIDIA NVENC, Intel QSV, AMD AMF) and falls back to the CPU (libx264)")
     g.add_argument("--ranks", help="only these highlight ranks, e.g. 1,2,5")
     g.add_argument("--trim-silence", type=float, nargs="?", const=0.7, metavar="SECONDS", help="shorten pauses inside each clip: silences of this length or longer (default 0.7) are cut down to a short pause; captions move along")
     g.add_argument("--silence-level", type=float, default=24.0, metavar="DB", help="--trim-silence: how far below the clip's loud parts counts as silent (default 24 dB; smaller cuts more)")
@@ -543,7 +554,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split, corner=args.corner, inset=args.inset,
             avatar_source=args.avatar_video, avatar_key=None if key.lower() == "none" else ("#00FF00" if key.lower() == "auto" else key), avatar_offset=_avatar_offset(args),
         )
-    options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
+    options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout, encoder=_encoder(args))
     cues = load_subtitles(args.subtitles) if args.subtitles else None
     speakers, tracks = None, ()
     if args.speaker:
@@ -620,7 +631,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     if args.compile_to is not None and results:
         from .pipeline import compile_folder
 
-        _report_compilation(compile_folder(args.output, args.compile_to or None, fade=args.fade))
+        _report_compilation(compile_folder(args.output, args.compile_to or None, fade=args.fade, encoder=_encoder(args)))
     return 1 if any(i.level == "error" for i in problems) and args.strict else 0
 
 
@@ -633,7 +644,7 @@ def _report_compilation(made) -> None:
 def cmd_compile(args: argparse.Namespace) -> int:
     from .pipeline import compile_clips, compile_folder
 
-    options = {"fade": args.fade, "quality": args.quality, "fps": args.fps, "size": args.size}
+    options = {"fade": args.fade, "quality": args.quality, "fps": args.fps, "size": args.size, "encoder": _encoder(args)}
     first = Path(args.clips[0])
     if len(args.clips) == 1 and (first.is_dir() or first.suffix.lower() == ".json"):
         ranks = {int(r) for r in args.ranks.split(",") if r.strip()} if args.ranks else None
@@ -1423,6 +1434,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--size", type=_size, help="picture WxH (default: that of the first clip; clips of another shape get bars)")
     p.add_argument("--fps", type=float, help="frame rate (default: that of the first clip)")
     p.add_argument("--quality", type=int, default=85)
+    p.add_argument("--encoder", choices=["auto", "cpu", "nvenc", "qsv", "amf"], default="auto", help="MP4 video encoder (default auto: the GPU this PC has, else the CPU)")
     p.set_defaults(func=cmd_compile)
 
     p = sub.add_parser("timeline", help="hand the highlights to an editing program: cut list (EDL), timeline markers, timestamp list")

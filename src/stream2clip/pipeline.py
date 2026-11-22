@@ -14,7 +14,7 @@ import numpy as np
 
 from .chat import ChatMessage
 from .compliance import AgencyProfile, Issue, build_description, check_upload
-from .export import export, probe
+from .export import export, probe, resolve_encoder
 from .ffmpeg import ExportOptions, extension_for, find_ffmpeg
 from .highlights import Highlight, HighlightConfig, HighlightResult, detect_highlights
 from .i18n import tr
@@ -171,14 +171,16 @@ def compile_clips(
     fps: float | None = None,
     fade: float = 0.0,
     quality: int = 85,
+    encoder: str = "libx264",
     notes: bool = True,
 ) -> Compilation:
     """Join finished clips, in the order given, into one video; write ``<name>.txt`` with the chapter list.
 
     The picture takes the size and frame rate of the first clip unless told otherwise; clips of
-    another shape get bars. Captions burned into the clips stay as they are.
+    another shape get bars. Captions burned into the clips stay as they are. ``encoder`` is the
+    MP4 encoder (``auto``: the GPU this PC has, see :func:`stream2clip.export.h264_encoder`).
     """
-    from .export import run_ffmpeg
+    from .export import h264_encoder, run_ffmpeg
     from .ffmpeg import _AUDIO_CODECS, build_concat_command
 
     files = [Path(clip) for clip in clips]
@@ -204,6 +206,7 @@ def compile_clips(
     run_ffmpeg(build_concat_command(
         files, out, size=size or (facts[0].width, facts[0].height), fps=fps or facts[0].fps or 30.0,
         durations=durations, has_audio=[info.has_audio for info in facts], fade=fade, quality=quality, format=fmt,
+        encoder=h264_encoder() if encoder == "auto" and fmt == "mp4" else encoder,
     ))
     starts = [sum(durations[:index]) for index in range(len(files))]
     names = [" ".join(str(label).split()) for label in labels] if labels is not None else [path.stem for path in files]
@@ -442,7 +445,7 @@ def make_clips(
         raise ValueError("make_clips needs a video or a section function")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    options = options or default_clip_options()
+    options = resolve_encoder(options or default_clip_options())  # "auto": find the GPU encoder once for every clip
     if loudness is not None:
         from .ffmpeg import Loudness
 
@@ -657,6 +660,7 @@ def _open_with_teaser(
         run_ffmpeg(build_concat_command(
             [part, clip], joined, size=(facts[1].width, facts[1].height), durations=[float(f.duration or 0) for f in facts],
             has_audio=[f.has_audio for f in facts], fps=facts[1].fps or opts.fps or 30.0, quality=opts.quality, format=opts.format,
+            encoder=opts.encoder,
         ))
         joined.replace(clip)
     finally:

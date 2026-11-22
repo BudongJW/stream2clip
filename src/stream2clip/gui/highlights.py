@@ -1357,7 +1357,7 @@ class HighlightsWindow(QMainWindow):
         except ValueError as exc:
             self._on_failed(str(exc))
             return
-        options = ExportOptions(format=self.format_combo.currentData(), fps=30, quality=85, layout=layout)
+        options = ExportOptions(format=self.format_combo.currentData(), fps=30, quality=85, layout=layout, encoder="auto")  # the GPU this PC has
         mode = self.subs_combo.currentData()
         subs_path = self.subs_edit.text().strip() if mode == "file" else ""
         model = mode if mode in _WHISPER_MODELS else None
@@ -1439,7 +1439,7 @@ class HighlightsWindow(QMainWindow):
                 from ..pipeline import compile_folder
 
                 self._progress.emit(steps, steps, tr("모음 영상 만드는 중"))
-                self.last_compilation = compile_folder(out_dir)
+                self.last_compilation = compile_folder(out_dir, encoder="auto")
             self._exported.emit(("clips", results))
 
         self._run(work)
