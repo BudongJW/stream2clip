@@ -217,3 +217,28 @@ def test_clips_command_takes_the_look_of_the_captions(tmp_path, green_screen_vid
     assert style[1] == "Meiryo" and style[15] == "3" and style[18] == "8"
     assert main(["clips", str(green_screen_video), "--highlights", str(highlights), "--subtitles", str(subs), "--snap", "0", "--layout", "none", "--fps", "10", "-o", str(tmp_path / "plain")]) == 0
     assert style_line((tmp_path / "plain" / "clip_01.ass").read_text(encoding="utf-8"))[1] == "Noto Sans JP"
+
+
+# --------------------------------------------------------------------------- checking captions before upload
+
+
+def test_caption_check_before_upload():
+    from stream2clip.subtitles import Cue, caption_issues
+
+    fine = [Cue(0.0, 2.0, "今日は配信するよ"), Cue(2.0, 4.0, "Hello everyone"), Cue(4.0, 6.0, "今日は配信するよ\n오늘은 방송할게")]
+    assert caption_issues(fine) == []  # an original above its translation is read as one line or the other
+    fast = Cue(0.0, 1.0, "これはとても速く読まなければならない字幕です")  # 22 letters in a second
+    wide = Cue(1.0, 9.0, "あ" * 120)  # three lines of 40: wider than the frame even at the smallest size
+    flash = Cue(9.0, 9.1, "えっ")
+    loop = Cue(10.0, 13.0, "ありがとうありがとうありがとうありがとう")
+    laugh = Cue(13.0, 16.0, "はははははははは")  # laughter, not a loop
+    invented = Cue(16.0, 19.0, "ご視聴ありがとうございました")
+    same = [Cue(20.0 + i, 21.0 + i, "そうだね") for i in range(4)]
+    found = caption_issues([fast, wide, flash, loop, laugh, invented, *same])
+    assert len(found) == 6
+    assert "2줄이 읽기에 빠름" in found[0] and found[0].endswith("字幕です")
+    assert "1줄이 길어 화면 밖" in found[1] and found[1].endswith("あ" * 24 + "...")  # a long example is cut
+    assert "0.3" in found[2] and "えっ" in found[2]
+    assert "4번 이어짐" in found[3] and "そうだね" in found[3]
+    assert "되풀이" in found[4] and "ありがとう" in found[4] and "ご視聴" in found[5]
+    assert caption_issues([Cue(0.0, 1.0, "うん")] * 2) == []  # twice in a row is talk, not a loop

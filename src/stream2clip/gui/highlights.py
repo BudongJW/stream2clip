@@ -62,6 +62,8 @@ _EFFECTS = [
     ("whoosh", tr("슉 (whoosh)")), ("boom", tr("쿵 (boom)")), ("sparkle", tr("반짝 (sparkle)")),
 ]
 _EFFECT_TIMES = [("peak", tr("최고 순간")), ("start", tr("시작")), ("end", tr("끝"))]
+#: Speech recognition models the app offers (faster-whisper names); the command line takes any.
+_WHISPER_MODELS = ("small", "medium", "large-v3-turbo", "large-v3")
 #: What to make (stream2clip.presets): Shorts, horizontal clips, a long horizontal compilation.
 _PRESETS = [("shorts", tr("Shorts (세로, 15~90초)")), ("clip", tr("가로 클립 (1~3분)")), ("long", tr("가로 모음 (8~10분, 챕터)"))]
 #: Which moment of the session is second 0 of the video (see stream2clip.session.Session.origin).
@@ -430,6 +432,8 @@ class HighlightsWindow(QMainWindow):
         self.last_compilation = None
         self.last_handoff: list[Path] = []
         self.scenes_skipped = 0  # highlights the last analysis left out for the scene they were in
+        self.replay_note = ""  # a reminder from fetching the stream (a SOOP replay's deletion date)
+        self.found_spans: list[tuple[float, float]] = []  # each candidate's span as detected, before any dragging
         self.status = QLabel(tr("영상과 채팅 다시보기를 고르거나 방송 주소를 넣으세요"), objectName="Muted")
         bottom.addWidget(self.status, 1)
         self.progress = QProgressBar()
@@ -696,6 +700,9 @@ class HighlightsWindow(QMainWindow):
         self.subs_combo.addItem(tr("없음"), "none")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper small)"), "small")
         self.subs_combo.addItem(tr("받아쓰기 (Whisper medium)"), "medium")
+        self.subs_combo.addItem(tr("받아쓰기 (Whisper large-v3-turbo)"), "large-v3-turbo")
+        self.subs_combo.addItem(tr("받아쓰기 (Whisper large-v3)"), "large-v3")
+        self.subs_combo.setToolTip(tr("받아쓰기 모델: small은 CPU에서도 빠름, medium은 더 정확.\nlarge-v3-turbo는 large-v3에 가까운 정확도에 약 1.6배 빠름, large-v3이 가장 정확. 두 모델은 GPU 권장, 처음 쓸 때 내려받음(약 1.6GB, 3GB)"))
         grid.addWidget(self.subs_combo, 4, 1, 1, 2)
         grid.addWidget(QLabel(tr("언어")), 5, 0)
         self.language_edit = QLineEdit("ja")
@@ -737,7 +744,7 @@ class HighlightsWindow(QMainWindow):
         grid.addWidget(QLabel(tr("용어집")), 8, 0)
         self.glossary_edit = QLineEdit()
         self.glossary_edit.setPlaceholderText(tr("(선택) 이름 고정 CSV, JSON"))
-        self.glossary_edit.setToolTip(tr("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다."))
+        self.glossary_edit.setToolTip(tr("source,target 두 열의 CSV 또는 JSON. 버튜버 이름처럼 번역기가 틀리기 쉬운 말을 고정합니다.\n받아쓰기에는 이름 힌트로 쓰고, heard 열(| 로 구분)에 적은 잘못 들은 표기는 자막에서 이름으로 고칩니다."))
         grid.addWidget(self.glossary_edit, 8, 1)
         pick_glossary = QPushButton(tr("찾기"))
         pick_glossary.clicked.connect(lambda: self._browse(self.glossary_edit, "Glossary (*.csv *.json);;All files (*)"))
@@ -821,7 +828,12 @@ class HighlightsWindow(QMainWindow):
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
         grid.addWidget(pick, 16, 2)
-        grid.setRowStretch(17, 1)
+
+        grid.addWidget(QLabel(tr("기록")), 17, 0)
+        self.feedback_check = QCheckBox(tr("고른 구간과 뺀 구간 기록"), checked=True)
+        self.feedback_check.setToolTip(tr("내보낼 때마다 체크한 구간과 뺀 구간, 손으로 옮긴 구간을 이 PC의 설정 폴더(feedback.jsonl)에 기록.\n채널에 맞춘 검출 조정(evaluate --feedback)에 쓰이며, stream2clip feedback --clear로 삭제"))
+        grid.addWidget(self.feedback_check, 17, 1, 1, 2)
+        grid.setRowStretch(18, 1)
         self._on_layout_changed()
         return card
 
@@ -865,7 +877,7 @@ class HighlightsWindow(QMainWindow):
     def _restore(self) -> None:
         saved = load_section("highlights")
         for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion"), (self.loudness_check, "loudness"),
-                           (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail")):
+                           (self.context_check, "context"), (self.teaser_check, "teaser"), (self.thumbnail_check, "thumbnail"), (self.feedback_check, "feedback")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
         for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset")):
@@ -902,7 +914,7 @@ class HighlightsWindow(QMainWindow):
             "avatar_motion": self.motion_check.isChecked(), "audio_track": self.track_spin.value(),
             "bgm": self.bgm_edit.text().strip(), "sfx": self.sfx_combo.currentData(), "sfx_when": self.sfx_time_combo.currentData(),
             "loudness": self.loudness_check.isChecked(), "preset": self.preset_combo.currentData(), "context": self.context_check.isChecked(),
-            "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(),
+            "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(), "feedback": self.feedback_check.isChecked(),
             "last_dir": self.last_dir,
         })
 
@@ -941,6 +953,7 @@ class HighlightsWindow(QMainWindow):
         chosen = self.checked_highlights()
         if not chosen or self.busy:
             return
+        self.record_choices("edit")
         from .. import handoff
         from ..export import probe
         from ..sources import is_url
@@ -1115,6 +1128,23 @@ class HighlightsWindow(QMainWindow):
         self._browse(self.avatar_video_edit, "Video (*.mp4 *.mkv *.webm *.mov);;All files (*)")
         self.refresh_preview()
 
+    def record_choices(self, action: str) -> None:
+        """Note which candidates this export kept and which it left out (the window's 기록 setting)."""
+        if not self.feedback_check.isChecked() or self.result is None:
+            return
+        from ..feedback import record
+
+        highlights = list(self.timeline.highlights)
+        kept = [self.list.item(i).checkState() == Qt.CheckState.Checked for i in range(self.list.count())]
+        if len(kept) != len(highlights):
+            return
+        found = self.found_spans if len(self.found_spans) == len(highlights) else None
+        try:
+            record(None, highlights, kept, found=found, source=dict(self.result.source or {}), video=self.video_edit.text().strip(),
+                   duration=self.result.duration, action=action)
+        except OSError:
+            pass  # a record that cannot be written never stops an export
+
     def checked_highlights(self) -> list[Highlight]:
         return [self.timeline.highlights[i] for i in range(self.list.count()) if self.list.item(i).checkState() == Qt.CheckState.Checked]
 
@@ -1148,6 +1178,7 @@ class HighlightsWindow(QMainWindow):
         moving = recorded and self.motion_check.isChecked()
         self.scenes_skipped = 0
         self.remember()
+        self.replay_note = ""
         self._set_busy(True, tr("분석 시작"))
         self.progress.setRange(0, 0)  # busy indicator
 
@@ -1159,7 +1190,8 @@ class HighlightsWindow(QMainWindow):
             if url and not ((chat or session is not None) and info):  # the video itself comes later, and only the parts that are exported
                 from .. import sources
 
-                got_info, got_chat = sources.fetch_replay(url, folder, info=not info, chat=not chat and session is None, reuse=True, ytdlp=sources.ytdlp_command(), on_stage=self._stage.emit)
+                got_info, got_chat = sources.fetch_replay(url, folder, info=not info, chat=not chat and session is None, reuse=True, ytdlp=sources.ytdlp_command(),
+                                                          on_stage=self._stage.emit, note=lambda message: setattr(self, "replay_note", message))
                 info, chat = info or str(got_info or ""), chat or str(got_chat or "")
                 self._fetched.emit(info, chat)
             source = {}
@@ -1210,6 +1242,7 @@ class HighlightsWindow(QMainWindow):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         self.timeline.set_result(result)
+        self.found_spans = [(h.start, h.end) for h in self.timeline.highlights]
         self.list.blockSignals(True)
         self.list.clear()
         for h in result.highlights:
@@ -1229,7 +1262,8 @@ class HighlightsWindow(QMainWindow):
         sung = tr(", 노래 구간 {0}곳").format(len(result.songs)) if result.songs is not None else ""
         if self.scenes_skipped:
             sung += tr(", 장면으로 제외 {0}개").format(self.scenes_skipped)
-        self._set_busy(False, tr("{0}{1} 분석, 하이라이트 {2}개{3}{4}").format(chat, _clock(result.duration), count, sung, hint))
+        done = tr("{0}{1} 분석, 하이라이트 {2}개{3}{4}").format(chat, _clock(result.duration), count, sung, hint)
+        self._set_busy(False, done + ("\n" + self.replay_note if self.replay_note else ""))  # a SOOP replay is deleted after 90 days
         self.set_mood("laugh" if count else "wink")
         self.refresh_preview()
 
@@ -1343,15 +1377,16 @@ class HighlightsWindow(QMainWindow):
         video = self.video_edit.text().strip()
         if not chosen or not video:
             return
+        self.record_choices("clips")
         try:
             layout = self.layout_choice()
         except ValueError as exc:
             self._on_failed(str(exc))
             return
-        options = ExportOptions(format=self.format_combo.currentData(), fps=30, quality=85, layout=layout)
+        options = ExportOptions(format=self.format_combo.currentData(), fps=30, quality=85, layout=layout, encoder="auto")  # the GPU this PC has
         mode = self.subs_combo.currentData()
         subs_path = self.subs_edit.text().strip() if mode == "file" else ""
-        model = mode if mode in ("small", "medium") else None
+        model = mode if mode in _WHISPER_MODELS else None
         language = self.language_edit.text().strip() or None
         karaoke = self.karaoke_check.isChecked()
         look, place = self.style_combo.currentData(), self.position_combo.currentData()
@@ -1393,17 +1428,18 @@ class HighlightsWindow(QMainWindow):
             from ..pipeline import make_clips
             from ..sources import load_info, source_from_info
             from ..subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
+            from ..translation import Glossary
 
             cues = load_subtitles(subs_path) if subs_path else None
-            transcriber = FasterWhisperTranscriber(model) if model else None
+            glossary = Glossary.load(glossary_path) if glossary_path else None
+            transcriber = FasterWhisperTranscriber(model, hotwords=glossary.names() if glossary is not None else ()) if model else None
             source = source_from_info(load_info(info_path)) if info_path else None
             profile = get_profile(agency) if (agency or source) else None
-            subtitle_translator = glossary = None
+            subtitle_translator = None
             if translator_spec:
-                from ..translation import Glossary, get_translator
+                from ..translation import get_translator
 
                 subtitle_translator = get_translator(translator_spec)
-                glossary = Glossary.load(glossary_path) if glossary_path else None
             soundtrack = None
             if bgm_spec or sfx_key:
                 from ..soundtrack import Effect, SoundLibrary, Soundtrack, resolve_sound
@@ -1429,7 +1465,7 @@ class HighlightsWindow(QMainWindow):
                 from ..pipeline import compile_folder
 
                 self._progress.emit(steps, steps, tr("모음 영상 만드는 중"))
-                self.last_compilation = compile_folder(out_dir)
+                self.last_compilation = compile_folder(out_dir, encoder="auto")
             self._exported.emit(("clips", results))
 
         self._run(work)
@@ -1455,6 +1491,9 @@ class HighlightsWindow(QMainWindow):
         self.progress.setValue(len(value))
         warnings = sum(1 for r in value for i in r.issues if i.level in ("error", "warning"))
         note = tr(", 가이드라인 확인 필요 {0}건 (clips.json)").format(warnings) if warnings else ""
+        captions = sum(len(r.captions) for r in value)
+        if captions:
+            note += tr(", 자막 확인 {0}건").format(captions)
         if getattr(self, "last_compilation", None) is not None:
             note += tr(", 모음 영상 {0}").format(self.last_compilation.path.name)
         quiet = sum(r.removed for r in value)
@@ -1490,7 +1529,8 @@ class HighlightsWindow(QMainWindow):
             if clip.description is not None and clip.description.is_file():
                 description = clip.description.read_text(encoding="utf-8")
         title = clip.title if clip is not None and clip.title else (str((self.result.source or {}).get("title", "")) if self.result is not None else "")
-        self.upload_dialog = UploadDialog(video, title=title, description=description, parent=self)
+        thumbnail = str(clip.thumbnail) if clip is not None and clip.thumbnail is not None and clip.thumbnail.is_file() else ""
+        self.upload_dialog = UploadDialog(video, title=title, description=description, thumbnail=thumbnail, parent=self)
         self.upload_dialog.dialogs = self.dialogs
         self.upload_dialog.show()
         return self.upload_dialog

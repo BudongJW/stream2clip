@@ -221,3 +221,31 @@ def test_fetch_replay_gets_info_and_chat_but_no_video(tmp_path, monkeypatch):
     assert info is None and chat.name == "chzzk_16230061.chat.jsonl" and "login required" in warnings[0]
     with pytest.raises(RuntimeError, match="login required"):  # elsewhere the info is the way to the chat, so it is an error
         sources.fetch_replay(url, tmp_path / "other", ytdlp=["yt-dlp"])
+
+
+def test_soop_replays_come_with_a_reminder_of_their_deletion(tmp_path, monkeypatch):
+    from datetime import date
+
+    soop = "https://vod.sooplive.co.kr/player/212422389"
+    assert sources.replay_expiry_note("https://www.youtube.com/watch?v=abcdef12345") is None  # only SOOP deletes replays this way
+    assert sources.replay_expiry_note("https://chzzk.naver.com/video/16230061") is None
+    plain = sources.replay_expiry_note(soop)
+    assert "90" in plain and "1" in plain
+    dated = sources.replay_expiry_note(soop, {"upload_date": "20261001"}, today=date(2026, 11, 22))
+    assert "52" in dated  # days since it went up
+    assert "52" in sources.replay_expiry_note(soop, {"timestamp": 1790812800}, today=date(2026, 11, 22))  # 2026-10-01 UTC
+
+    def fake_replay_chat(u, out):
+        path = Path(out) / "soop_212422389.chat.jsonl"
+        path.write_text("", encoding="utf-8")
+        return path
+
+    monkeypatch.setattr(sources, "fetch_info", lambda u, ytdlp=None: {"id": "212422389", "upload_date": "20261001"})
+    monkeypatch.setattr(sources, "download_replay_chat", fake_replay_chat)
+    notes = []
+    sources.fetch_replay(soop, tmp_path / "soop", ytdlp=["yt-dlp"], note=notes.append)
+    assert len(notes) == 1 and "90" in notes[0]
+    monkeypatch.setattr(sources, "fetch_info", lambda u, ytdlp=None: {"id": "x"})
+    monkeypatch.setattr(sources, "download_chat", lambda url, out, ytdlp=None: fake_replay_chat(url, out))
+    sources.fetch_replay("https://www.youtube.com/watch?v=abcdef12345", tmp_path / "yt", ytdlp=["yt-dlp"], note=notes.append)
+    assert len(notes) == 1  # nothing for YouTube

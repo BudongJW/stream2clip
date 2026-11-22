@@ -251,6 +251,10 @@ class ExportOptions:
     mix: AudioMix | None = None
     #: Bring the finished sound to a loudness target (two passes; :func:`stream2clip.export.export` measures first).
     loudness: Loudness | None = None
+    #: H.264 encoder for MP4: ``libx264`` (CPU), ``h264_nvenc``, ``h264_qsv``, ``h264_amf`` (GPU), or ``auto``.
+    #: The builder is pure, so it writes ``auto`` as libx264; :func:`stream2clip.export.export` resolves
+    #: ``auto`` to the first GPU encoder that works on this PC (:func:`stream2clip.export.h264_encoder`).
+    encoder: str = "libx264"
 
     def __post_init__(self) -> None:
         if self.format not in FORMATS:
@@ -501,6 +505,24 @@ def build_video_filter(options: ExportOptions) -> str:
     return f"{prefix}{src}{','.join(chain)}[v]"
 
 
+#: GPU H.264 encoders, in the order ``auto`` tries them (NVIDIA, Intel, AMD).
+H264_ENCODERS = ("h264_nvenc", "h264_qsv", "h264_amf")
+ENCODERS = ("libx264", *H264_ENCODERS, "auto")
+
+
+def h264_args(encoder: str, crf: int) -> list[str]:
+    """Video codec arguments for MP4 with ``encoder`` at about the quality of libx264's ``crf``."""
+    if encoder == "h264_nvenc":
+        return ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", str(crf), "-b:v", "0", "-movflags", "+faststart"]
+    if encoder == "h264_qsv":
+        return ["-c:v", "h264_qsv", "-preset", "medium", "-global_quality", str(crf), "-movflags", "+faststart"]
+    if encoder == "h264_amf":
+        return ["-c:v", "h264_amf", "-quality", "quality", "-rc", "cqp", "-qp_i", str(crf), "-qp_p", str(crf), "-movflags", "+faststart"]
+    if encoder not in ("libx264", "auto"):
+        raise ValueError(f"Unknown encoder {encoder!r}: use one of {', '.join(ENCODERS)}")
+    return ["-c:v", "libx264", "-preset", "medium", "-crf", str(crf), "-movflags", "+faststart"]
+
+
 def _codec_args(options: ExportOptions) -> list[str]:
     q = options.quality
     fmt = options.format
@@ -513,7 +535,7 @@ def _codec_args(options: ExportOptions) -> list[str]:
         return ["-c:v", "apng", "-plays", str(options.loop), "-f", "apng"]
     if fmt == "mp4":
         crf = round(51 - q * 0.33)  # quality 80 -> crf 25, 100 -> 18
-        return ["-c:v", "libx264", "-preset", "medium", "-crf", str(crf), "-movflags", "+faststart"]
+        return h264_args(options.encoder, crf)
     if fmt == "webm":
         crf = round(63 - q * 0.4)  # quality 80 -> crf 31
         return ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", str(crf), "-row-mt", "1", "-deadline", "good", "-cpu-used", "4"]
@@ -651,6 +673,7 @@ def build_concat_command(
     fade: float = 0.0,
     quality: int = 85,
     format: str = "mp4",
+    encoder: str = "libx264",
     ffmpeg: str | None = None,
     overwrite: bool = True,
 ) -> list[str]:
@@ -688,7 +711,7 @@ def build_concat_command(
             parts.append(f"anullsrc=r=48000:cl=stereo,atrim=duration={length:.3f}[a{index}]")
     parts.append("".join(f"[v{index}][a{index}]" for index in range(len(inputs))) + f"concat=n={len(inputs)}:v=1:a=1[v][a]")
     cmd += ["-filter_complex", ";".join(parts), "-map", "[v]", "-map", "[a]"]
-    cmd += _AUDIO_CODECS[format] + _codec_args(ExportOptions(format=format, quality=quality))
+    cmd += _AUDIO_CODECS[format] + _codec_args(ExportOptions(format=format, quality=quality, encoder=encoder))
     cmd.append(os.fspath(output_path))
     return cmd
 

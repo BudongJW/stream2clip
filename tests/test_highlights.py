@@ -153,3 +153,87 @@ def test_json_roundtrip_and_timeline(tmp_path):
     assert [(h.rank, round(h.start, 2)) for h in loaded] == [(h.rank, round(h.start, 2)) for h in res.highlights]
     img = render_timeline(res, tmp_path / "t.png", width=800, height=240)
     assert img.size == (800, 240) and (tmp_path / "t.png").exists()
+
+
+# --------------------------------------------------------------------------- clocks and the chat delay
+
+
+def test_sound_and_most_replayed_land_where_they_happen():
+    from stream2clip.highlights import HighlightConfig, detect_highlights
+
+    rng = np.random.default_rng(1)
+    levels = -30.0 + rng.normal(0, 0.5, 1200)  # one second per value
+    levels[600:615] = -5.0  # shouting from 10:00 to 10:15 on the video's clock
+    result = detect_highlights(audio=levels, audio_window=1.0, duration=1200.0, config=HighlightConfig(top=1))
+    assert abs(result.highlights[0].peak - 607.5) <= 5.0  # not 8 s early, as when sound was read on the chat's clock
+
+    heat = [HeatmapPoint(i * 12.0, (i + 1) * 12.0, 1.0 if i == 50 else 0.1) for i in range(100)]
+    result = detect_highlights(heatmap=heat, duration=1200.0, config=HighlightConfig(top=1))
+    assert abs(result.highlights[0].peak - 606.0) <= 7.0
+
+
+def test_chat_and_sound_meet_on_the_chat_clock():
+    from stream2clip.highlights import HighlightConfig, detect_highlights
+
+    rng = random.Random(4)
+    messages = [ChatMessage(t + rng.random(), "なるほど", f"u{rng.randrange(80)}") for t in range(0, 1200, 3)]
+    messages += [ChatMessage(608.0 + rng.random() * 6, "草", f"r{i}") for i in range(120)]  # 8 s after the moment
+    levels = -30.0 + np.random.default_rng(2).normal(0, 0.5, 1200)
+    levels[600:605] = -5.0
+    cfg = HighlightConfig(window=1.0, smooth=1, top=1)
+    both = detect_highlights(sorted(messages, key=lambda m: m.time), audio=levels, audio_window=1.0, duration=1200.0, config=cfg)
+    # The shout and the laughter it drew 8 s later share seconds of the chat's clock (read on the video's
+    # clock, the shout sat 8 s before the laughter and they shared none).
+    loud = set(np.flatnonzero(both.signals["audio"] > 5).tolist())
+    laughing = set(np.flatnonzero(both.signals["reactions"] > 5).tolist())
+    assert loud & laughing and min(loud) == 608
+    assert abs(both.highlights[0].peak - 602.5) <= 5.0 and "음량" in " ".join(both.highlights[0].reasons)
+
+
+def test_estimate_chat_delay_from_the_sound():
+    from stream2clip.highlights import estimate_chat_delay
+
+    rng = np.random.default_rng(7)
+    n = 3600
+    levels = -30.0 + rng.normal(0, 1.0, n)
+    loud = rng.choice(np.arange(60, n - 60), 40, replace=False)
+    for at in loud:
+        levels[at:at + 4] = -8.0
+    messages = [ChatMessage(float(t), "a", "u") for t in rng.uniform(0, n, 4000)]
+    for at in loud:  # viewers answer 6 s later
+        messages += [ChatMessage(float(at + 6 + rng.uniform(0, 3)), "草", f"r{i}") for i in range(30)]
+    delay, agreement = estimate_chat_delay(messages, levels)
+    assert abs(delay - 5.5) <= 1.5 and agreement > 0.2  # from the middle of the sound (+2 s) to the middle of the chat (+7.5 s)
+
+    unrelated = [ChatMessage(float(t), "a", "u") for t in rng.uniform(0, n, 6000)]
+    assert estimate_chat_delay(unrelated, levels) is None  # no lag stands out: the set delay stays
+    assert estimate_chat_delay(messages, levels[:60]) is None  # too short to tell
+
+
+def test_find_highlights_estimates_the_delay_when_asked(tmp_path, monkeypatch):
+    from stream2clip import audio, pipeline
+    from stream2clip.highlights import HighlightConfig
+
+    rng = np.random.default_rng(3)
+    fine = -30.0 + rng.normal(0, 1.0, 1800)
+    loud = rng.choice(np.arange(60, 1740), 25, replace=False)
+    for at in loud:
+        fine[at:at + 4] = -8.0
+    messages = [ChatMessage(float(t), "a", f"u{i}") for i, t in enumerate(rng.uniform(0, 1800, 2000))]
+    for at in loud:
+        messages += [ChatMessage(float(at + 5 + rng.uniform(0, 2)), "草", f"r{i}") for i in range(30)]
+    monkeypatch.setattr(audio, "audio_levels", lambda path, window=10.0, track=None: fine if window == 1.0 else fine[: len(fine) // 5 * 5].reshape(-1, 5).mean(axis=1))
+    monkeypatch.setattr(pipeline, "probe", lambda path: type("Info", (), {"duration": 1800.0})())
+    result = pipeline.find_highlights(tmp_path / "vod.mp4", messages=sorted(messages, key=lambda m: m.time), audio=True, config=HighlightConfig(estimate_delay=True))
+    assert result.estimated_delay is not None and abs(result.estimated_delay[0] - 4.0) <= 1.5  # middle of the sound to middle of the chat
+    plain = pipeline.find_highlights(tmp_path / "vod.mp4", messages=sorted(messages, key=lambda m: m.time), audio=True, config=HighlightConfig())
+    assert plain.estimated_delay is None  # only when asked
+
+
+def test_cli_delay_auto_needs_the_video_and_the_chat(tmp_path, capsys):
+    from stream2clip.cli import main
+
+    chat = tmp_path / "chat.csv"
+    chat.write_text("time,author,text\n1.0,a,hi\n", encoding="utf-8")
+    assert main(["highlights", "--chat", str(chat), "--delay", "auto"]) == 1
+    assert "--delay auto" in capsys.readouterr().err

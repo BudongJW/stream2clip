@@ -22,6 +22,8 @@ from stream2clip.evaluation import (
 from stream2clip.highlights import HighlightConfig
 from stream2clip.sources import build_info_command
 
+from .conftest import needs_ffmpeg
+
 
 def span(start, end):
     return SimpleNamespace(start=float(start), end=float(end))
@@ -126,3 +128,81 @@ def test_info_command_can_ask_for_comments():
     assert "--write-comments" not in build_info_command("URL", ytdlp=["yt-dlp"])
     cmd = build_info_command("URL", ytdlp=["yt-dlp"], comments=150)
     assert cmd[cmd.index("--extractor-args") + 1] == "youtube:max_comments=150,all,0,0;comment_sort=top" and cmd[-1] == "URL" and "--write-comments" in cmd
+
+
+# ----------------------------------------------------------------------------- tuning
+
+
+def test_tuning_is_never_worse_and_is_checked_on_other_streams(tmp_path):
+    from stream2clip.evaluation import gain, held_out, tune
+
+    streams = [load_stream(make_stream(tmp_path / f"s{i}")) for i in range(3)]
+    base = HighlightConfig()
+    tuned, best = tune(streams, base, trials=15, seed=3)
+    assert gain(best) >= gain(evaluate_streams(streams, base)[1])  # the base is tried first
+    assert tune(streams, base, trials=15, seed=3)[0] == tuned  # the same seed, the same answer
+    assert 1.2 <= tuned.threshold <= 2.8 or tuned == base
+    plain, moved = held_out(streams, base, trials=5, seed=3)
+    assert plain.labels == moved.labels == sum(len(s.labels) for s in streams)  # every stream scored once, held out
+
+
+def test_kept_highlights_become_marked_moments(tmp_path, capsys):
+    from stream2clip import feedback
+    from stream2clip.evaluation import add_feedback
+    from stream2clip.highlights import Highlight
+
+    folder = make_stream(tmp_path / "s")
+    info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
+    info["webpage_url"] = "https://www.youtube.com/watch?v=s"
+    (folder / "info.json").write_text(json.dumps(info), encoding="utf-8")
+    stream = load_stream(folder)
+    assert stream.url == "https://www.youtube.com/watch?v=s"
+    record = tmp_path / "feedback.jsonl"
+    feedback.record(record, [Highlight(1, 1800.0, 1860.0, 1830.0, 3.0), Highlight(2, 3000.0, 3030.0, 3010.0, 2.0)], [True, False],
+                    source={"url": stream.url})
+    assert add_feedback([stream], feedback.load(record)) == 1
+    assert Label(1830.0, 1) in stream.labels and not any(label.time == 3015.0 for label in stream.labels)  # left out: not a moment
+    assert main(["evaluate", str(folder), "--feedback", str(record)]) == 0
+    assert "feedback 1 kept" in capsys.readouterr().out
+
+
+@needs_ffmpeg
+def test_heatmap_and_sound_join_the_evaluation(tmp_path, monkeypatch):
+    import subprocess
+
+    from stream2clip import audio
+
+    folder = make_stream(tmp_path / "s", duration=60, moments=(30,), comments=("0:31 草",))
+    info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
+    info["heatmap"] = [{"start_time": i * 6.0, "end_time": (i + 1) * 6.0, "value": 1.0 if i == 5 else 0.1} for i in range(10)]
+    (folder / "info.json").write_text(json.dumps(info), encoding="utf-8")
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=60",
+                    "-c:a", "aac", str(folder / "video.mp4")], check=True)
+    stream = load_stream(folder, sound=True)
+    assert len(stream.heatmap) == 10 and abs(len(stream.levels) - 60) <= 1 and (folder / "video.levels1s.npy").exists()
+    monkeypatch.setattr(audio, "audio_levels", lambda *a, **k: (_ for _ in ()).throw(AssertionError("read again")))
+    assert len(load_stream(folder, sound=True).levels) == len(stream.levels)  # the loudness is read once and kept
+    rows, pooled = evaluate_streams([stream], heatmap=True, sound=True)
+    assert rows[0][0] == "s" and pooled.labels == 1
+
+
+def test_profiles_carry_tuned_settings(tmp_path, capsys):
+    from dataclasses import replace
+
+    from stream2clip.highlights import load_profile, save_profile
+
+    base = HighlightConfig()
+    tuned = replace(base, weights={**base.weights, "rate": 0.5}, threshold=2.4, chat_delay=6.0)
+    loaded = load_profile(save_profile(tmp_path / "p.json", tuned, note="test"), HighlightConfig(top=3))
+    assert (loaded.weights["rate"], loaded.threshold, loaded.chat_delay, loaded.top) == (0.5, 2.4, 6.0, 3)
+    (tmp_path / "other.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="profile"):
+        load_profile(tmp_path / "other.json")
+
+    folder = make_stream(tmp_path / "s")
+    profile = tmp_path / "channel.json"
+    assert main(["evaluate", str(folder), "--tune", "5", "--save-profile", str(profile)]) == 0
+    assert "[tuned: 5 tries" in capsys.readouterr().out and profile.exists()
+    assert main(["highlights", "--chat", str(folder / "chat.csv"), "--profile", str(profile)]) == 0
+    assert f"profile {profile}" in capsys.readouterr().out
+    assert main(["evaluate", str(folder), "--save-profile", str(profile)]) == 1  # nothing was tuned

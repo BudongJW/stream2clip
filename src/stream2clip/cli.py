@@ -59,6 +59,8 @@ def _add_export_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--width", type=int, help="scale to this width (keeps aspect ratio)")
     g.add_argument("--height", type=int, help="scale to this height (keeps aspect ratio)")
     g.add_argument("--quality", type=int, default=80, help="1-100 (WebP quality / video CRF mapping)")
+    g.add_argument("--encoder", choices=["auto", "cpu", "nvenc", "qsv", "amf"], default="auto",
+                   help="MP4 video encoder: auto (default) takes the GPU this PC has (NVIDIA NVENC, Intel QSV, AMD AMF) and falls back to the CPU (libx264)")
     g.add_argument("--colors", type=int, default=256, help="GIF palette size (2-256)")
     g.add_argument("--dither", default="sierra2_4a", help="GIF dithering (sierra2_4a, bayer, floyd_steinberg, none, ...)")
     g.add_argument("--loop", type=int, default=0, help="loop count for GIF/WebP/APNG (0 = forever)")
@@ -83,8 +85,15 @@ def _export_options(args: argparse.Namespace, output: Path, *, default_fps: floa
         key_color=None if args.key_color.lower() == "none" else args.key_color,
         similarity=args.similarity,
         blend=args.blend,
+        encoder=_encoder(args),
         **extra,
     )
+
+
+def _encoder(args: argparse.Namespace) -> str:
+    """The ``--encoder`` choice as an ffmpeg encoder name (``auto`` is resolved when the clip is made)."""
+    choice = getattr(args, "encoder", "auto") or "auto"
+    return {"cpu": "libx264", "nvenc": "h264_nvenc", "qsv": "h264_qsv", "amf": "h264_amf"}.get(choice, "auto")
 
 
 # ----------------------------------------------------------------------------- commands
@@ -220,12 +229,13 @@ def _source(args: argparse.Namespace):
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    from .sources import download_chat, download_replay_chat, download_section, download_subs, fetch_info, platform_of, ytdlp_command
+    from .sources import download_chat, download_replay_chat, download_section, download_subs, fetch_info, platform_of, replay_expiry_note, ytdlp_command
 
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     korean = platform_of(args.url)  # CHZZK / SOOP: chat comes from their own replay API, not yt-dlp
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
+    info = None
     try:
         info = fetch_info(args.url, ytdlp=ytdlp, comments=args.comments) if args.comments else fetch_info(args.url, ytdlp=ytdlp)
         (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
@@ -234,6 +244,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         if not korean:
             raise
         print(f"info   (skipped) {exc}", file=sys.stderr)
+    reminder = replay_expiry_note(args.url, info)
+    if reminder:
+        print(f"note   {reminder}", file=sys.stderr)
     if not args.no_chat:
         try:
             if korean:
@@ -254,6 +267,13 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _delay(text: str) -> "float | str":
+    """``--delay``: seconds, or ``auto``."""
+    if text.strip().lower() == "auto":
+        return "auto"
+    return float(text)
+
+
 def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("highlight detection")
     g.add_argument("--chat", help="chat archive: yt-dlp live_chat.json, chat-downloader JSON, TwitchDownloader JSON, CHZZK / SOOP replay chat, CSV/JSONL")
@@ -267,7 +287,9 @@ def _add_highlight_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--top", type=int, help="maximum number of highlights (default: from --preset; shorts 10)")
     g.add_argument("--threshold", type=float, default=2.0, help="robust z-score needed for a peak (default 2.0)")
     g.add_argument("--window", type=float, default=5.0, help="analysis bucket in seconds (default 5)")
-    g.add_argument("--delay", type=float, default=8.0, help="seconds chat lags behind the moment (default 8)")
+    g.add_argument("--profile", metavar="FILE", help="settings tuned for a channel (evaluate --tune --save-profile): signal weights, threshold and chat delay")
+    g.add_argument("--delay", type=_delay, default=8.0, metavar="SECONDS|auto",
+                   help="seconds chat lags behind the moment (default 8); auto estimates it from the video's sound and keeps 8 when no clear lag shows")
     g.add_argument("--lead", type=float, help="context before the moment (default: from --preset; shorts 20 s)")
     g.add_argument("--tail", type=float, help="context after the moment (default: from --preset; shorts 10 s)")
     g.add_argument("--min-length", type=float, help="shortest highlight in seconds (default: from --preset; shorts 15)")
@@ -338,8 +360,17 @@ def _detect(args: argparse.Namespace, video: str | None):
         raise ValueError("Give --chat, --info (heatmap), --audio with a video, --speech with subtitles, or --session")
     if args.skip_scene and session is None:
         raise ValueError("--skip-scene needs the scenes of a --session file")
-    cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=args.delay, lead=args.lead, tail=args.tail,
-                          min_length=args.min_length, max_length=args.max_length, top=args.top, skip_greetings=not args.keep_greetings, **_markers(args))
+    auto_delay = args.delay == "auto"
+    if auto_delay and not (video and (args.chat or session is not None)):
+        raise ValueError("--delay auto compares the chat with the video's sound: give the video and the chat")
+    cfg = HighlightConfig(window=args.window, threshold=args.threshold, chat_delay=8.0 if auto_delay else args.delay, estimate_delay=auto_delay,
+                          lead=args.lead, tail=args.tail, min_length=args.min_length, max_length=args.max_length, top=args.top,
+                          skip_greetings=not args.keep_greetings, **_markers(args))
+    if getattr(args, "profile", None):
+        from .highlights import load_profile
+
+        cfg = load_profile(args.profile, cfg)
+        print(f"profile {args.profile}: threshold {cfg.threshold:g}, chat delay {cfg.chat_delay:g} s")
     src = _source(args)
     if getattr(args, "avatar_motion", False) and session is None:
         raise ValueError("--avatar-motion needs the avatar parameters of a --session file")
@@ -350,7 +381,7 @@ def _detect(args: argparse.Namespace, video: str | None):
         motion = avatar_motion(session, zero, window=cfg.window, delay=cfg.chat_delay)
         if not motion.any():
             raise ValueError(f"{args.session} holds no avatar parameters: record with  stream2clip session record --vts")
-    messages = session.messages(zero, marker_delay=args.delay) if session is not None and not args.chat else None
+    messages = session.messages(zero, marker_delay=cfg.chat_delay) if session is not None and not args.chat else None
     if messages is not None:
         print(f"session {args.session}: {len(messages):,} chat messages and markers")
     result = find_highlights(video, chat=args.chat, chat_format=args.chat_format, info=args.info, audio=args.audio, laughter=bool(video and args.laughter), speech=args.speech, config=cfg,
@@ -371,6 +402,10 @@ def _detect(args: argparse.Namespace, video: str | None):
         songs = singing_sections(video, track=args.audio_track)
         print(f"singing  {len(songs)} sections" + (": " + ", ".join(f"{_clock(s.start)}-{_clock(s.end)}" for s in songs) if songs else ""))
         mark_singing(result, [(s.start, s.end) for s in songs], drop=args.skip_singing)
+    if auto_delay:
+        found = result.estimated_delay
+        print(f"chat delay {found[0]:.1f} s, estimated from the sound (agreement {found[1]:.2f})" if found
+              else f"chat delay {cfg.chat_delay:g} s: the sound showed no clear lag")
     print(f"analysed {result.messages} chat messages over {result.duration / 60:.1f} min -> {len(result.highlights)} highlights")
     for h in result.highlights:
         print(f"  #{h.rank:02d}  {_clock(h.start)} - {_clock(h.end)}  score {h.score:5.1f}  {' / '.join(h.reasons)}")
@@ -427,6 +462,8 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("-f", "--format", choices=FORMATS, default="mp4")
     g.add_argument("--fps", type=float, default=30)
     g.add_argument("--quality", type=int, default=85)
+    g.add_argument("--encoder", choices=["auto", "cpu", "nvenc", "qsv", "amf"], default="auto",
+                   help="MP4 video encoder: auto (default) takes the GPU this PC has (NVIDIA NVENC, Intel QSV, AMD AMF) and falls back to the CPU (libx264)")
     g.add_argument("--ranks", help="only these highlight ranks, e.g. 1,2,5")
     g.add_argument("--trim-silence", type=float, nargs="?", const=0.7, metavar="SECONDS", help="shorten pauses inside each clip: silences of this length or longer (default 0.7) are cut down to a short pause; captions move along")
     g.add_argument("--silence-level", type=float, default=24.0, metavar="DB", help="--trim-silence: how far below the clip's loud parts counts as silent (default 24 dB; smaller cuts more)")
@@ -443,7 +480,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--snap", type=float, default=3.0, metavar="SECONDS", help="with --subtitles: move a clip edge that falls inside a spoken line to the edge of that line, by at most this much (default 3; 0 = leave the edges alone)")
     s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
-    s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
+    s.add_argument("--glossary", help="CSV (source,target,note,heard) or JSON of names, e.g. VTuber names: fixed in translation, given to --transcribe as hints, and their misheard spellings (heard, separated by |) corrected in the subtitles")
     s.add_argument("--bilingual", action="store_true", help="keep the original line above the translation")
     s.add_argument("--speaker", action="append", metavar="LABEL=NAME:#COLOR", help="name and caption colour of a speaker in a collab, e.g. SPEAKER_00=ぺこら:#57C7FF (a diarization label, or an audio track number with --speaker-tracks); name and colour optional; repeat per speaker")
     s.add_argument("--speakers-rttm", metavar="FILE", help="who speaks when, from a diarization tool (RTTM, on the video's clock): each subtitle line is given its speaker; whisperX JSON subtitles carry speakers themselves")
@@ -539,7 +576,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             args.layout, args.size[0], args.size[1], avatar=avatar, game=args.game, split=args.split, corner=args.corner, inset=args.inset,
             avatar_source=args.avatar_video, avatar_key=None if key.lower() == "none" else ("#00FF00" if key.lower() == "auto" else key), avatar_offset=_avatar_offset(args),
         )
-    options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
+    options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout, encoder=_encoder(args))
     cues = load_subtitles(args.subtitles) if args.subtitles else None
     speakers, tracks = None, ()
     if args.speaker:
@@ -556,15 +593,20 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         tracks = tuple(int(part) for part in args.speaker_tracks.split(",") if part.strip())
         if len(tracks) < 2:
             raise ValueError("--speaker-tracks needs two or more audio tracks, e.g. 1,2")
-    transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
-    subtitle_translator = glossary = None
+    glossary = None
+    if args.glossary:
+        from .translation import Glossary
+
+        glossary = Glossary.load(args.glossary)
+    hints = glossary.names() if glossary is not None else ()
+    transcriber = FasterWhisperTranscriber(args.transcribe, hotwords=hints) if args.transcribe and cues is None else None
+    subtitle_translator = None
     if args.translate:
-        from .translation import Glossary, get_translator
+        from .translation import get_translator
 
         if cues is None and transcriber is None:
             raise ValueError("--translate needs subtitles: give --subtitles or --transcribe")
         subtitle_translator = get_translator(args.translator)
-        glossary = Glossary.load(args.glossary) if args.glossary else None
     source = _source(args)
     profile = get_profile(args.agency) if (args.agency or source) else None
     credit = (args.credit or "").strip()
@@ -602,6 +644,8 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             print(f"    title: {r.title}" + (f"  {' '.join(r.hashtags)}" if r.hashtags else ""))
         if r.thumbnail:
             print(f"    thumbnail: {r.thumbnail.name}")
+        for note in r.captions:
+            print(f"    captions: {note}")
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")
@@ -611,7 +655,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     if args.compile_to is not None and results:
         from .pipeline import compile_folder
 
-        _report_compilation(compile_folder(args.output, args.compile_to or None, fade=args.fade))
+        _report_compilation(compile_folder(args.output, args.compile_to or None, fade=args.fade, encoder=_encoder(args)))
     return 1 if any(i.level == "error" for i in problems) and args.strict else 0
 
 
@@ -624,7 +668,7 @@ def _report_compilation(made) -> None:
 def cmd_compile(args: argparse.Namespace) -> int:
     from .pipeline import compile_clips, compile_folder
 
-    options = {"fade": args.fade, "quality": args.quality, "fps": args.fps, "size": args.size}
+    options = {"fade": args.fade, "quality": args.quality, "fps": args.fps, "size": args.size, "encoder": _encoder(args)}
     first = Path(args.clips[0])
     if len(args.clips) == 1 and (first.is_dir() or first.suffix.lower() == ".json"):
         ranks = {int(r) for r in args.ranks.split(",") if r.strip()} if args.ranks else None
@@ -781,6 +825,7 @@ def _prepare_from_url(args: argparse.Namespace, out: Path) -> None:
         args.video, out, info=not args.info, chat=not (args.chat or args.session), ytdlp=ytdlp,
         on_stage=lambda name: print(f"fetch  {name.removeprefix('fetch-')} ...", flush=True),
         warn=lambda message: print(f"info   (skipped) {message}", file=sys.stderr),
+        note=lambda message: print(f"note   {message}", file=sys.stderr),
     )
     if info is not None:
         args.info = str(info)
@@ -1037,6 +1082,24 @@ def cmd_chzzk_logout(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_feedback(args: argparse.Namespace) -> int:
+    from .feedback import default_path, load, summary
+
+    path = Path(args.file) if args.file else default_path()
+    if args.clear:
+        if path.is_file():
+            path.unlink()
+            print(f"deleted {path}")
+        else:
+            print(f"nothing to delete: {path}")
+        return 0
+    entries = load(path)
+    print(f"{path}: {len(entries)} exports")
+    for line in summary(entries):
+        print(f"  {line}")
+    return 0
+
+
 def cmd_language(args: argparse.Namespace) -> int:
     from . import i18n
 
@@ -1097,50 +1160,71 @@ def cmd_setup(args: argparse.Namespace) -> int:
 
 def cmd_upload(args: argparse.Namespace) -> int:
     from .export import probe
-    from .upload import load_credentials, shorts_problems, upload_video, video_resource, video_url
+    from .upload import SCOPES, THUMBNAIL_SCOPES, load_credentials, set_thumbnail, shorts_problems, thumbnail_problem, upload_video, video_resource, video_url
 
     description = Path(args.description_file).read_text(encoding="utf-8") if args.description_file else (args.description or "")
     tags = [t for t in (args.tags or "").split(",") if t.strip()]
     resource = video_resource(
         args.title, description, tags=tags, category_id=args.category, privacy=args.privacy, made_for_kids=args.made_for_kids,
-        synthetic_media=True if args.synthetic_media else None, language=args.language, shorts=args.shorts, publish_at=args.publish_at,
+        synthetic_media=True if args.synthetic_media else None, paid_placement=args.paid_placement, language=args.language, shorts=args.shorts, publish_at=args.publish_at,
     )
     if args.shorts:
         info = probe(args.video)
         for problem in shorts_problems(info.width, info.height, info.duration):
             print(f"! {problem}", file=sys.stderr)
+    if args.thumbnail and thumbnail_problem(args.thumbnail):
+        raise ValueError(thumbnail_problem(args.thumbnail))  # before anything is sent
     if args.dry_run:
         print(json.dumps(resource, ensure_ascii=False, indent=2))
+        if args.thumbnail:
+            print(f"thumbnail {args.thumbnail}" + ("  (set once YouTube has processed the Short)" if args.shorts else ""))
         print("dry run: nothing was uploaded")
         return 0
     if not args.client_secrets:
         raise ValueError("--client-secrets is required to upload (your own OAuth client file); use --dry-run to only see what would be sent")
-    credentials = load_credentials(args.client_secrets, args.token)
+    # A Short's thumbnail waits for YouTube's processing, which takes read access to see.
+    credentials = load_credentials(args.client_secrets, args.token, scopes=THUMBNAIL_SCOPES if args.thumbnail and args.shorts else SCOPES)
     print(f"uploading {args.video} as {args.privacy} ...", flush=True)
     response = upload_video(args.video, resource, credentials=credentials, on_progress=lambda f: print(f"  {f:4.0%}", flush=True))
     print(f"uploaded {video_url(response['id'])}  ({response.get('status', {}).get('privacyStatus', args.privacy)})")
     if resource["status"].get("publishAt"):
         print(f"scheduled to become public at {resource['status']['publishAt']}")
+    if args.thumbnail:
+        try:
+            set_thumbnail(response["id"], args.thumbnail, credentials=credentials, shorts=args.shorts,
+                          on_wait=lambda state: print(f"  YouTube is processing the video ({state}) ...", flush=True))
+        except (RuntimeError, TimeoutError, ValueError) as exc:
+            print(f"! thumbnail not set: {exc} (the video is uploaded)", file=sys.stderr)
+            return 1
+        print(f"thumbnail {args.thumbnail}")
     return 0
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    from .evaluation import evaluate_streams, load_stream, parse_sweep
-    from .highlights import HighlightConfig
+    from .evaluation import add_feedback, evaluate_streams, f1, gain, held_out, load_stream, parse_sweep, tune
+    from .highlights import HighlightConfig, save_profile
 
     streams = []
     for folder in args.folders:
         try:
-            stream = load_stream(folder, min_votes=args.min_votes)
+            stream = load_stream(folder, min_votes=args.min_votes, sound=args.audio)
         except ValueError as exc:  # one incomplete folder should not stop the others
             print(f"skip   {exc}", file=sys.stderr)
             continue
-        if not stream.labels:
-            print(f"skip   {stream.name}: no timestamps in its comments (fetch with --comments N)", file=sys.stderr)
-            continue
         streams.append(stream)
+    if args.feedback is not None:
+        from .feedback import load
+
+        added = add_feedback(streams, load(args.feedback or None))
+        print(f"feedback {added} kept highlights added as marked moments")
+    for stream in [s for s in streams if not s.labels]:
+        print(f"skip   {stream.name}: no timestamps in its comments (fetch with --comments N) and no kept highlights", file=sys.stderr)
+        streams.remove(stream)
     if not streams:
         raise ValueError("No stream with viewer timestamps to compare against")
+    if args.audio:
+        print(f"sound  {sum(1 for s in streams if s.levels is not None)} of {len(streams)} streams have their video")
+    flags = {"tolerance": args.tolerance, "heatmap": args.heatmap, "sound": args.audio}
     base = HighlightConfig(top=args.top)
     settings = [("defaults", base)]
     for sweep in args.sweep:
@@ -1152,7 +1236,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     report = []
     header = f"{'':<28} {'clip':>4} {'marked':>6} {'precision':>9} {'recall':>7} {'chance':>7} {'lift':>5}"
     for label, cfg in settings:
-        rows, pooled = evaluate_streams(streams, cfg, tolerance=args.tolerance)
+        rows, pooled = evaluate_streams(streams, cfg, **flags)
         print(f"\n[{label}]")
         print(header)
         for name, score in rows:
@@ -1160,6 +1244,27 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         print(line(f"all {len(rows)} streams", pooled))
         report.append({"setting": label, "streams": {name: vars(score) for name, score in rows},
                        "pooled": {**vars(pooled), "precision": pooled.precision, "recall": pooled.recall, "lift": pooled.lift}})
+    if args.tune:
+        tuned, pooled = tune(streams, base, trials=args.tune, seed=args.seed, **flags)
+        plain = evaluate_streams(streams, base, **flags)[1]
+        print(f"\n[tuned: {args.tune} tries on these {len(streams)} streams]")
+        print(header)
+        print(line("defaults", plain))
+        print(line("tuned", pooled))
+        changed = {k: v for k, v in tuned.weights.items() if base.weights.get(k) != v}
+        print(f"  weights {json.dumps(changed)}, threshold {tuned.threshold:g}, chat delay {tuned.chat_delay:g} s")
+        report.append({"setting": "tuned", "weights": tuned.weights, "threshold": tuned.threshold, "chat_delay": tuned.chat_delay,
+                       "pooled": {**vars(pooled), "precision": pooled.precision, "recall": pooled.recall, "lift": pooled.lift}})
+        if len(streams) >= 3:
+            kept, moved = held_out(streams, base, trials=args.tune, seed=args.seed, **flags)
+            print(f"  on streams left out of the tuning: precision above chance {gain(kept):+.0%} with the defaults, {gain(moved):+.0%} tuned"
+                  f" (precision {kept.precision:.0%} -> {moved.precision:.0%}, recall {kept.recall:.0%} -> {moved.recall:.0%}, F1 {f1(kept):.2f} -> {f1(moved):.2f})")
+            report[-1]["held_out"] = {"defaults": {"gain": gain(kept), "f1": f1(kept)}, "tuned": {"gain": gain(moved), "f1": f1(moved)}}
+        if args.save_profile:
+            save_profile(args.save_profile, tuned, note=f"evaluate --tune {args.tune} on {len(streams)} streams")
+            print(f"profile {args.save_profile}  (use with highlights / auto --profile)")
+    elif args.save_profile:
+        raise ValueError("--save-profile saves what --tune N found: add --tune")
     if args.output:
         Path(args.output).write_text(json.dumps({"schema": "stream2clip.evaluation/v1", "tolerance": args.tolerance, "results": report}, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\nsaved {args.output}")
@@ -1392,6 +1497,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tolerance", type=float, default=10.0, help="seconds a marked moment may lie outside a highlight and still count (default 10)")
     p.add_argument("--min-votes", type=int, default=1, help="only use moments marked by at least this many comments (default 1)")
     p.add_argument("--top", type=int, default=10, help="maximum number of highlights per stream (default 10)")
+    p.add_argument("--heatmap", action="store_true", help="also use the most-replayed curve of each info.json")
+    p.add_argument("--audio", action="store_true", help="also use the loudness of a video in a folder (read once, kept as *.levels1s.npy)")
+    p.add_argument("--feedback", nargs="?", const="", metavar="FILE",
+                   help="add the highlights kept at exports from the app (feedback.jsonl in the settings folder, or FILE) as marked moments")
+    p.add_argument("--tune", type=int, default=0, metavar="N", help="try N random settings (weights, threshold, chat delay) and report the best, and how it does on streams left out")
+    p.add_argument("--seed", type=int, default=1, help="--tune: the random seed (default 1)")
+    p.add_argument("--save-profile", metavar="FILE", help="--tune: save the best settings as a profile for highlights / auto --profile")
     p.add_argument("-o", "--output", help="write the numbers as JSON")
     p.set_defaults(func=cmd_evaluate)
 
@@ -1413,6 +1525,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--size", type=_size, help="picture WxH (default: that of the first clip; clips of another shape get bars)")
     p.add_argument("--fps", type=float, help="frame rate (default: that of the first clip)")
     p.add_argument("--quality", type=int, default=85)
+    p.add_argument("--encoder", choices=["auto", "cpu", "nvenc", "qsv", "amf"], default="auto", help="MP4 video encoder (default auto: the GPU this PC has, else the CPU)")
     p.set_defaults(func=cmd_compile)
 
     p = sub.add_parser("timeline", help="hand the highlights to an editing program: cut list (EDL), timeline markers, timestamp list")
@@ -1547,6 +1660,11 @@ def build_parser() -> argparse.ArgumentParser:
     c = cs.add_parser("logout", help="forget the CHZZK tokens kept on this PC")
     c.set_defaults(func=cmd_chzzk_logout)
 
+    p = sub.add_parser("feedback", help="the record of which highlights were kept or left out at each export from the app (kept on this PC)")
+    p.add_argument("--file", help="the record to read (default: feedback.jsonl in the app's settings folder)")
+    p.add_argument("--clear", action="store_true", help="delete the record")
+    p.set_defaults(func=cmd_feedback)
+
     p = sub.add_parser("language", help="show the interface language the app starts in (before a choice made in the app itself)")
     p.add_argument("-v", "--verbose", action="store_true", help="also show where it could come from")
     p.set_defaults(func=cmd_language)
@@ -1573,7 +1691,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--language", help="default language of the title / description, e.g. ko")
     p.add_argument("--made-for-kids", action="store_true")
     p.add_argument("--synthetic-media", action="store_true", help="declare altered or synthetic content (AI voice, AI video ...)")
+    p.add_argument("--paid-placement", action="store_true", help="declare paid product placement, sponsorship or endorsement; without it the video is declared free of them")
     p.add_argument("--shorts", action="store_true", help="add #Shorts and warn when the video is not vertical or longer than 3 minutes")
+    p.add_argument("--thumbnail", metavar="IMAGE", help="set this JPEG or PNG as the thumbnail after the upload (clips --thumbnail makes one); for --shorts it waits until YouTube has processed the video")
     p.add_argument("--client-secrets", help="your Google Cloud OAuth client file (Desktop app)")
     p.add_argument("--token", help="where to keep the refresh token (default: token.json next to the client file)")
     p.add_argument("--dry-run", action="store_true", help="print what would be sent and stop")

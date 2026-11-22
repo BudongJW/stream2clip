@@ -778,9 +778,75 @@ def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, st
     assert (seen["make"]["context"], seen["make"]["teaser"], seen["make"]["thumbnails"]) == ("auto", 2.0, True)
     clip = window.last_results[0]
     assert clip.teaser > 0 and clip.thumbnail is not None and clip.thumbnail.exists()
+    dialog = window.open_upload()
+    assert dialog.thumbnail_edit.text() == str(clip.thumbnail)  # the clip's thumbnail goes up with it
+    dialog.close()
 
     window.remember()
     again = HighlightsWindow()
     assert again.preset_combo.currentData() == "clip"
     assert again.context_check.isChecked() and again.teaser_check.isChecked() and again.thumbnail_check.isChecked()
     again.close()
+
+
+@needs_ffmpeg
+def test_larger_models_and_the_glossary_reach_the_transcriber(app, window, stream_files, tmp_path, monkeypatch):
+    from stream2clip import subtitles
+    from stream2clip.subtitles import Cue
+
+    made = []
+
+    class Transcriber:
+        def __init__(self, model, *, hotwords=()):
+            made.append((model, list(hotwords)))
+
+        def transcribe(self, path, *, language=None):
+            return [Cue(0.0, 1.0, "ペコラです")]
+
+    monkeypatch.setattr(subtitles, "FasterWhisperTranscriber", Transcriber)
+    models = [window.subs_combo.itemData(i) for i in range(window.subs_combo.count())]
+    assert models[-4:] == ["small", "medium", "large-v3-turbo", "large-v3"]
+
+    video, chat = stream_files
+    glossary = tmp_path / "names.csv"
+    glossary.write_text("source,target,note,heard\nぺこら,,,ペコラ\n", encoding="utf-8")
+    window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    window.subs_combo.setCurrentIndex(window.subs_combo.findData("large-v3-turbo"))
+    window.glossary_edit.setText(str(glossary))
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
+    window.export()
+    wait(app, lambda: not window.busy, 120)
+    assert made == [("large-v3-turbo", ["ぺこら"])]  # the names are hints even without a translator
+    assert "ぺこらです" in window.last_results[0].subtitles.read_text(encoding="utf-8")  # and the misheard one is fixed
+
+
+@needs_ffmpeg
+def test_exports_note_what_was_kept_and_moved(app, window, stream_files, tmp_path):
+    from stream2clip import feedback
+
+    video, chat = stream_files
+    window.set_paths(video=str(video), chat=str(chat), output=str(tmp_path / "clips"))
+    window.audio_check.setChecked(False)
+    window.analyse()
+    wait(app, lambda: not window.busy)
+    found = window.found_spans[0]
+    h = window.timeline.highlights[0]
+    h.start = found[0] + 3.0  # dragged by hand
+    window.layout_combo.setCurrentIndex(window.layout_combo.findData("none"))
+    window.format_combo.setCurrentIndex(window.format_combo.findData("gif"))
+    assert window.feedback_check.isChecked()  # on unless turned off
+    window.export()
+    wait(app, lambda: not window.busy)
+    entries = feedback.load()
+    assert len(entries) == 1 and entries[0]["action"] == "clips" and entries[0]["video"] == video.name
+    candidate = entries[0]["candidates"][0]
+    assert candidate["kept"] and candidate["moved"] and candidate["found"] == [round(found[0], 2), round(found[1], 2)]
+
+    window.feedback_check.setChecked(False)
+    window.export()
+    wait(app, lambda: not window.busy)
+    assert len(feedback.load()) == 1  # nothing more once turned off

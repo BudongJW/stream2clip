@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Sequence
 
@@ -326,6 +327,7 @@ def fetch_replay(
     ytdlp: list[str] | None = None,
     on_stage: Callable[[str], None] | None = None,
     warn: Callable[[str], None] | None = None,
+    note: Callable[[str], None] | None = None,
 ) -> tuple[Path | None, Path | None]:
     """Fetch what highlight detection needs from an address - the info JSON and the chat replay, not the video.
 
@@ -333,6 +335,7 @@ def fetch_replay(
     ``None``. CHZZK and SOOP sometimes refuse the info request: that is reported through
     ``warn`` and the chat is still collected. With ``reuse`` files that are already in
     ``out_dir`` are kept (use a folder per address, see :func:`source_folder_name`).
+    ``note`` hears reminders such as :func:`replay_expiry_note` for a SOOP replay.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -363,6 +366,9 @@ def fetch_replay(
         else:
             stage("fetch-chat")
             chat_path = Path(download_replay_chat(url, out) if korean else download_chat(url, out, ytdlp=ytdlp))
+    reminder = replay_expiry_note(url, load_info(info_path) if info_path is not None else None)
+    if reminder and note is not None:
+        note(reminder)
     return info_path, chat_path
 
 
@@ -424,6 +430,33 @@ def platform_of(url: str) -> str | None:
     if "sooplive.co.kr" in lowered or "afreecatv.com" in lowered:
         return "soop"
     return None
+
+
+#: Since 2026-06-01 SOOP deletes a basic streamer's replay 90 days after it went up (a year once it has
+#: 50 unique views); clips and Catch videos stay. https://sooplive.helpshift.com/hc/en/3-soop/faq/284-notice-changes-to-vod-replay-retention-policy/
+SOOP_REPLAY_DAYS = 90
+
+
+def replay_expiry_note(url: str, info: "dict[str, Any] | None" = None, *, today: "date | None" = None) -> str | None:
+    """A reminder to keep a SOOP replay's video and chat before SOOP deletes it; ``None`` for other sites.
+
+    With the info JSON's ``upload_date`` (or ``timestamp``) it also says how long ago the replay went up.
+    """
+    if platform_of(url or "") != "soop":
+        return None
+    from .i18n import tr
+
+    rule = tr("SOOP 다시보기는 일반 스트리머 기준 올라온 지 {0}일 후 삭제(고유 조회 50회 이상이면 1년).").format(SOOP_REPLAY_DAYS)
+    uploaded = None
+    if info:
+        if str(info.get("upload_date") or "").isdigit() and len(str(info["upload_date"])) == 8:
+            uploaded = datetime.strptime(str(info["upload_date"]), "%Y%m%d").date()
+        elif isinstance(info.get("timestamp"), (int, float)):
+            uploaded = datetime.fromtimestamp(float(info["timestamp"]), tz=timezone.utc).date()
+    if uploaded is None:
+        return rule + " " + tr("클립에 쓸 영상과 채팅은 미리 받아 두기")
+    days = ((today or date.today()) - uploaded).days
+    return rule + " " + tr("이 다시보기는 올라온 지 {0}일. 클립에 쓸 영상과 채팅은 미리 받아 두기").format(max(0, days))
 
 
 def chzzk_video_no(url_or_number: str) -> str:

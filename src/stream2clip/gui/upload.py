@@ -38,12 +38,21 @@ __all__ = ["UploadDialog"]
 
 _PRIVACY = [("private", tr("비공개")), ("unlisted", tr("일부 공개 (링크가 있는 사람만)")), ("public", tr("공개"))]
 Uploader = Callable[[str, dict, str, Callable[[float], None]], dict]
+#: ``(video id, image, client secrets, shorts, on_wait)``: sets the thumbnail once the video is up.
+Thumbnailer = Callable[[str, str, str, bool, Callable[[str], None]], Any]
 
 
-def _default_uploader(video: str, resource: dict, client_secrets: str, on_progress: Callable[[float], None]) -> dict:
-    from ..upload import load_credentials, upload_video
+def _default_uploader(video: str, resource: dict, client_secrets: str, on_progress: Callable[[float], None], *, scopes: Any = None) -> dict:
+    from ..upload import SCOPES, load_credentials, upload_video
 
-    return upload_video(video, resource, credentials=load_credentials(client_secrets), on_progress=on_progress)
+    return upload_video(video, resource, credentials=load_credentials(client_secrets, scopes=scopes or SCOPES), on_progress=on_progress)
+
+
+def _default_thumbnailer(video_id: str, image: str, client_secrets: str, shorts: bool, on_wait: Callable[[str], None]) -> Any:
+    from ..upload import SCOPES, THUMBNAIL_SCOPES, load_credentials, set_thumbnail
+
+    credentials = load_credentials(client_secrets, scopes=THUMBNAIL_SCOPES if shorts else SCOPES)
+    return set_thumbnail(video_id, image, credentials=credentials, shorts=shorts, on_wait=on_wait)
 
 
 class UploadDialog(QDialog):
@@ -52,14 +61,16 @@ class UploadDialog(QDialog):
     _progress = Signal(float)
     _done = Signal(object)
     _failed = Signal(str)
+    _note = Signal(str)
 
-    def __init__(self, video: str = "", *, title: str = "", description: str = "", parent: QWidget | None = None) -> None:
+    def __init__(self, video: str = "", *, title: str = "", description: str = "", thumbnail: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("stream2clip YouTube 업로드"))
         self.setWindowIcon(app_icon())
         self.busy = False
         self.dialogs = True  # ask before a public upload, show failures in a box (tests turn this off)
         self.uploader: Uploader = _default_uploader
+        self.thumbnailer: Thumbnailer = _default_thumbnailer
         self.video_url = ""
         saved = load_section("upload")
 
@@ -100,6 +111,9 @@ class UploadDialog(QDialog):
         row.addWidget(self.privacy_combo, 1)
         self.shorts_check = QCheckBox(tr("Shorts (#Shorts 붙이기)"), checked=bool(saved.get("shorts", False)))
         row.addWidget(self.shorts_check)
+        self.paid_check = QCheckBox(tr("유료 광고 포함"))  # declared each time, like the privacy
+        self.paid_check.setToolTip(tr("협찬, 간접 광고(PPL), 보증 광고가 있으면 선택. 선택하지 않으면 유료 광고가 없는 영상으로 YouTube에 알림"))
+        row.addWidget(self.paid_check)
         grid.addLayout(row, 4, 1, 1, 2)
 
         grid.addWidget(QLabel(tr("예약")), 5, 0)
@@ -115,19 +129,28 @@ class UploadDialog(QDialog):
         self.schedule_check.toggled.connect(self._on_schedule_toggled)
         grid.addLayout(schedule, 5, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("OAuth 파일")), 6, 0)
+        grid.addWidget(QLabel(tr("썸네일")), 6, 0)
+        self.thumbnail_edit = QLineEdit(thumbnail)
+        self.thumbnail_edit.setPlaceholderText(tr("(선택) JPEG 또는 PNG, 50MB 이하"))
+        self.thumbnail_edit.setToolTip(tr("업로드 후 맞춤 썸네일로 설정. Shorts는 YouTube 처리가 끝난 뒤 설정(몇 분 걸림).\n채널 인증으로 맞춤 썸네일이 켜진 채널만 가능"))
+        grid.addWidget(self.thumbnail_edit, 6, 1)
+        pick_thumbnail = QPushButton(tr("찾기"))
+        pick_thumbnail.clicked.connect(lambda: self._browse(self.thumbnail_edit, "Image (*.jpg *.jpeg *.png);;All files (*)"))
+        grid.addWidget(pick_thumbnail, 6, 2)
+
+        grid.addWidget(QLabel(tr("OAuth 파일")), 7, 0)
         self.secrets_edit = QLineEdit(str(saved.get("client_secrets", "")))
         self.secrets_edit.setPlaceholderText(tr("Google Cloud에서 받은 client_secret.json (본인 프로젝트)"))
         self.secrets_edit.setToolTip(tr("YouTube Data API를 켠 본인 Google Cloud 프로젝트의 데스크톱 앱 유형 OAuth 클라이언트 파일입니다.\n처음 한 번 브라우저에서 동의하면 같은 폴더에 token.json이 저장됩니다."))
-        grid.addWidget(self.secrets_edit, 6, 1)
+        grid.addWidget(self.secrets_edit, 7, 1)
         pick_secrets = QPushButton(tr("찾기"))
         pick_secrets.clicked.connect(lambda: self._browse(self.secrets_edit, "JSON (*.json);;All files (*)"))
-        grid.addWidget(pick_secrets, 6, 2)
+        grid.addWidget(pick_secrets, 7, 2)
 
         self.preview_box = QPlainTextEdit(readOnly=True)
         self.preview_box.setPlaceholderText(tr("보낼 내용 보기 버튼을 누르면 YouTube에 보낼 내용이 여기에 표시됩니다. 업로드는 실행되지 않습니다."))
         self.preview_box.setMaximumHeight(130)
-        grid.addWidget(self.preview_box, 6, 0, 1, 3)
+        grid.addWidget(self.preview_box, 8, 0, 1, 3)  # below the OAuth row, not on it
 
         bottom = QHBoxLayout()
         self.status = QLabel(tr("비공개로 올린 뒤 YouTube 스튜디오에서 확인하고 공개하는 것을 권합니다"), objectName="Muted")
@@ -146,13 +169,14 @@ class UploadDialog(QDialog):
         self.upload_button.setMinimumHeight(36)
         self.upload_button.clicked.connect(self.upload)
         bottom.addWidget(self.upload_button)
-        grid.addLayout(bottom, 7, 0, 1, 3)
+        grid.addLayout(bottom, 9, 0, 1, 3)
         grid.setColumnStretch(1, 1)
         self.resize(640, 600)
 
         self._progress.connect(lambda fraction: self.progress.setValue(int(round(fraction * 100))))
         self._done.connect(self._on_done)
         self._failed.connect(self._on_failed)
+        self._note.connect(self.status.setText)
 
     # ------------------------------------------------------------------ helpers
     def _browse(self, edit: QLineEdit, filters: str) -> None:
@@ -177,6 +201,7 @@ class UploadDialog(QDialog):
         return video_resource(
             self.title_edit.text(), self.description_edit.toPlainText(), tags=tags,
             privacy=self.privacy_combo.currentData(), shorts=self.shorts_check.isChecked(), publish_at=when,
+            paid_placement=self.paid_check.isChecked(),
         )
 
     def problems(self) -> list[str]:
@@ -220,6 +245,13 @@ class UploadDialog(QDialog):
         if not secrets or not Path(secrets).is_file():
             self._fail(tr("OAuth 클라이언트 파일(client_secret.json)을 고르세요."))
             return
+        from ..upload import THUMBNAIL_SCOPES, thumbnail_problem
+
+        thumbnail = self.thumbnail_edit.text().strip()
+        if thumbnail and thumbnail_problem(thumbnail):
+            self._fail(thumbnail_problem(thumbnail) or "")
+            return
+        shorts = self.shorts_check.isChecked()
         privacy = self.privacy_combo.currentData()
         if privacy == "public" and self.dialogs:
             answer = QMessageBox.question(self, tr("공개 업로드"), tr("바로 공개로 올립니다. 올린 뒤에는 되돌리기 어렵습니다. 계속할까요?"))
@@ -230,13 +262,25 @@ class UploadDialog(QDialog):
         self.upload_button.setEnabled(False)
         self.progress.setValue(0)
         self.status.setText(tr("업로드 중 (처음이면 브라우저에서 Google 동의 화면이 열립니다)"))
-        uploader = self.uploader
+        uploader, thumbnailer = self.uploader, self.thumbnailer
 
         def work() -> None:
             try:
-                self._done.emit(uploader(video, body, secrets, self._progress.emit))
+                if uploader is _default_uploader and thumbnail and shorts:
+                    response = _default_uploader(video, body, secrets, self._progress.emit, scopes=THUMBNAIL_SCOPES)  # one consent for both
+                else:
+                    response = uploader(video, body, secrets, self._progress.emit)
             except Exception as exc:  # shown in the status line and a dialog
                 self._failed.emit(str(exc))
+                return
+            if thumbnail:  # the video is up whatever happens to the thumbnail
+                self._note.emit(tr("썸네일 설정 중"))
+                try:
+                    thumbnailer(response["id"], thumbnail, secrets, shorts, lambda state: self._note.emit(tr("YouTube 처리 대기 중 ({0}), 끝나면 썸네일 설정").format(state)))
+                    response = {**response, "thumbnail": thumbnail}
+                except Exception as exc:
+                    response = {**response, "thumbnail_error": str(exc)}
+            self._done.emit(response)
 
         threading.Thread(target=work, name="stream2clip-upload", daemon=True).start()
 
@@ -248,7 +292,12 @@ class UploadDialog(QDialog):
         self.progress.setValue(100)
         self.video_url = video_url(response["id"])
         privacy = response.get("status", {}).get("privacyStatus", self.privacy_combo.currentData())
-        self.status.setText(tr("올렸습니다 ({0}): {1}").format(privacy, self.video_url))
+        message = tr("올렸습니다 ({0}): {1}").format(privacy, self.video_url)
+        if response.get("thumbnail"):
+            message += tr(", 썸네일 설정됨")
+        elif response.get("thumbnail_error"):
+            message += "\n" + tr("썸네일 실패: {0}").format(str(response["thumbnail_error"]).splitlines()[0][:140])
+        self.status.setText(message)
         self.preview_box.setPlainText(self.video_url)
 
     def _on_failed(self, message: str) -> None:

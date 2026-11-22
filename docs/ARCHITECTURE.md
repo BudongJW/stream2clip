@@ -82,7 +82,7 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
             clip_XX.mp4, clip_XX.ass, clip_XX.txt, clips.json
 ```
 
-| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;성&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 모듈 | 내용 |
+| &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;성&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 모듈 | 내용 |
 |:---:|:---:|---|
 | 아바타 박스 | `detect.py` | 프레임 12장에서 애니메 얼굴을 검출하고 여러 프레임의 동일 위치에 유지되는 얼굴을 아바타로 판정하여 방송 1개에 고정 박스 1개 결정. 프레임 단위 추적 미수행. 전처리(letterbox), 후처리(YOLO 출력 해석, NMS), 군집, 박스 계산은 numpy만 사용하는 순수 함수이며 onnxruntime은 `OnnxFaceDetector` 생성 시에만 import. 프레임 추출은 `export.grab_frames` 담당 |
 | 자막 번역 | `translation.py` | `make_clips`가 클립 자막 생성 후 `translate_cues`로 번역기(플러그인)에 전달. 용어집은 번역 전후에 문자열을 치환하는 단순 방식이므로 번역기 종류와 무관. 번역 자막에는 단어 시각 없음 |
@@ -101,6 +101,10 @@ fetch (yt-dlp) ─► info.json, <id>.live_chat.json, <id>.ja.vtt, video.mp4
 | 영상 형태 | `presets.py`, `cli.py`, `gui/highlights.py` | `Preset`이 레이아웃, 구간 여유와 길이, 개수, 모음 영상, 페이드, 상황 설명을 보유. 명령줄은 지정하지 않은 옵션(`None`)만 프리셋 값으로 채우고, 하이라이트 창은 형태 선택 시 각 입력 칸을 바꾸며 하이라이트 찾기에 구간 길이 전달 |
 | 재사용 콘텐츠 점검 | `compliance.py` | `originality_issues`가 자막, 번역, 상황 설명, 미리 보기 유무로 잘라내기만 한 클립을 표시(ぶいすぽっ! 프로필은 오류). 모든 클립에 YouTube 정책 주소 안내 |
 | 화자별 자막 색 | `speakers.py`, `subtitles.py`, `pipeline.py` | `Cue.speaker`에 화자 라벨 보관(whisperX JSON의 `speaker`, `assign_from_spans`로 RTTM, `assign_from_tracks`로 마이크별 트랙의 8kHz 음량 비교). `SpeakerMap`이 라벨을 이름과 색으로 바꾸고 `to_ass`가 화자마다 테두리 색이 다른 `Speaker{n}` 스타일과 ASS 이름 칸 기록. 번역, 구간 자르기, 무음 구간 제거에도 화자 유지 |
+| 검출 조정 | `highlights.py`, `evaluation.py`, `feedback.py` | 영상 시각의 신호(음량, 웃음소리, heatmap)는 `_resample`, `np.interp`로 채팅 지연만큼 옮겨 채팅 시각에 맞춤. `estimate_chat_delay`는 1초 단위 음량과 채팅 속도의 상관을 0~30초 시차로 계산하고 같은 채팅을 순환 이동한 40회의 최대 상관 95% 분위수와 비교. `evaluate`의 `tune`은 `HighlightConfig`의 가중치, 임계값, 지연을 무작위 탐색(목표 `gain`, precision에서 chance를 뺀 값), `held_out`은 방송 하나씩 빼고 검증. `detect_highlights(cache=...)`가 채팅 집계와 표시 명령 시각을 보관. 프로필은 `stream2clip.profile/v1` JSON. 앱의 선택 기록은 `feedback.record`가 내보낼 때마다 `feedback.jsonl`에 한 줄 추가 |
+| GPU 인코딩 | `ffmpeg.py`, `export.py`, `pipeline.py` | `ExportOptions.encoder`를 명령 빌더의 `h264_args`가 인코더별 인자로 변환(빌더는 실행하지 않으므로 `auto`는 libx264로 기록). `export.h264_encoder`가 NVENC, QSV, AMF 순으로 256x144 3프레임 시험 인코딩 후 결과를 세션 동안 보관, `export`가 `auto`를 해석하고 GPU 실패 시 libx264로 재실행. `make_clips`가 시작할 때 한 번 해석하여 미리 보기 연결과 모음 영상에도 같은 인코더 사용 |
+| 받아쓰기 용어집, 자막 확인 | `translation.py`, `subtitles.py`, `pipeline.py` | `Glossary`의 `vocabulary`가 `FasterWhisperTranscriber(hotwords=...)`로, `heard`가 `fix_cues`로 전달. 단어 교정은 토큰을 화면 표시와 같은 규칙(CJK는 붙이고 그 외는 띄움)으로 이어 붙인 문자열에서 위치를 찾아 해당 단어들을 합침. `caption_issues`는 `_width`, `_shrink`의 최소 배율(55%)로 화면 폭 초과를 판정하며 결과는 `ClipResult.captions` |
+| 썸네일 업로드 | `upload.py`, `gui/upload.py` | `set_thumbnail`이 Shorts면 `wait_until_processed`(`videos.list`의 `processingDetails`, 15초 간격, 15분 한도) 후 `thumbnails.set`. 읽기 권한(`THUMBNAIL_SCOPES`)은 이때만 요청하고 `_granted`가 저장한 토큰의 권한을 확인. 업로드 창은 업로드와 썸네일을 한 작업 안에서 순서대로 실행하고 썸네일 실패는 결과에 따로 표시 |
 | 새 버전 확인 | `updates.py` | GitHub의 최신 릴리즈 조회 1회. 응답의 링크는 이 프로젝트의 주소일 때만 사용. 조회 주기와 건너뛴 버전은 `gui/launcher.py`가 설정에 보관 |
 | 편집 프로그램 연계 | `handoff.py` | 하이라이트 목록을 글로 바꾸는 순수 함수. `edl`은 CMX3600 컷 목록, `marker_edl`은 DaVinci Resolve 마커 목록, `timestamps`는 댓글용 목록. 영상을 읽지 않으며 프레임 속도만 전달받음. 타임코드는 실제 속도로 센 프레임을 가까운 정수 기준으로 표기(논드롭) |
 | 구성요소 준비 | `tools.py` | 고정한 ffmpeg 빌드(주소, 크기, SHA-256)를 내려받아 확인한 후 `ffmpeg.exe`, `ffprobe.exe`만 `ffmpeg.tools_dir()`에 풀어 놓음. 압축 파일 안의 경로는 저장 위치에 사용하지 않음. `components()`가 기능별 필요 구성요소의 유무를 조사하며 설치 프로그램, 앱 시작 화면의 버튼, `setup` 명령이 같은 함수를 사용. 표준 라이브러리만 사용 |

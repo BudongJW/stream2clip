@@ -23,7 +23,7 @@ import json
 import math
 import os
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -145,6 +145,9 @@ class HighlightConfig:
     smooth: int = 3
     threshold: float = 2.0
     chat_delay: float = 8.0
+    #: Estimate the chat delay of this stream from its sound (:func:`estimate_chat_delay`) when a video is
+    #: given; ``chat_delay`` stays when the sound shows no clear lag.
+    estimate_delay: bool = False
     lead: float = 20.0
     tail: float = 10.0
     min_length: float = 15.0
@@ -166,6 +169,27 @@ class HighlightConfig:
             raise ValueError("window must be > 0, smooth >= 1, top >= 1")
         if self.min_length > self.max_length:
             raise ValueError("min_length must be <= max_length")
+
+
+PROFILE_SCHEMA = "stream2clip.profile/v1"
+
+
+def save_profile(path: "str | os.PathLike[str]", config: HighlightConfig, *, note: str = "") -> Path:
+    """Write the settings tuning changes (signal weights, threshold, chat delay) as a profile for a channel."""
+    out = Path(path)
+    data = {"schema": PROFILE_SCHEMA, "note": note, "weights": dict(config.weights), "threshold": config.threshold, "chat_delay": config.chat_delay}
+    out.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return out
+
+
+def load_profile(path: "str | os.PathLike[str]", config: HighlightConfig | None = None) -> HighlightConfig:
+    """``config`` (or the defaults) with a profile's weights, threshold and chat delay."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if data.get("schema") != PROFILE_SCHEMA:
+        raise ValueError(f"{path} is not a stream2clip profile (made by evaluate --tune --save-profile)")
+    base = config or HighlightConfig()
+    weights = {**base.weights, **{str(k): float(v) for k, v in (data.get("weights") or {}).items()}}
+    return replace(base, weights=weights, threshold=float(data.get("threshold", base.threshold)), chat_delay=float(data.get("chat_delay", base.chat_delay)))
 
 
 @dataclass
@@ -199,6 +223,8 @@ class HighlightResult:
     highlights: list[Highlight]
     source: dict[str, Any] = field(default_factory=dict)
     messages: int = 0  # chat messages analysed (not part of the saved JSON)
+    #: ``(seconds, correlation)`` when the chat delay was estimated from the sound (not part of the saved JSON).
+    estimated_delay: tuple[float, float] | None = None
     songs: list[tuple[float, float]] | None = None  # singing sections, once looked for (not part of the saved JSON)
 
     @property
@@ -246,8 +272,10 @@ def _smooth(x: np.ndarray, n: int) -> np.ndarray:
     return np.convolve(np.pad(x, (n // 2, n - 1 - n // 2), mode="edge"), kernel, mode="valid")
 
 
-def _resample(values: np.ndarray, src_window: float, n: int, window: float) -> np.ndarray:
-    centers = (np.arange(n) + 0.5) * window
+def _resample(values: np.ndarray, src_window: float, n: int, window: float, delay: float = 0.0) -> np.ndarray:
+    """``values`` on ``n`` buckets of ``window`` seconds; ``delay`` moves a curve on the video's clock onto the
+    chat's, where a moment shows ``delay`` seconds later (detection works on the chat's clock)."""
+    centers = (np.arange(n) + 0.5) * window - delay
     src_centers = (np.arange(len(values)) + 0.5) * src_window
     if len(values) == 0:
         return np.zeros(n)
@@ -327,6 +355,55 @@ def speech_levels(cues: Iterable[Any], *, window: float = 5.0, delay: float = 0.
     return levels
 
 
+def estimate_chat_delay(
+    messages: Sequence[ChatMessage],
+    levels: np.ndarray,
+    *,
+    window: float = 1.0,
+    max_delay: float = 30.0,
+    trials: int = 40,
+) -> tuple[float, float] | None:
+    """How many seconds this stream's chat follows its sound: ``(delay, agreement)``, or ``None``.
+
+    ``levels`` is the loudness curve in ``window``-second steps (:func:`stream2clip.audio.audio_levels`).
+    The chat rate is compared with the loudness moved 0 to ``max_delay`` seconds later, and the lag where
+    they agree best (a correlation) is measured from the middle of a loud moment to the middle of the chat
+    it draws. Loud moments draw chat, but so do talk, music and game sound, so the agreement is weak even
+    when the lag is real. It counts only when it beats chance: the same chat moved minutes away from the
+    sound (``trials`` times) must agree less at every lag in at least 95 of 100 tries. ``None`` otherwise,
+    and at either end of the range.
+    """
+    levels = np.asarray(levels, dtype=np.float64)
+    n = len(levels)
+    steps = int(max_delay / window)
+    if n <= steps * 8 or not messages:
+        return None
+    rate = np.zeros(n)
+    for m in messages:
+        index = int(m.time // window)
+        if 0 <= index < n:
+            rate[index] += 1
+    sound = robust_z(np.convolve(levels, np.ones(3) / 3, mode="same"))
+    chat = robust_z(np.convolve(rate, np.ones(5) / 5, mode="same"))
+
+    def agreement(curve: np.ndarray) -> np.ndarray:
+        values = np.array([np.corrcoef(sound[: n - lag], curve[lag:])[0, 1] for lag in range(steps + 1)])
+        return np.nan_to_num(values, nan=-1.0)
+
+    found = agreement(chat)
+    best = int(np.argmax(found))
+    if best in (0, steps):
+        return None
+    chance = [agreement(np.roll(chat, int(shift))).max() for shift in np.linspace(0.1 * n, 0.9 * n, trials)]
+    if found[best] <= np.quantile(chance, 0.95):
+        return None
+    # The top between steps: a parabola through the best lag and its neighbours.
+    left, middle, right = found[best - 1], found[best], found[best + 1]
+    bend = left - 2 * middle + right
+    offset = 0.5 * (left - right) / bend if bend < 0 else 0.0
+    return (best + offset) * window, float(middle)
+
+
 def detect_highlights(
     messages: Sequence[ChatMessage] = (),
     *,
@@ -342,8 +419,12 @@ def detect_highlights(
     source: dict[str, Any] | None = None,
     avatar: np.ndarray | None = None,
     avatar_window: float | None = None,
+    cache: dict[Any, Any] | None = None,
 ) -> HighlightResult:
     """Find the most exciting moments. Any subset of chat / audio / heatmap may be given.
+
+    ``cache`` is a dict the caller keeps for one stream when detecting many times with other weights or
+    thresholds (tuning): the chat is counted into buckets once instead of every time.
 
     ``laughter`` is the optional, experimental :func:`stream2clip.audio.laughter_levels` curve,
     ``speech`` the optional, experimental :func:`speech_levels` of the subtitles, ``avatar`` the
@@ -363,18 +444,28 @@ def detect_highlights(
     total = max(candidates)
     if total <= 0:
         raise ValueError("Nothing to analyse: give chat messages, audio levels, a heatmap or a duration")
-    n = max(1, math.ceil(total / w))
+    # Sound and the most-replayed curve are on the video's clock: they are moved onto the chat's below, so the
+    # buckets reach that much further. Chat alone keeps the buckets it always had.
+    video_clock = (audio is not None and len(audio)) or (laughter is not None and len(laughter)) or bool(heatmap)
+    n = max(1, math.ceil((total + (cfg.chat_delay if video_clock else 0.0)) / w))
 
     raw: dict[str, np.ndarray] = {}
     commands = tuple(word.strip().lower() for word in cfg.markers if word.strip())
-    chat = _bucket_chat(messages, n, w, cfg.skip_greetings, commands) if messages else None
+    chat = None
+    if messages:
+        key = ("chat", n, w, cfg.skip_greetings, commands)
+        chat = cache.get(key) if cache is not None else None
+        if chat is None:
+            chat = _bucket_chat(messages, n, w, cfg.skip_greetings, commands)
+            if cache is not None:
+                cache[key] = chat
     if chat is not None:
         for key in ("rate", "unique", "reactions", "paid"):
             raw[key] = chat[key]
     if audio is not None and len(audio):
-        raw["audio"] = _resample(np.asarray(audio, dtype=np.float64), audio_window or w, n, w)
+        raw["audio"] = _resample(np.asarray(audio, dtype=np.float64), audio_window or w, n, w, delay=cfg.chat_delay)
     if laughter is not None and len(laughter):
-        raw["laughter"] = _resample(np.asarray(laughter, dtype=np.float64), laughter_window or w, n, w)
+        raw["laughter"] = _resample(np.asarray(laughter, dtype=np.float64), laughter_window or w, n, w, delay=cfg.chat_delay)
     if avatar is not None and len(avatar) and np.any(avatar):
         raw["avatar"] = _resample(np.asarray(avatar, dtype=np.float64), avatar_window or w, n, w)
     if speech is not None and len(speech) and np.any(speech):
@@ -385,7 +476,7 @@ def detect_highlights(
     if heatmap:
         centers = (np.arange(n) + 0.5) * w
         hm_centers = np.array([(p.start + p.end) / 2 for p in heatmap])
-        raw["heatmap"] = np.interp(centers, hm_centers, np.array([p.value for p in heatmap]))
+        raw["heatmap"] = np.interp(centers - cfg.chat_delay, hm_centers, np.array([p.value for p in heatmap]))
 
     signals = {key: robust_z(values) for key, values in raw.items()}
     weights = {k: v for k, v in cfg.weights.items() if k in signals and v > 0}
@@ -398,7 +489,13 @@ def detect_highlights(
         score = sum(signals[k] * v for k, v in weights.items()) / (core or sum(weights.values()))
     score = _smooth(np.asarray(score, dtype=np.float64), cfg.smooth)
 
-    highlights = _pick(score, cfg, total, marker_times(messages, cfg))
+    marks_key = ("markers", commands, tuple(cfg.marker_roles))
+    marks = cache.get(marks_key) if cache is not None else None
+    if marks is None:
+        marks = marker_times(messages, cfg)
+        if cache is not None:
+            cache[marks_key] = marks
+    highlights = _pick(score, cfg, total, marks)
     for h in highlights:
         marks, words = h.stats.get("marker"), h.reasons
         h.reasons, h.stats = _explain(h, raw, chat, signals, cfg)

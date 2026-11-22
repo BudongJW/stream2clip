@@ -367,3 +367,16 @@ def test_collab_clip_with_a_microphone_per_track(tmp_path):
                          speakers=SpeakerMap.parse(["1=Pekora:#57C7FF", "2=Miko:#FF5C9A"]), speaker_tracks=(1, 2))
     ass = results[0].subtitles.read_text(encoding="utf-8")
     assert ",Speaker1,Pekora," in ass and ",Speaker2,Miko," in ass
+
+
+@needs_ffmpeg
+def test_clips_carry_their_caption_check(green_screen_video, tmp_path):
+    from stream2clip.ffmpeg import ExportOptions
+    from stream2clip.pipeline import make_clips
+
+    h = Highlight(1, 0.0, 1.8, 1.0, 5.0)
+    cues = [Cue(0.0 + i * 0.4, 0.4 + i * 0.4, "うん") for i in range(4)]
+    clip = make_clips(green_screen_video, [h], tmp_path / "out", options=ExportOptions(format="gif", fps=5, width=80), cues=cues)[0]
+    assert len(clip.captions) == 1 and "4번 이어짐" in clip.captions[0]
+    saved = json.loads((tmp_path / "out" / "clips.json").read_text(encoding="utf-8"))
+    assert saved["clips"][0]["captions"] == clip.captions and not any("4번" in i["message"] for i in saved["clips"][0]["issues"])

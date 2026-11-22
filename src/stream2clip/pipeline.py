@@ -14,7 +14,7 @@ import numpy as np
 
 from .chat import ChatMessage
 from .compliance import AgencyProfile, Issue, build_description, check_upload
-from .export import export, probe
+from .export import export, probe, resolve_encoder
 from .ffmpeg import ExportOptions, extension_for, find_ffmpeg
 from .highlights import Highlight, HighlightConfig, HighlightResult, detect_highlights
 from .i18n import tr
@@ -51,6 +51,8 @@ class ClipResult:
     thumbnail: Path | None = None
     #: Seconds of the peak put in front of the clip (``teaser``); the file is that much longer.
     teaser: float = 0.0
+    #: What to look at in the captions before uploading (:func:`stream2clip.subtitles.caption_issues`).
+    captions: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         data = {
@@ -60,6 +62,7 @@ class ClipResult:
             "hashtags": list(self.hashtags),
             "thumbnail": self.thumbnail.name if self.thumbnail else None,
             "teaser": round(self.teaser, 2),
+            "captions": list(self.captions),
             "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
@@ -110,8 +113,16 @@ def find_highlights(
     duration = None
     levels = None
     bursts = None
+    estimated = None
     if video:
         duration = probe(video).duration
+        if cfg.estimate_delay and messages:
+            from .highlights import estimate_chat_delay
+
+            stage("delay")
+            estimated = estimate_chat_delay(messages, audio_levels(video, window=1.0, track=audio_track))
+            if estimated is not None:
+                cfg = replace(cfg, chat_delay=round(estimated[0], 1))
         if audio:
             stage("audio")
             levels = audio_levels(video, window=cfg.window, track=audio_track)
@@ -133,11 +144,13 @@ def find_highlights(
     if not messages and levels is None and not heatmap and said is None and avatar is None:
         raise ValueError("Nothing to analyse: give a chat archive, an info JSON with a heatmap, or a video with audio")
     stage("detect")
-    return detect_highlights(
+    result = detect_highlights(
         messages, duration=duration, audio=levels, audio_window=cfg.window, heatmap=heatmap,
         laughter=bursts, laughter_window=cfg.window, speech=said, speech_window=cfg.window, config=cfg, source=source or {},
         avatar=avatar, avatar_window=cfg.window,
     )
+    result.estimated_delay = estimated
+    return result
 
 
 @dataclass
@@ -171,14 +184,16 @@ def compile_clips(
     fps: float | None = None,
     fade: float = 0.0,
     quality: int = 85,
+    encoder: str = "libx264",
     notes: bool = True,
 ) -> Compilation:
     """Join finished clips, in the order given, into one video; write ``<name>.txt`` with the chapter list.
 
     The picture takes the size and frame rate of the first clip unless told otherwise; clips of
-    another shape get bars. Captions burned into the clips stay as they are.
+    another shape get bars. Captions burned into the clips stay as they are. ``encoder`` is the
+    MP4 encoder (``auto``: the GPU this PC has, see :func:`stream2clip.export.h264_encoder`).
     """
-    from .export import run_ffmpeg
+    from .export import h264_encoder, run_ffmpeg
     from .ffmpeg import _AUDIO_CODECS, build_concat_command
 
     files = [Path(clip) for clip in clips]
@@ -204,6 +219,7 @@ def compile_clips(
     run_ffmpeg(build_concat_command(
         files, out, size=size or (facts[0].width, facts[0].height), fps=fps or facts[0].fps or 30.0,
         durations=durations, has_audio=[info.has_audio for info in facts], fade=fade, quality=quality, format=fmt,
+        encoder=h264_encoder() if encoder == "auto" and fmt == "mp4" else encoder,
     ))
     starts = [sum(durations[:index]) for index in range(len(files))]
     names = [" ".join(str(label).split()) for label in labels] if labels is not None else [path.stem for path in files]
@@ -442,7 +458,7 @@ def make_clips(
         raise ValueError("make_clips needs a video or a section function")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    options = options or default_clip_options()
+    options = resolve_encoder(options or default_clip_options())  # "auto": find the GPU encoder once for every clip
     if loudness is not None:
         from .ffmpeg import Loudness
 
@@ -478,6 +494,8 @@ def make_clips(
                 with tempfile.TemporaryDirectory(prefix="stream2clip-asr-") as tmp:
                     wav = _extract_audio(clip_video, max(0.0, h.start - offset), h.end - offset, Path(tmp) / "clip.wav", track=audio_track)
                     clip_cues = transcriber.transcribe(wav, language=language)
+            if clip_cues and glossary is not None:
+                clip_cues = glossary.fix_cues(clip_cues)  # names recognition misheard, in transcripts and downloaded subtitles
             if clip_cues and subtitle_translator is not None:
                 from .translation import translate_cues
 
@@ -564,6 +582,9 @@ def make_clips(
 
             own = originality_issues(captions=bool(clip_cues), translated=subtitle_translator is not None and bool(clip_cues), context=bool(situation),
                                      teaser=opened > 0, profile=profile)
+            from .subtitles import caption_issues
+
+            result.captions = caption_issues(clip_cues or [], subtitle_style)  # per clip, apart from the guideline check
             result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)
     finally:
@@ -655,6 +676,7 @@ def _open_with_teaser(
         run_ffmpeg(build_concat_command(
             [part, clip], joined, size=(facts[1].width, facts[1].height), durations=[float(f.duration or 0) for f in facts],
             has_audio=[f.has_audio for f in facts], fps=facts[1].fps or opts.fps or 30.0, quality=opts.quality, format=opts.format,
+            encoder=opts.encoder,
         ))
         joined.replace(clip)
     finally:

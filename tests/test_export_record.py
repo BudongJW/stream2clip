@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import time
 
 import numpy as np
@@ -185,3 +186,79 @@ def test_source_alpha_is_preserved_without_keying(tmp_path):
     meta = subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-print_format", "json", str(webm)], capture_output=True, check=True)
     assert json.loads(meta.stdout)["streams"][0].get("tags", {}).get("alpha_mode") == "1"
     recording.discard()
+
+
+# ----------------------------------------------------------------------------- GPU encoders
+
+
+def test_mp4_encoder_arguments():
+    from stream2clip.ffmpeg import build_concat_command, build_export_command, h264_args
+
+    def video_args(encoder):
+        cmd = build_export_command("in.mp4", "out.mp4", ExportOptions(format="mp4", quality=85, encoder=encoder), ffmpeg="ffmpeg")
+        return cmd[cmd.index("-c:v") + 1]
+
+    assert [video_args(e) for e in ("libx264", "h264_nvenc", "h264_qsv", "h264_amf")] == ["libx264", "h264_nvenc", "h264_qsv", "h264_amf"]
+    assert video_args("auto") == "libx264"  # the builder runs nothing: export() resolves auto
+    assert ExportOptions().encoder == "libx264"  # the library stays on the CPU unless asked
+    assert h264_args("h264_nvenc", 23)[h264_args("h264_nvenc", 23).index("-cq") + 1] == "23"  # the same quality scale
+    with pytest.raises(ValueError, match="encoder"):
+        h264_args("h264_vaapi_typo", 23)
+    joined = build_concat_command(["a.mp4", "b.mp4"], "c.mp4", size=(1280, 720), durations=[1.0, 1.0], has_audio=[True, True], encoder="h264_qsv", ffmpeg="ffmpeg")
+    assert joined[joined.index("-c:v") + 1] == "h264_qsv"
+
+
+def test_auto_takes_the_first_gpu_encoder_that_works(monkeypatch):
+    import subprocess
+
+    export_module = sys.modules["stream2clip.export"]  # the package exports a function of the same name
+
+    tried, works = [], set()
+
+    def run(cmd, **kwargs):
+        encoder = cmd[cmd.index("-c:v") + 1]
+        tried.append(encoder)
+        return subprocess.CompletedProcess(cmd, 0 if encoder in works else 1)
+
+    monkeypatch.setattr(export_module.subprocess, "run", run)
+    for working, expected in (({"h264_qsv", "h264_amf"}, "h264_qsv"), (set(), "libx264")):
+        works.clear()
+        works.update(working)
+        export_module.h264_encoder.cache_clear()
+        tried.clear()
+        assert export_module.h264_encoder("ffmpeg") == expected
+    assert tried == ["h264_nvenc", "h264_qsv", "h264_amf"]  # listed is not enough: each is tried on a few frames
+    export_module.h264_encoder.cache_clear()
+    works.clear()
+    works.add("h264_nvenc")
+    assert export_module.resolve_encoder(ExportOptions(format="mp4", encoder="auto"), ffmpeg="ffmpeg").encoder == "h264_nvenc"
+    assert export_module.resolve_encoder(ExportOptions(format="webm", encoder="auto")).encoder == "auto"  # MP4 only
+    export_module.h264_encoder.cache_clear()
+
+
+def test_a_failing_gpu_encoder_falls_back_to_the_cpu(monkeypatch, tmp_path):
+    export_module = sys.modules["stream2clip.export"]  # the package exports a function of the same name
+
+    ran = []
+
+    def run(cmd, timeout=None):
+        encoder = cmd[cmd.index("-c:v") + 1]
+        ran.append(encoder)
+        if encoder != "libx264":
+            raise export_module.FFmpegError(cmd, 1, "Cannot load nvcuda.dll")
+
+    monkeypatch.setattr(export_module, "run_ffmpeg", run)
+    export(tmp_path / "in.mp4", tmp_path / "out.mp4", ExportOptions(format="mp4", encoder="h264_nvenc", audio=False))
+    assert ran == ["h264_nvenc", "libx264"]
+    ran.clear()
+    with pytest.raises(export_module.FFmpegError):  # the CPU encoder failing is a real error
+        monkeypatch.setattr(export_module, "run_ffmpeg", lambda cmd, timeout=None: (_ for _ in ()).throw(export_module.FFmpegError(cmd, 1, "bad input")))
+        export(tmp_path / "in.mp4", tmp_path / "out.mp4", ExportOptions(format="mp4", encoder="libx264", audio=False))
+
+
+def test_cli_encoder_choice(capsys):
+    from stream2clip.cli import main
+
+    for choice, name in (("cpu", "libx264"), ("qsv", "h264_qsv"), ("nvenc", "h264_nvenc"), ("amf", "h264_amf")):
+        assert main(["convert", "vod.mp4", "-o", "clip.mp4", "--encoder", choice, "--print-command"]) == 0
+        assert f"-c:v {name}" in capsys.readouterr().out
