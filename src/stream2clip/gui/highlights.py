@@ -432,6 +432,7 @@ class HighlightsWindow(QMainWindow):
         self.last_compilation = None
         self.last_handoff: list[Path] = []
         self.scenes_skipped = 0  # highlights the last analysis left out for the scene they were in
+        self.replay_note = ""  # a reminder from fetching the stream (a SOOP replay's deletion date)
         self.status = QLabel(tr("영상과 채팅 다시보기를 고르거나 방송 주소를 넣으세요"), objectName="Muted")
         bottom.addWidget(self.status, 1)
         self.progress = QProgressBar()
@@ -1153,6 +1154,7 @@ class HighlightsWindow(QMainWindow):
         moving = recorded and self.motion_check.isChecked()
         self.scenes_skipped = 0
         self.remember()
+        self.replay_note = ""
         self._set_busy(True, tr("분석 시작"))
         self.progress.setRange(0, 0)  # busy indicator
 
@@ -1164,7 +1166,8 @@ class HighlightsWindow(QMainWindow):
             if url and not ((chat or session is not None) and info):  # the video itself comes later, and only the parts that are exported
                 from .. import sources
 
-                got_info, got_chat = sources.fetch_replay(url, folder, info=not info, chat=not chat and session is None, reuse=True, ytdlp=sources.ytdlp_command(), on_stage=self._stage.emit)
+                got_info, got_chat = sources.fetch_replay(url, folder, info=not info, chat=not chat and session is None, reuse=True, ytdlp=sources.ytdlp_command(),
+                                                          on_stage=self._stage.emit, note=lambda message: setattr(self, "replay_note", message))
                 info, chat = info or str(got_info or ""), chat or str(got_chat or "")
                 self._fetched.emit(info, chat)
             source = {}
@@ -1234,7 +1237,8 @@ class HighlightsWindow(QMainWindow):
         sung = tr(", 노래 구간 {0}곳").format(len(result.songs)) if result.songs is not None else ""
         if self.scenes_skipped:
             sung += tr(", 장면으로 제외 {0}개").format(self.scenes_skipped)
-        self._set_busy(False, tr("{0}{1} 분석, 하이라이트 {2}개{3}{4}").format(chat, _clock(result.duration), count, sung, hint))
+        done = tr("{0}{1} 분석, 하이라이트 {2}개{3}{4}").format(chat, _clock(result.duration), count, sung, hint)
+        self._set_busy(False, done + ("\n" + self.replay_note if self.replay_note else ""))  # a SOOP replay is deleted after 90 days
         self.set_mood("laugh" if count else "wink")
         self.refresh_preview()
 

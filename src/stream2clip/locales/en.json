@@ -598,5 +598,8 @@
  "협찬, 간접 광고(PPL), 보증 광고가 있으면 선택. 선택하지 않으면 유료 광고가 없는 영상으로 YouTube에 알림": "Tick when the video has a sponsorship, paid product placement or endorsement. Unticked, the video is declared to YouTube as free of paid promotion",
  "받아쓰기 (Whisper large-v3-turbo)": "Transcribe (Whisper large-v3-turbo)",
  "받아쓰기 (Whisper large-v3)": "Transcribe (Whisper large-v3)",
- "받아쓰기 모델: small은 CPU에서도 빠름, medium은 더 정확.\nlarge-v3-turbo는 large-v3에 가까운 정확도에 약 1.6배 빠름, large-v3이 가장 정확. 두 모델은 GPU 권장, 처음 쓸 때 내려받음(약 1.6GB, 3GB)": "Transcription model: small is fast even on a CPU, medium is more accurate.\nlarge-v3-turbo is close to large-v3 in accuracy and about 1.6 times faster; large-v3 is the most accurate. Both need a GPU to be quick and are downloaded on first use (about 1.6 GB and 3 GB)"
+ "받아쓰기 모델: small은 CPU에서도 빠름, medium은 더 정확.\nlarge-v3-turbo는 large-v3에 가까운 정확도에 약 1.6배 빠름, large-v3이 가장 정확. 두 모델은 GPU 권장, 처음 쓸 때 내려받음(약 1.6GB, 3GB)": "Transcription model: small is fast even on a CPU, medium is more accurate.\nlarge-v3-turbo is close to large-v3 in accuracy and about 1.6 times faster; large-v3 is the most accurate. Both need a GPU to be quick and are downloaded on first use (about 1.6 GB and 3 GB)",
+ "SOOP 다시보기는 일반 스트리머 기준 올라온 지 {0}일 후 삭제(고유 조회 50회 이상이면 1년).": "SOOP deletes a basic streamer's replay {0} days after it went up (a year once it has 50 unique views).",
+ "클립에 쓸 영상과 채팅은 미리 받아 두기": "Keep the video and chat for clips early",
+ "이 다시보기는 올라온 지 {0}일. 클립에 쓸 영상과 채팅은 미리 받아 두기": "This replay went up {0} days ago. Keep the video and chat for clips early"
 }

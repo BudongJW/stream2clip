@@ -220,12 +220,13 @@ def _source(args: argparse.Namespace):
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    from .sources import download_chat, download_replay_chat, download_section, download_subs, fetch_info, platform_of, ytdlp_command
+    from .sources import download_chat, download_replay_chat, download_section, download_subs, fetch_info, platform_of, replay_expiry_note, ytdlp_command
 
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     korean = platform_of(args.url)  # CHZZK / SOOP: chat comes from their own replay API, not yt-dlp
     ytdlp = ytdlp_command(cookies=args.cookies, cookies_from_browser=args.cookies_from_browser)
+    info = None
     try:
         info = fetch_info(args.url, ytdlp=ytdlp, comments=args.comments) if args.comments else fetch_info(args.url, ytdlp=ytdlp)
         (out / "info.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
@@ -234,6 +235,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         if not korean:
             raise
         print(f"info   (skipped) {exc}", file=sys.stderr)
+    reminder = replay_expiry_note(args.url, info)
+    if reminder:
+        print(f"note   {reminder}", file=sys.stderr)
     if not args.no_chat:
         try:
             if korean:
@@ -786,6 +790,7 @@ def _prepare_from_url(args: argparse.Namespace, out: Path) -> None:
         args.video, out, info=not args.info, chat=not (args.chat or args.session), ytdlp=ytdlp,
         on_stage=lambda name: print(f"fetch  {name.removeprefix('fetch-')} ...", flush=True),
         warn=lambda message: print(f"info   (skipped) {message}", file=sys.stderr),
+        note=lambda message: print(f"note   {message}", file=sys.stderr),
     )
     if info is not None:
         args.info = str(info)
