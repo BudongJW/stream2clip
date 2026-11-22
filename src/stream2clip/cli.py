@@ -439,6 +439,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--registered", action="store_true", help="your clip channel is registered with the agency")
     c.add_argument("--credit", metavar="TEXT", help="burn a small source line into a corner of every clip; 'auto' writes the original channel's name (from --info or --channel)")
     c.add_argument("--title-template", metavar="FORM", help="form of the suggested titles, with {hook} (the line at the peak), {talent}, {agency}, {clip}; default per language, e.g. Japanese '{hook}【{talent}/{agency}{clip}】'")
+    c.add_argument("--thumbnail", action="store_true", help="also write <clip>.jpg (1280x720): the sharpest frame around the peak, zoomed onto the avatar box when the layout has one, with the first words of the title")
     c.add_argument("--no-hashtags", action="store_true", help="leave the three suggested hashtags (agency, talent, general) out of the descriptions")
     c.add_argument("--credit-position", default="top-left", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="corner of the --credit line (default top-left)")
     m = p.add_argument_group("music & sound effects")
@@ -545,6 +546,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
         audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
         soundtrack=soundtrack, loudness=args.loudness, title_template=args.title_template, add_hashtags=not args.no_hashtags,
+        thumbnails=args.thumbnail,
     )
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")
@@ -554,6 +556,8 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
             print(f"    left out: {reason}")
         if r.title:
             print(f"    title: {r.title}" + (f"  {' '.join(r.hashtags)}" if r.hashtags else ""))
+        if r.thumbnail:
+            print(f"    thumbnail: {r.thumbnail.name}")
     problems = [i for r in results for i in r.issues if i.level in ("error", "warning")]
     if results and results[0].issues:
         print("guideline check:")

@@ -88,3 +88,88 @@ def test_clips_carry_their_title_and_hashtags(green_screen_video, tmp_path):
 def test_hook_needs_text():
     with pytest.raises(KeyError):
         clip_title(cues=[], language="ja", template="{nothing}")
+
+
+# --------------------------------------------------------------------------- thumbnails
+
+
+def picture(width: int = 854, height: int = 480):
+    """A flat grey game screen with an orange-red 'avatar' block in the lower right."""
+    import numpy as np
+
+    frame = np.full((height, width, 4), 90, dtype=np.uint8)
+    frame[..., 3] = 255
+    frame[210:480, 650:854, :3] = (230, 60, 40)
+    rng = np.random.default_rng(0)
+    frame[20:200, 40:500, :3] = rng.integers(0, 255, (180, 460, 3))  # detail
+    return frame
+
+
+def test_thumbnail_text_and_frame_choice():
+    import numpy as np
+
+    from stream2clip.thumbnails import pick_frame, sharpness, thumbnail_text
+
+    assert thumbnail_text("夢じゃなかった やっちゃってるじゃん") == "夢じゃなかった"
+    assert thumbnail_text("ちょっと待ってくださいよ本当に意味が分からない") in ("ちょっと待って", "ちょっと")  # cut between phrases, 10 wide at most
+    assert thumbnail_text("Wait what") == "Wait"
+    sharp = picture()
+    blurred = sharp.copy()
+    blurred[..., :3] = 128  # one flat colour: nothing to see
+    flash = sharp.copy()
+    flash[..., :3] = 255
+    assert pick_frame([blurred, sharp, flash]) is sharp
+    assert sharpness(flash) < sharpness(sharp)
+    with pytest.raises(ValueError):
+        pick_frame([])
+    assert np.asarray(picture()).shape == (480, 854, 4)
+
+
+def test_thumbnail_zooms_onto_the_avatar_and_keeps_text_away(tmp_path):
+    import numpy as np
+    from PIL import Image
+
+    from stream2clip.geometry import Region
+    from stream2clip.thumbnails import font_file, make_thumbnail
+
+    plain = make_thumbnail(picture(), "", tmp_path / "plain.jpg")
+    face = make_thumbnail(picture(), "", tmp_path / "face.jpg", face=Region(650, 210, 204, 270))
+    for path in (plain, face):
+        image = Image.open(path)
+        assert image.size == (1280, 720) and image.format == "JPEG" and path.stat().st_size < 2_000_000
+
+    def red_share(path):
+        pixels = np.asarray(Image.open(path).convert("RGB")).astype(int)
+        return float(((pixels[..., 0] > 170) & (pixels[..., 1] < 110)).mean())
+
+    assert red_share(face) > 1.6 * red_share(plain)  # zoomed: the avatar now fills most of the height
+    font = font_file("")
+    if font is None:
+        pytest.skip("no bold Latin font on this machine")
+    marked = make_thumbnail(picture(), "WOW", tmp_path / "text.jpg", face=Region(650, 210, 204, 270), font=font)
+    pixels = np.asarray(Image.open(marked).convert("RGB")).astype(int)
+    yellow = (pixels[..., 0] > 200) & (pixels[..., 1] > 180) & (pixels[..., 2] < 120)
+    assert yellow[:, :640].sum() > 20 * yellow[:, 640:].sum()  # on the side away from the face
+    assert yellow[360:, 960:].sum() == 0  # the duration badge's corner stays free
+
+
+def test_sensational_words():
+    from stream2clip.thumbnails import sensational_words
+
+    assert sensational_words("【放送事故】やばい", "SHOCKING drama") == ["放送事故", "SHOCKING", "drama"]
+    assert sensational_words("夢じゃなかった") == []
+
+
+@needs_ffmpeg
+def test_clips_can_bring_a_thumbnail(green_screen_video, tmp_path):
+    from PIL import Image
+
+    from stream2clip.ffmpeg import ExportOptions
+    from stream2clip.pipeline import make_clips
+
+    results = make_clips(green_screen_video, [Highlight(1, 0.0, 1.8, 0.8, 5.0)], tmp_path, options=ExportOptions(format="mp4", fps=10),
+                         cues=[Cue(0.0, 1.5, "放送事故")], thumbnails=True)
+    clip = results[0]
+    assert clip.thumbnail == tmp_path / "clip_01.jpg" and Image.open(clip.thumbnail).size == (1280, 720)
+    assert json.loads((tmp_path / "clips.json").read_text(encoding="utf-8"))["clips"][0]["thumbnail"] == "clip_01.jpg"
+    assert any(issue.level == "warning" and "放送事故" in issue.message for issue in clip.issues)

@@ -17,6 +17,7 @@ from .compliance import AgencyProfile, Issue, build_description, check_upload
 from .export import export, probe
 from .ffmpeg import ExportOptions, extension_for, find_ffmpeg
 from .highlights import Highlight, HighlightConfig, HighlightResult, detect_highlights
+from .i18n import tr
 from .layouts import VerticalLayout
 from .sources import SourceInfo
 from .subtitles import Cue, SubtitleStyle, Transcriber, slice_cues, write_ass
@@ -45,6 +46,8 @@ class ClipResult:
     #: A suggested title (the line at the peak and a bracket tag, see :mod:`stream2clip.titles`) and hashtags.
     title: str = ""
     hashtags: tuple[str, ...] = ()
+    #: A 1280x720 thumbnail (``thumbnails=True``, see :mod:`stream2clip.thumbnails`).
+    thumbnail: Path | None = None
 
     def to_dict(self) -> dict:
         data = {
@@ -52,6 +55,7 @@ class ClipResult:
             "file": self.path.name,
             "title": self.title or None,
             "hashtags": list(self.hashtags),
+            "thumbnail": self.thumbnail.name if self.thumbnail else None,
             "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
@@ -384,6 +388,7 @@ def make_clips(
     loudness: float | None = None,
     title_template: str | None = None,
     add_hashtags: bool = True,
+    thumbnails: bool = False,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -401,7 +406,8 @@ def make_clips(
 
     Every clip gets a suggested title in the language of its subtitles (:func:`stream2clip.titles.clip_title`;
     ``title_template`` changes its form) and, with ``add_hashtags``, three hashtags at the end of
-    its description.
+    its description. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
+    peak, zoomed onto the layout's avatar box when there is one, with the first words of the title.
 
     ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
     dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
@@ -504,6 +510,8 @@ def make_clips(
             named = _title_for(h, clip_cues or [], keep, source, profile, language=language, translate_to=translate_to if subtitle_translator else None,
                                glossary=glossary if subtitle_translator else None, template=title_template)
             result.title, result.hashtags = named.title, (named.hashtags if add_hashtags else ())
+            if thumbnails:
+                result.thumbnail = _thumbnail(clip_video, h, offset, opts, named.hook, out / f"{stem}.jpg")
             if source is not None:
                 used = [p.sound for p in planned]
                 text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used),
@@ -511,6 +519,11 @@ def make_clips(
                 result.description = out / f"{stem}.txt"
                 result.description.write_text(text, encoding="utf-8")
                 result.issues = check_upload(source, profile, description=text, registered=registered, uses_ai=ai, sounds=used, length=length)
+            from .thumbnails import sensational_words
+
+            loud = sensational_words(result.title, named.hook)
+            if loud:
+                result.issues.insert(0, Issue("warning", tr("제목과 썸네일 문구에 과장된 표현({0})이 있습니다. 기획사 가이드라인은 과장되거나 오해를 부르는 제목과 썸네일을 금지합니다.").format(", ".join(loud))))
             results.append(result)
     finally:
         if scratch is not None:
@@ -539,6 +552,21 @@ def _title_for(h: Highlight, cues: "Sequence[Cue]", keep, source: SourceInfo | N
     agency = profile.key if profile is not None and profile.key in AGENCY_NAMES else None
     return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=source.channel if source is not None else "",
                       stream_title=stream_title, agency=agency, language=lang, glossary=glossary, template=template, translated=translate_to is not None)
+
+
+def _thumbnail(video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, hook: str, out: Path) -> Path | None:
+    """The sharpest of seven frames from 1.5 s before to 1.5 s after the peak, with the first words of the hook."""
+    from .export import grab_frames
+    from .thumbnails import make_thumbnail, pick_frame, thumbnail_text
+
+    first, last = opts.start or 0.0, (opts.end if opts.end is not None else h.end - offset)
+    peak = min(max(h.peak - offset, first), last)
+    times = sorted({round(min(max(peak + d, first), max(first, last - 0.1)), 3) for d in (-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5)})
+    frames = grab_frames(video, times)
+    if not frames:
+        return None
+    face = opts.layout.avatar if opts.layout is not None and getattr(opts.layout, "avatar", None) is not None and not opts.layout.uses_avatar_video else None
+    return make_thumbnail(pick_frame(frames), thumbnail_text(hook), out, face=face)
 
 
 def _credits(sounds: "Sequence[Sound]") -> list[str]:
