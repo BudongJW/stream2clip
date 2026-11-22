@@ -24,6 +24,7 @@ from .subtitles import Cue, SubtitleStyle, Transcriber, slice_cues, write_ass
 
 if TYPE_CHECKING:
     from .soundtrack import PlannedSound, Sound, Soundtrack
+    from .speakers import SpeakerMap
     from .translate import Translator
     from .translation import Glossary
 
@@ -395,6 +396,9 @@ def make_clips(
     context: str | None = None,
     context_seconds: float = 3.0,
     teaser: float = 0.0,
+    speakers: "SpeakerMap | None" = None,
+    speaker_tracks: Sequence[int] = (),
+    speaker_names: bool = False,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -419,6 +423,11 @@ def make_clips(
     ``"auto"``: the stream's topic, from its title). ``teaser`` puts that many seconds of the peak
     (from just before the sound rises) in front of the clip, the way clip channels open with the
     best moment (MP4, WebM, MOV).
+
+    Lines that say who speaks (whisperX transcripts, an RTTM file, see :mod:`stream2clip.speakers`) are
+    outlined in that speaker's colour; ``speaker_tracks`` finds the speaker of each line from audio
+    tracks with one microphone each (the loudest one). ``speakers`` names the labels and picks the
+    colours, ``speaker_names`` puts the name in front of each line.
 
     ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
     dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
@@ -474,6 +483,14 @@ def make_clips(
 
                 clip_cues = translate_cues(clip_cues, subtitle_translator, target=translate_to, source=language, glossary=glossary, bilingual=bilingual)
             length, removed = h.end - h.start, 0.0
+            if clip_cues and speaker_tracks:
+                clip_cues = _speakers_by_track(clip_cues, clip_video, max(0.0, h.start - offset), h.end - h.start, speaker_tracks)
+            if clip_cues and any(c.speaker for c in clip_cues):
+                from .speakers import SpeakerMap
+
+                speakers = speakers if speakers is not None else SpeakerMap()
+                clip_cues = speakers.name(clip_cues)
+            colors = speakers.colors() if speakers is not None else None
             spoken = list(clip_cues or [])  # on the cut's own clock, before any silence is taken out (for the teaser)
             keep: list[tuple[float, float]] = []
             if trim_silence and trim_silence > 0:
@@ -494,6 +511,7 @@ def make_clips(
                 sub_path = write_ass(
                     clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
                     credit=credit, credit_position=credit_position, duration=length, context=situation, context_seconds=context_seconds,
+                    speaker_colors=colors, speaker_names=speaker_names,
                 )
                 opts = replace(opts, subtitles=sub_path)
             planned, skipped = [], []
@@ -522,7 +540,8 @@ def make_clips(
             opened = 0.0
             if teaser > 0 and opts.format in ("mp4", "webm", "mov"):
                 opened = _open_with_teaser(clip_path, clip_video, h, offset, opts, spoken, teaser, out / f"{stem}.teaser.ass",
-                                           play_res=play_res, style=subtitle_style, karaoke=karaoke, credit=credit, credit_position=credit_position)
+                                           play_res=play_res, style=subtitle_style, karaoke=karaoke, credit=credit, credit_position=credit_position,
+                                           speaker_colors=colors, speaker_names=speaker_names)
             result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped, teaser=opened)
             named = _title_for(h, clip_cues or [], keep, source, profile, language=language, translate_to=translate_to if subtitle_translator else None,
                                glossary=glossary if subtitle_translator else None, template=title_template)
@@ -576,6 +595,16 @@ def _title_for(h: Highlight, cues: "Sequence[Cue]", keep, source: SourceInfo | N
                       stream_title=stream_title, agency=agency, language=lang, glossary=glossary, template=template, translated=translate_to is not None)
 
 
+def _speakers_by_track(cues: "Sequence[Cue]", video: str | os.PathLike[str], start: float, length: float, tracks: Sequence[int]) -> list[Cue]:
+    """Each line's speaker: the audio track (one microphone each) loudest while it is said."""
+    from .audio import decode_pcm
+    from .speakers import assign_from_tracks
+
+    rate = 8000
+    heard = {number: decode_pcm(video, sample_rate=rate, start=start, duration=length, track=number) for number in tracks}
+    return assign_from_tracks(cues, heard, rate)
+
+
 def _context_text(context: str | None, source: SourceInfo | None) -> str:
     """The top line of a clip's first seconds: given, or with ``"auto"`` the stream's topic from its title."""
     if not context or not context.strip():
@@ -593,7 +622,7 @@ TEASER_LEAD = 0.4
 
 def _open_with_teaser(
     clip: Path, video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, cues: "Sequence[Cue]", seconds: float, ass: Path,
-    *, play_res, style, karaoke: bool, credit: str | None, credit_position: str,
+    *, play_res, style, karaoke: bool, credit: str | None, credit_position: str, speaker_colors=None, speaker_names: bool = False,
 ) -> float:
     """Put ``seconds`` of the peak (with the same layout, captions and credit) in front of ``clip``; returns how long the teaser is."""
     from .audio import decode_pcm
@@ -615,7 +644,8 @@ def _open_with_teaser(
                    for c in cues if c.end > rel and c.start < rel + (last - first)]
     subs = None
     if teaser_cues or credit:
-        subs = write_ass(teaser_cues, ass, play_res=play_res, style=style, karaoke=karaoke, credit=credit, credit_position=credit_position, duration=last - first)
+        subs = write_ass(teaser_cues, ass, play_res=play_res, style=style, karaoke=karaoke, credit=credit, credit_position=credit_position, duration=last - first,
+                         speaker_colors=speaker_colors, speaker_names=speaker_names)
     part = clip.with_name(clip.stem + ".teaser" + clip.suffix)
     teaser_opts = replace(opts, start=first, end=last, keep=None, mix=None, subtitles=subs)
     export(video, part, teaser_opts)

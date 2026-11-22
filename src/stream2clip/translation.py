@@ -107,7 +107,7 @@ def translate_cues(
         text = (glossary.apply(text) if glossary else text).strip()
         if bilingual and original and text and text != original:
             text = f"{original}\n{text}"
-        out.append(Cue(cue.start, cue.end, text or original))
+        out.append(Cue(cue.start, cue.end, text or original, speaker=cue.speaker))
     return out
 
 

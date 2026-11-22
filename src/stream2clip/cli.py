@@ -445,6 +445,10 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
     s.add_argument("--glossary", help="CSV (source,target) or JSON of fixed translations, e.g. VTuber names")
     s.add_argument("--bilingual", action="store_true", help="keep the original line above the translation")
+    s.add_argument("--speaker", action="append", metavar="LABEL=NAME:#COLOR", help="name and caption colour of a speaker in a collab, e.g. SPEAKER_00=ぺこら:#57C7FF (a diarization label, or an audio track number with --speaker-tracks); name and colour optional; repeat per speaker")
+    s.add_argument("--speakers-rttm", metavar="FILE", help="who speaks when, from a diarization tool (RTTM, on the video's clock): each subtitle line is given its speaker; whisperX JSON subtitles carry speakers themselves")
+    s.add_argument("--speaker-tracks", metavar="N,N", help="audio tracks with one microphone each (0 is the first): each line's speaker is the loudest track; name them with --speaker N=NAME")
+    s.add_argument("--speaker-names", action="store_true", help="put the speaker's name in front of each line")
     c = p.add_argument_group("description & guideline check")
     c.add_argument("--agency", help="hololive | nijisanji | vspo | aogiri | generic")
     c.add_argument("--source-url", help="original stream URL (default: from --info)")
@@ -537,6 +541,21 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         )
     options = ExportOptions(format=args.format, fps=args.fps, quality=args.quality, layout=layout)
     cues = load_subtitles(args.subtitles) if args.subtitles else None
+    speakers, tracks = None, ()
+    if args.speaker:
+        from .speakers import SpeakerMap
+
+        speakers = SpeakerMap.parse(args.speaker)
+    if args.speakers_rttm:
+        from .speakers import assign_from_spans, read_rttm
+
+        if cues is None:
+            raise ValueError("--speakers-rttm gives the subtitle lines their speakers: give --subtitles too")
+        cues = assign_from_spans(cues, read_rttm(args.speakers_rttm))
+    if args.speaker_tracks:
+        tracks = tuple(int(part) for part in args.speaker_tracks.split(",") if part.strip())
+        if len(tracks) < 2:
+            raise ValueError("--speaker-tracks needs two or more audio tracks, e.g. 1,2")
     transcriber = FasterWhisperTranscriber(args.transcribe) if args.transcribe and cues is None else None
     subtitle_translator = glossary = None
     if args.translate:
@@ -570,6 +589,7 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
         soundtrack=soundtrack, loudness=args.loudness, title_template=args.title_template, add_hashtags=not args.no_hashtags,
         thumbnails=args.thumbnail, context=args.context, context_seconds=args.context_seconds, teaser=args.teaser or 0.0,
+        speakers=speakers, speaker_tracks=tracks, speaker_names=args.speaker_names,
     )
     for r in results:
         print(f"  {r.path}" + (f"  (+ {r.subtitles.name})" if r.subtitles else "") + (f"  (+ {r.description.name})" if r.description else "")

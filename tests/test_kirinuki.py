@@ -284,3 +284,86 @@ def test_cut_only_clips_are_flagged(green_screen_video, tmp_path):
     captioned = make_clips(green_screen_video, [h], tmp_path / "b", options=ExportOptions(format="mp4", fps=10), cues=[Cue(0.2, 1.0, "hi")])[0]
     assert not [i for i in captioned.issues if i.level != "info"]
     assert json.loads((tmp_path / "a" / "clips.json").read_text(encoding="utf-8"))["clips"][0]["issues"][0]["level"] == "warning"
+
+
+# --------------------------------------------------------------------------- speakers
+
+
+def test_speaker_map_names_and_colours():
+    from stream2clip.speakers import PALETTE, SpeakerMap
+
+    speakers = SpeakerMap.parse(["SPEAKER_00=ぺこら:#57c7ff", "SPEAKER_01=みこ", "2:#FF0000"])
+    assert speakers.resolve("SPEAKER_00").name == "ぺこら" and speakers.resolve("SPEAKER_00").color == "#57C7FF"
+    assert speakers.resolve("SPEAKER_01").color == PALETTE[0]  # no colour given: the palette's next
+    assert speakers.resolve("2").name == "2" and speakers.resolve("2").color == "#FF0000"
+    assert speakers.resolve("SPEAKER_07").color == PALETTE[1]  # one it was not told about
+    named = speakers.name([Cue(0, 1, "a", speaker="SPEAKER_00"), Cue(1, 2, "b")])
+    assert [c.speaker for c in named] == ["ぺこら", ""]
+    assert speakers.colors()["ぺこら"] == "#57C7FF"
+    with pytest.raises(ValueError):
+        SpeakerMap.parse(["=nobody"])
+
+
+def test_speakers_from_rttm_and_transcripts(tmp_path):
+    from stream2clip.speakers import assign_from_spans, read_rttm
+    from stream2clip.subtitles import load_subtitles
+
+    rttm = tmp_path / "talk.rttm"
+    rttm.write_text("SPEAKER talk 1 0.00 2.00 <NA> <NA> SPEAKER_00 <NA> <NA>\nSPEAKER talk 1 2.00 3.00 <NA> <NA> SPEAKER_01 <NA> <NA>\n", encoding="utf-8")
+    spans = read_rttm(rttm)
+    assert spans == [(0.0, 2.0, "SPEAKER_00"), (2.0, 5.0, "SPEAKER_01")]
+    cues = assign_from_spans([Cue(0.5, 1.5, "a"), Cue(2.5, 4.0, "b"), Cue(9.0, 10.0, "c"), Cue(1.8, 3.0, "d", speaker="X")], spans)
+    assert [c.speaker for c in cues] == ["SPEAKER_00", "SPEAKER_01", "", "X"]  # nobody at 9 s; a speaker already given stays
+    whisperx = tmp_path / "x.json"
+    whisperx.write_text(json.dumps({"segments": [{"start": 0, "end": 1, "text": "hi", "speaker": "SPEAKER_01"}]}), encoding="utf-8")
+    assert load_subtitles(whisperx)[0].speaker == "SPEAKER_01"
+
+
+def test_speakers_from_microphone_tracks():
+    import numpy as np
+
+    from stream2clip.speakers import assign_from_tracks
+
+    rate = 8000
+    t = np.arange(3 * rate) / rate
+    a = (0.3 * np.sin(2 * np.pi * 200 * t) * (t < 1.0)).astype(np.float32) + 0.001
+    b = (0.3 * np.sin(2 * np.pi * 300 * t) * ((t >= 1.0) & (t < 2.0))).astype(np.float32) + 0.001
+    cues = assign_from_tracks([Cue(0.1, 0.9, "a"), Cue(1.1, 1.9, "b"), Cue(2.1, 2.9, "quiet"), Cue(0.5, 1.5, "both")], {1: a, 2: b}, rate)
+    assert [c.speaker for c in cues] == ["1", "2", "", ""]  # silence and an even split stay unknown
+
+
+def test_speaker_colours_in_the_captions():
+    from stream2clip.subtitles import _ass_color, to_ass
+
+    cues = [Cue(0, 1, "a", speaker="ぺこら"), Cue(1, 2, "b", speaker="みこ"), Cue(2, 3, "c")]
+    ass = to_ass(cues, play_res=(1080, 1920), speaker_colors={"ぺこら": "#57C7FF", "みこ": "#FF5C9A"}, speaker_names=True)
+    styles = {line.split(",")[0][7:]: line.split(",") for line in ass.splitlines() if line.startswith("Style: ")}
+    assert styles["Speaker1"][5] == _ass_color("#57C7FF") and styles["Speaker2"][5] == _ass_color("#FF5C9A")
+    events = [line for line in ass.splitlines() if line.startswith("Dialogue")]
+    assert ",Speaker1,ぺこら," in events[0] and "ぺこら: " in events[0] and ",Default,," in events[2]
+    plain = to_ass(cues, play_res=(1080, 1920))  # no colours: every line keeps the default look
+    assert "Speaker1" not in plain
+
+
+@needs_ffmpeg
+def test_collab_clip_with_a_microphone_per_track(tmp_path):
+    import subprocess
+
+    from stream2clip.ffmpeg import ExportOptions
+    from stream2clip.pipeline import make_clips
+    from stream2clip.speakers import SpeakerMap
+
+    video = tmp_path / "collab.mkv"
+    subprocess.run(  # track 0 the mix, track 1 one talent (first second), track 2 the other (second second)
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=160x120:r=10:d=2",
+         "-f", "lavfi", "-i", r"aevalsrc=0.3*sin(2*PI*200*t)*lt(t\,1)+0.3*sin(2*PI*300*t)*gte(t\,1):s=16000:d=2",
+         "-f", "lavfi", "-i", r"aevalsrc=0.3*sin(2*PI*200*t)*lt(t\,1)+0.0005*sin(2*PI*50*t):s=16000:d=2",
+         "-f", "lavfi", "-i", r"aevalsrc=0.3*sin(2*PI*300*t)*gte(t\,1)+0.0005*sin(2*PI*50*t):s=16000:d=2",
+         "-map", "0:v", "-map", "1:a", "-map", "2:a", "-map", "3:a", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", str(video)],
+        check=True,
+    )
+    cues = [Cue(0.1, 0.9, "first"), Cue(1.1, 1.9, "second")]
+    results = make_clips(video, [Highlight(1, 0.0, 2.0, 1.0, 1.0)], tmp_path / "out", options=ExportOptions(format="mp4", fps=10), cues=cues,
+                         speakers=SpeakerMap.parse(["1=Pekora:#57C7FF", "2=Miko:#FF5C9A"]), speaker_tracks=(1, 2))
+    ass = results[0].subtitles.read_text(encoding="utf-8")
+    assert ",Speaker1,Pekora," in ass and ",Speaker2,Miko," in ass
