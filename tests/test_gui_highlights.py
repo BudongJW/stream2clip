@@ -489,6 +489,46 @@ def test_music_and_a_sound_effect_from_the_window(app, window, stream_files, tmp
     again.close()
 
 
+def test_sound_library_window(app, window, tmp_path):
+    from stream2clip.gui.sounds import SoundEntryDialog
+    from stream2clip.soundtrack import SoundLibrary, synth, write_wav
+
+    downloaded = write_wav(synth("ding"), tmp_path / "Downloads" / "cafe.wav")
+    entry = SoundEntryDialog(str(downloaded))
+    assert entry.name_edit.text() == "cafe" and not entry.ok_button.isEnabled()  # a license has to be chosen
+    entry.license_combo.setCurrentIndex(entry.license_combo.findData("otologic"))
+    entry.title_edit.setText("Cafe")
+    assert entry.ok_button.isEnabled() and "BGM by OtoLogic(CC BY 4.0)" in entry.preview.text()
+    entry.license_combo.setCurrentIndex(entry.license_combo.findData("cc-by-nd-4.0"))
+    assert "x " in entry.preview.text()  # an error: ND may not be put to picture
+    entry.license_combo.setCurrentIndex(entry.license_combo.findData("otologic"))
+    facts = entry.facts()
+    entry.close()
+
+    dialog = window.open_sound_library()  # tests: built, not shown modally
+    assert dialog.table.rowCount() == 0 and not dialog.use_button.isEnabled()
+    dialog.add_file(str(downloaded), facts)
+    dialog.add_file(str(downloaded), {**facts, "name": "pop2", "kind": "sfx", "license": "cc0"})
+    assert dialog.table.rowCount() == 2 and dialog.table.item(0, 2).text() == "OtoLogic, CC BY 4.0"
+    assert SoundLibrary().find("cafe").path.parent == SoundLibrary().folder  # copied into the app's library
+    dialog.table.selectRow(1)
+    dialog.use_selected()  # an effect is not music: nothing is picked
+    assert window.bgm_edit.text() == ""
+    dialog.table.selectRow(0)
+    dialog.use_selected()
+    assert window.bgm_edit.text() == "cafe"
+    dialog.table.selectRow(1)
+    dialog.remove_selected()
+    assert dialog.table.rowCount() == 1 and SoundLibrary().find("pop2") is None
+
+    assert not window.loudness_check.isChecked()
+    window.loudness_check.setChecked(True)
+    window.remember()
+    again = HighlightsWindow()
+    assert again.loudness_check.isChecked() and again.bgm_edit.text() == "cafe"
+    again.close()
+
+
 @needs_ffmpeg
 def test_quiet_parts_are_shortened_when_asked(app, window, tmp_path):
     from stream2clip.export import probe

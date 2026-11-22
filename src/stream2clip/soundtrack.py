@@ -51,6 +51,7 @@ __all__ = [
     "get_license",
     "library_dir",
     "measure",
+    "onset_near",
     "plan_mix",
     "render_builtin",
     "resolve_sound",
@@ -112,6 +113,14 @@ LICENSES: dict[str, License] = {
     "cc-by-nc-sa-4.0": _cc("cc-by-nc-sa-4.0", "CC BY-NC-SA 4.0", "by-nc-sa/4.0", commercial=False, share_alike=True, notes=_NC + _SA),
     "cc-by-nd-4.0": _cc("cc-by-nd-4.0", "CC BY-ND 4.0", "by-nd/4.0", sync=False, notes=_ND),
     "cc-by-nc-nd-4.0": _cc("cc-by-nc-nd-4.0", "CC BY-NC-ND 4.0", "by-nc-nd/4.0", commercial=False, sync=False, notes=_NC + _ND),
+    # 3.0 versions, common on Freesound and ccMixter (found through Openverse)
+    "cc-by-sa-3.0": _cc("cc-by-sa-3.0", "CC BY-SA 3.0", "by-sa/3.0", share_alike=True, notes=_SA),
+    "cc-by-nc-3.0": _cc("cc-by-nc-3.0", "CC BY-NC 3.0", "by-nc/3.0", commercial=False, notes=_NC),
+    "cc-by-nc-sa-3.0": _cc("cc-by-nc-sa-3.0", "CC BY-NC-SA 3.0", "by-nc-sa/3.0", commercial=False, share_alike=True, notes=_NC + _SA),
+    "cc-by-nd-3.0": _cc("cc-by-nd-3.0", "CC BY-ND 3.0", "by-nd/3.0", sync=False, notes=_ND),
+    "cc-by-nc-nd-3.0": _cc("cc-by-nc-nd-3.0", "CC BY-NC-ND 3.0", "by-nc-nd/3.0", commercial=False, sync=False, notes=_NC + _ND),
+    "pdm": License("pdm", "Public Domain Mark 1.0", "https://creativecommons.org/publicdomain/mark/1.0/", "2026-11-22", attribution="none",
+                   notes=(mark("퍼블릭 도메인 표시: 라이선스가 아니라 저작권이 없다는 표시. 나라마다 보호 기간이 달라 원본 페이지 확인"),)),
     "youtube-audio-library": License(
         "youtube-audio-library", "YouTube Audio Library", "https://support.google.com/youtube/answer/3376882", "2026-11-22", attribution="none",
         notes=(mark("YouTube Studio의 오디오 보관함에서 직접 내려받은 곡만 해당. YouTube 밖에서의 사용 조건은 Studio 안의 약관 확인"),),
@@ -332,11 +341,15 @@ class SoundLibrary:
         if self.folder.resolve() in source.resolve().parents or not copy:
             path = source
         else:
+            import filecmp
+
             self.folder.mkdir(parents=True, exist_ok=True)
-            path = self.folder / source.name
-            if path.exists():
-                raise FileExistsError(f"{path} is already in the library folder")
-            shutil.copy2(source, path)
+            path, number = self.folder / source.name, 1
+            while path.exists() and not filecmp.cmp(path, source, shallow=False):  # another file of the same name: number this one
+                number += 1
+                path = self.folder / f"{source.stem}-{number}{source.suffix}"
+            if not path.exists():
+                shutil.copy2(source, path)
         sound = Sound(path=path, kind=kind, name=name, license=lic, tags=tuple(facts.pop("tags", ()) or ()), hit=hit,
                       **{key: str(value or "") for key, value in facts.items() if key in ("title", "author", "url", "credit")})
         self.sounds.append(sound)
@@ -529,6 +542,38 @@ def active_level(samples: np.ndarray, rate: int, *, frame: float = 0.05, spread:
     return max(-90.0, round(10.0 * np.log10(float(np.mean(kept))), 2))
 
 
+def onset_near(samples: np.ndarray, rate: int, moment: float, *, before: float = 2.5, after: float = 1.0, rise: float = 9.0) -> float:
+    """The start of the sharpest jump in loudness near ``moment`` (a shout, a laugh, a hit), or ``moment`` itself.
+
+    A highlight's peak comes from chat counted in 5 s windows, so it points at the right few
+    seconds, not at the instant. Within ``before`` seconds before and ``after`` seconds after it,
+    every 20 ms frame is scored by how far its level rose above the quietest of the 200 ms
+    before it; the best frame that rose at least ``rise`` dB and reaches within 15 dB of the
+    recording's loud parts wins. Seconds from the start of ``samples``.
+    """
+    hop = max(1, int(round(0.02 * rate)))
+    count = len(samples) // hop
+    if count < 12:
+        return moment
+    frames = np.asarray(samples[: count * hop], dtype=np.float64).reshape(count, hop)
+    db = 10.0 * np.log10(np.maximum(np.mean(frames * frames, axis=1), 1e-12))
+    loud = float(np.percentile(db, 95))
+    floor = np.array([db[max(0, i - 10) : i].min() if i else db[0] for i in range(count)])
+    jump = db - floor
+    first, last = max(1, int((moment - before) / 0.02)), min(count, int((moment + after) / 0.02) + 1)
+    if last <= first:
+        return moment
+    window = np.arange(first, last)
+    good = window[(jump[window] >= rise) & (db[window] >= loud - 15.0)]
+    if good.size == 0:
+        return moment
+    best = int(good[np.argmax(jump[good])])
+    base = floor[best]
+    while best > 0 and db[best - 1] > base + 3.0:  # back to the first frame above the quiet before it (at most 200 ms)
+        best -= 1
+    return round(best * 0.02, 3)
+
+
 def measure(path: str | os.PathLike[str], *, start: float | None = None, duration: float | None = 90.0, track: int | None = None, ffmpeg: str | None = None) -> tuple[float, float]:
     """(active level in dBFS, length in seconds of what was read) of a media file, decoded by ffmpeg at 16 kHz."""
     from .audio import decode_pcm
@@ -584,6 +629,8 @@ class Soundtrack:
     fade_out: float = 1.5
     effect_under: float = 3.0
     effect_volume: float | None = None
+    #: Move an effect at the peak to the nearest sharp rise in the clip's sound (see :func:`onset_near`).
+    snap: bool = True
 
     def __post_init__(self) -> None:
         if any(s.kind != "bgm" for s in self.music):

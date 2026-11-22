@@ -29,6 +29,10 @@ __all__ = [
     "AudioLayer",
     "AudioMix",
     "ExportOptions",
+    "Loudness",
+    "audio_filters",
+    "build_loudness_command",
+    "parse_loudnorm",
     "RawVideoInput",
     "FFmpegNotFoundError",
     "find_ffmpeg",
@@ -161,6 +165,54 @@ class AudioMix:
 
 
 @dataclass(frozen=True)
+class Loudness:
+    """Bring a clip's sound to ``target`` LUFS with ffmpeg's ``loudnorm`` in two passes.
+
+    The first pass only measures (:func:`build_loudness_command`, read by :func:`parse_loudnorm`);
+    ``measured`` then holds (integrated, true peak, range, threshold, offset) and the export
+    applies one fixed gain (``linear=true``) instead of riding the level. YouTube turns loud
+    videos down to about -14 LUFS and leaves quiet ones as they are, so -14 is the default.
+    """
+
+    target: float = -14.0
+    true_peak: float = -1.5
+    lra: float = 11.0
+    measured: "tuple[float, float, float, float, float] | None" = None
+
+    def __post_init__(self) -> None:
+        if not -40.0 <= self.target <= -5.0:
+            raise ValueError("The loudness target is in LUFS, -40..-5")
+        if not -9.0 <= self.true_peak <= 0.0:
+            raise ValueError("The true peak limit is in dBTP, -9..0")
+
+    def filter(self) -> str:
+        if self.measured is None:
+            return f"loudnorm=I={self.target:g}:TP={self.true_peak:g}:LRA={self.lra:g}:print_format=json"
+        i, tp, lra, thresh, offset = self.measured
+        span = min(20.0, max(self.lra, lra + 1.0))  # a target range narrower than the clip's own would make loudnorm ride the level
+        return (f"loudnorm=I={self.target:g}:TP={self.true_peak:g}:LRA={span:g}:measured_I={i:.2f}:measured_TP={tp:.2f}"
+                f":measured_LRA={lra:.2f}:measured_thresh={thresh:.2f}:offset={offset:.2f}:linear=true,aresample=48000")
+
+
+def parse_loudnorm(stderr: str) -> "tuple[float, float, float, float, float] | None":
+    """The values the first ``loudnorm`` pass printed, or ``None`` when there was nothing to measure (silence)."""
+    import json
+
+    end = stderr.rfind("}")
+    start = stderr.rfind("{", 0, end)
+    if start < 0 or end < 0:
+        return None
+    try:
+        data = json.loads(stderr[start : end + 1])
+        values = tuple(float(data[key]) for key in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset"))
+    except (ValueError, KeyError):
+        return None
+    if any(v != v or v in (float("inf"), float("-inf")) for v in values) or values[0] < -70.0:
+        return None
+    return values  # type: ignore[return-value]
+
+
+@dataclass(frozen=True)
 class ExportOptions:
     """Everything that shapes an exported clip.
 
@@ -197,6 +249,8 @@ class ExportOptions:
     keep: "tuple[tuple[float, float], ...] | None" = None
     #: Background music and sound effects laid over the clip's sound (see :mod:`stream2clip.soundtrack`).
     mix: AudioMix | None = None
+    #: Bring the finished sound to a loudness target (two passes; :func:`stream2clip.export.export` measures first).
+    loudness: Loudness | None = None
 
     def __post_init__(self) -> None:
         if self.format not in FORMATS:
@@ -227,6 +281,8 @@ class ExportOptions:
                 last = b
         if self.mix is not None and self.mix.layers and self.format not in _AUDIO_CODECS:
             raise ValueError(f"{self.format.upper()} has no sound: music and sound effects need one of {', '.join(sorted(_AUDIO_CODECS))}")
+        if self.loudness is not None and self.format not in _AUDIO_CODECS:
+            raise ValueError(f"{self.format.upper()} has no sound to bring to a loudness: use one of {', '.join(sorted(_AUDIO_CODECS))}")
 
     @property
     def duration(self) -> float | None:
@@ -518,25 +574,69 @@ def build_export_command(
 
     wants_audio = options.audio and raw_input is None and options.format in _AUDIO_CODECS
     graph = build_video_filter(options)
-    mix = options.mix if options.mix is not None and options.mix.layers else None
+    mix = _mix_of(options)
     if mix is not None:
         if not wants_audio:
             raise ValueError("Music and sound effects need a video file with sound kept (audio=True)")
-        first = 1 + (1 if options.layout is not None and options.layout.uses_avatar_video else 0)
         cmd += mix_input_args(mix)
-        if mix.voice and options.keep:  # the clip's sound loses its silences first, then the music goes under what is left
-            audio = keep_filters(options, audio_out="[kv]")[1] + ";" + mix_filters(mix, first_input=first, voice_in="[kv]")
-        else:
-            audio = mix_filters(mix, first_input=first, voice_in="[0:a:0]" if mix.voice else None)
+    audio = audio_filters(options) if wants_audio else None
+    if audio:
         cmd += ["-filter_complex", f"{graph};{audio}", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
-    elif wants_audio and options.keep:  # the sound loses the same parts as the picture (the input must have sound)
-        cmd += ["-filter_complex", f"{graph};{keep_filters(options)[1]}", "-map", "[v]", "-map", "[a]"] + _AUDIO_CODECS[options.format]
     elif wants_audio:
         cmd += ["-filter_complex", graph, "-map", "[v]", "-map", "0:a:0?"] + _AUDIO_CODECS[options.format]
     else:
         cmd += ["-filter_complex", graph, "-map", "[v]", "-an"]
     cmd += _codec_args(options)
     cmd.append(os.fspath(output_path))
+    return cmd
+
+
+def _mix_of(options: ExportOptions) -> AudioMix | None:
+    return options.mix if options.mix is not None and options.mix.layers else None
+
+
+def audio_filters(options: ExportOptions, *, audio_out: str = "[a]") -> str | None:
+    """The audio graph of an export (``None``: the input's first audio track is copied through as it is).
+
+    In order: silences cut (``keep``), music and effects laid over what is left (``mix``, read
+    from the inputs after the video and the avatar video), loudness brought to its target.
+    """
+    mix = _mix_of(options)
+    loud = options.loudness
+    head = audio_out if loud is None else "[pre]"
+    if mix is not None:
+        first = 1 + (1 if options.layout is not None and options.layout.uses_avatar_video else 0)
+        if mix.voice and options.keep:  # the clip's sound loses its silences first, then the music goes under what is left
+            graph = keep_filters(options, audio_out="[kv]")[1] + ";" + mix_filters(mix, first_input=first, voice_in="[kv]", audio_out=head)
+        else:
+            graph = mix_filters(mix, first_input=first, voice_in="[0:a:0]" if mix.voice else None, audio_out=head)
+    elif options.keep:  # the sound loses the same parts as the picture (the input must have sound)
+        graph = keep_filters(options, audio_out=head)[1]
+    elif loud is not None:
+        return f"[0:a:0]{loud.filter()}{audio_out}"
+    else:
+        return None
+    return graph if loud is None else f"{graph};[pre]{loud.filter()}{audio_out}"
+
+
+def build_loudness_command(input_path: str | os.PathLike[str], options: ExportOptions, *, ffmpeg: str | None = None) -> list[str]:
+    """First loudness pass: run the export's audio graph through ``loudnorm`` that only measures (no file is written).
+
+    Its log ends with the JSON that :func:`parse_loudnorm` reads.
+    """
+    if options.loudness is None:
+        raise ValueError("No loudness target to measure for")
+    measuring = replace(options, loudness=replace(options.loudness, measured=None))
+    cmd = [ffmpeg or find_ffmpeg(), "-hide_banner", "-nostats", "-loglevel", "info", "-nostdin"]
+    if options.start is not None:
+        cmd += ["-ss", f"{options.start:.3f}"]
+    if options.duration is not None:
+        cmd += ["-t", f"{options.duration:.3f}"]
+    cmd += ["-i", os.fspath(input_path), *avatar_input_args(options)]
+    mix = _mix_of(options)
+    if mix is not None:
+        cmd += mix_input_args(mix)
+    cmd += ["-filter_complex", audio_filters(measuring) or "", "-map", "[a]", "-vn", "-f", "null", "-"]
     return cmd
 
 

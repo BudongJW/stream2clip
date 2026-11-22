@@ -330,16 +330,18 @@ class _Sounds:
                 self._levels[key] = measure(self.path_of(sound), duration=None)
         return self._levels[key]
 
-    def voice_level(self, video: str | os.PathLike[str], start: float, length: float) -> float | None:
-        """Active level of the clip's own (first) audio track; ``None`` when the video has no sound."""
-        from .soundtrack import measure
+    def voice(self, video: str | os.PathLike[str], start: float, length: float) -> "tuple[float, np.ndarray] | None":
+        """(active level, 16 kHz samples) of the clip's own (first) audio track; ``None`` when the video has no sound."""
+        from .audio import decode_pcm
+        from .soundtrack import active_level
 
         key = os.fspath(video)
         if key not in self._voice:
             self._voice[key] = probe(video).has_audio
         if not self._voice[key]:
             return None
-        return measure(video, start=start, duration=length, track=0)[0]
+        samples = decode_pcm(video, sample_rate=16000, start=start, duration=length, track=0)
+        return active_level(samples, 16000), samples
 
 
 def make_clips(
@@ -370,6 +372,7 @@ def make_clips(
     silence_level: float = 24.0,
     audio_track: int | None = None,
     soundtrack: "Soundtrack | None" = None,
+    loudness: float | None = None,
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -381,6 +384,9 @@ def make_clips(
     while someone speaks, an effect at the peak lands on the highlight's top moment (after
     ``trim_silence``, on where that moment went). The credits go into each description and
     the licenses into the guideline check.
+
+    ``loudness`` brings each clip's finished sound to that many LUFS (YouTube turns louder
+    videos down to about -14 and leaves quieter ones as they are), measured in a first pass.
 
     ``trim_silence`` shortens the pauses inside each clip: a stretch that stays ``silence_level``
     dB below the clip's loud parts for at least that many seconds is cut down to a short pause.
@@ -396,6 +402,10 @@ def make_clips(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     options = options or default_clip_options()
+    if loudness is not None:
+        from .ffmpeg import Loudness
+
+        options = replace(options, loudness=Loudness(target=loudness))
 
     def footage(h: Highlight) -> tuple[str | os.PathLike[str], float]:
         if section is None:
@@ -454,12 +464,15 @@ def make_clips(
                 opts = replace(opts, subtitles=sub_path)
             planned = []
             if sounds is not None:
-                from .soundtrack import plan_mix
+                from .soundtrack import onset_near, plan_mix
                 from .subtitles import clip_time
 
+                heard = sounds.voice(clip_video, opts.start or 0.0, h.end - h.start)
                 peak = min(max(0.0, h.peak - h.start), h.end - h.start)
+                if heard is not None and sounds.soundtrack.snap and any(e.when == "peak" for e in sounds.soundtrack.effects):
+                    peak = onset_near(heard[1], 16000, peak)
                 plan = plan_mix(
-                    sounds.soundtrack, index - 1, length=length, voice_level=sounds.voice_level(clip_video, opts.start or 0.0, h.end - h.start),
+                    sounds.soundtrack, index - 1, length=length, voice_level=heard[0] if heard is not None else None,
                     peak=clip_time(peak, keep) if keep else peak, reactions=h.stats, levels=sounds.levels, path_of=sounds.path_of,
                 )
                 if plan is not None:

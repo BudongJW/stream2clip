@@ -766,7 +766,14 @@ class HighlightsWindow(QMainWindow):
         grid.addWidget(self.bgm_edit, 11, 1)
         pick_bgm = QPushButton(tr("찾기"))
         pick_bgm.clicked.connect(lambda: self._browse(self.bgm_edit, "Audio (*.mp3 *.wav *.ogg *.m4a *.flac *.opus);;All files (*)"))
-        grid.addWidget(pick_bgm, 11, 2)
+        self.library_button = QPushButton(tr("목록"))
+        self.library_button.setToolTip(tr("음원 목록: 내려받은 음원을 출처, 라이선스와 함께 기록하고 골라 쓰기"))
+        self.library_button.clicked.connect(self.open_sound_library)
+        bgm_buttons = QHBoxLayout()
+        bgm_buttons.setSpacing(6)
+        bgm_buttons.addWidget(pick_bgm)
+        bgm_buttons.addWidget(self.library_button)
+        grid.addLayout(bgm_buttons, 11, 2)
 
         grid.addWidget(QLabel(tr("효과음")), 12, 0)
         self.sfx_combo = QComboBox()
@@ -780,13 +787,18 @@ class HighlightsWindow(QMainWindow):
         self.sfx_time_combo.setToolTip(tr("효과음을 넣을 때: 하이라이트의 최고 순간, 클립의 시작 또는 끝"))
         grid.addWidget(self.sfx_time_combo, 12, 2)
 
-        grid.addWidget(QLabel(tr("저장")), 13, 0)
+        grid.addWidget(QLabel(tr("음량")), 13, 0)
+        self.loudness_check = QCheckBox(tr("-14 LUFS로 맞추기"))
+        self.loudness_check.setToolTip(tr("클립 소리를 YouTube 기준 음량(-14 LUFS)에 맞춤. 작게 녹음된 방송도 다른 Shorts와 비슷한 크기로 들림.\n한 번 측정한 후 일정하게 키우거나 줄이므로 내보내기 시간이 조금 늘어남 (MP4, WebM)"))
+        grid.addWidget(self.loudness_check, 13, 1, 1, 2)
+
+        grid.addWidget(QLabel(tr("저장")), 14, 0)
         self.output_edit = QLineEdit(str(default_clip_dir()))
-        grid.addWidget(self.output_edit, 13, 1)
+        grid.addWidget(self.output_edit, 14, 1)
         pick = QPushButton(tr("폴더"))
         pick.clicked.connect(self._pick_output)
-        grid.addWidget(pick, 13, 2)
-        grid.setRowStretch(14, 1)
+        grid.addWidget(pick, 14, 2)
+        grid.setRowStretch(15, 1)
         self._on_layout_changed()
         return card
 
@@ -829,7 +841,7 @@ class HighlightsWindow(QMainWindow):
     # ------------------------------------------------------------------ remembered settings
     def _restore(self) -> None:
         saved = load_section("highlights")
-        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion")):
+        for check, key in ((self.audio_check, "audio"), (self.laughter_check, "laughter"), (self.snap_check, "snap"), (self.karaoke_check, "karaoke"), (self.bilingual_check, "bilingual"), (self.compile_check, "compile"), (self.silence_check, "trim_silence"), (self.motion_check, "avatar_motion"), (self.loudness_check, "loudness")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
         for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when")):
@@ -865,6 +877,7 @@ class HighlightsWindow(QMainWindow):
             "session_origin": self.origin_combo.currentData(), "session_offset": round(self.offset_spin.value(), 1), "skip_scenes": self.skip_scene_edit.text().strip(),
             "avatar_motion": self.motion_check.isChecked(), "audio_track": self.track_spin.value(),
             "bgm": self.bgm_edit.text().strip(), "sfx": self.sfx_combo.currentData(), "sfx_when": self.sfx_time_combo.currentData(),
+            "loudness": self.loudness_check.isChecked(),
             "last_dir": self.last_dir,
         })
 
@@ -1048,6 +1061,17 @@ class HighlightsWindow(QMainWindow):
             avatar = Region.parse(text)
         assert kind in LAYOUTS
         return VerticalLayout(kind, avatar=avatar)
+
+    def open_sound_library(self):
+        """The sound library window; a track picked there goes into the music box."""
+        from .sounds import SoundLibraryDialog
+
+        dialog = SoundLibraryDialog(parent=self)
+        dialog.picked.connect(self.bgm_edit.setText)
+        self.sound_library = dialog
+        if self.dialogs:
+            dialog.exec()
+        return dialog
 
     def _pick_avatar_video(self) -> None:
         self._browse(self.avatar_video_edit, "Video (*.mp4 *.mkv *.webm *.mov);;All files (*)")
@@ -1304,6 +1328,7 @@ class HighlightsWindow(QMainWindow):
         bgm_spec = self.bgm_edit.text().strip()
         sfx_key = self.sfx_combo.currentData() or ""
         sfx_when = self.sfx_time_combo.currentData() or "peak"
+        loudness = -14.0 if self.loudness_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm") else None
         self.last_compilation = None
         if translator_spec and not subs_path and model is None:
             self._on_failed(tr("번역하려면 자막이 필요합니다. 자막 파일을 고르거나 받아쓰기를 켜세요."))
@@ -1350,7 +1375,7 @@ class HighlightsWindow(QMainWindow):
             results = make_clips(
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
-                subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track, soundtrack=soundtrack,
+                subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track, soundtrack=soundtrack, loudness=loudness,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),
             )

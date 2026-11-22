@@ -205,6 +205,11 @@ def test_library_remembers_where_a_sound_came_from(tmp_path):
         again.add(downloaded, name="cafe", license="otologic")
     with pytest.raises(ValueError, match="Unknown license"):
         again.add(downloaded, name="other", license="free-for-sure")
+    assert again.add(downloaded, name="cafe-sfx", kind="sfx", license="otologic").path == sound.path  # the same file is not copied twice
+    namesake = write_wav(tone(900, 0.5), tmp_path / "elsewhere" / "OtoLogic - Cafe.wav")
+    assert again.add(namesake, name="other-cafe", license="cc0").path.name == "OtoLogic - Cafe-2.wav"
+    again.remove("cafe-sfx")
+    again.remove("other-cafe")
     loose = resolve_sound(str(downloaded), "bgm", again)
     assert loose.license == "" and loose.name == "OtoLogic - Cafe"
     again.remove("cafe")
@@ -326,7 +331,7 @@ def test_effect_follows_the_peak_when_silences_are_cut(tmp_path):
          "-f", "lavfi", "-i", "aevalsrc='0.4*sin(2*PI*440*t)*lt(mod(t,3),1)':s=48000:d=9", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", str(video)],
         check=True,
     )
-    track = Soundtrack(effects=(Effect(builtin_sound("ding")),))
+    track = Soundtrack(effects=(Effect(builtin_sound("ding")),), snap=False)  # the peak as chat put it, to follow it through the cuts
     results = make_clips(video, [Highlight(1, 0.0, 9.0, 6.5, 5.0)], tmp_path / "clips", options=ExportOptions(format="mp4", fps=10), soundtrack=track, trim_silence=0.7)
     clip = results[0]
     assert clip.removed > 2.0
@@ -380,3 +385,176 @@ def test_clip_options_build_a_soundtrack(tmp_path):
     assert track.music[0].path == song and track.under == 15.0 and not track.duck
     assert [(e.sound.name, e.when) for e in track.effects] == [("auto", "peak"), ("whoosh", "start")]
     assert _soundtrack(build_parser().parse_args(["clips", "v.mp4", "--highlights", "h.json", "-o", str(tmp_path)])) is None
+
+
+# --------------------------------------------------------------------------- loudness
+
+
+LOUDNORM_LOG = """[Parsed_loudnorm_0 @ 000001]
+{
+	"input_i" : "-23.84",
+	"input_tp" : "-6.46",
+	"input_lra" : "7.10",
+	"input_thresh" : "-34.30",
+	"output_i" : "-14.02",
+	"output_tp" : "-1.50",
+	"output_lra" : "5.20",
+	"output_thresh" : "-24.40",
+	"normalization_type" : "dynamic",
+	"target_offset" : "0.02"
+}
+"""
+
+
+def test_loudness_two_passes_in_the_graph():
+    from stream2clip.ffmpeg import Loudness, audio_filters, build_loudness_command, parse_loudnorm
+
+    measured = parse_loudnorm(LOUDNORM_LOG)
+    assert measured == (-23.84, -6.46, 7.1, -34.3, 0.02)
+    assert parse_loudnorm(LOUDNORM_LOG.replace('"-23.84"', '"-inf"')) is None and parse_loudnorm("no json here") is None
+    assert Loudness().filter() == "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json"
+    second = Loudness(measured=measured).filter()
+    assert "measured_I=-23.84" in second and "offset=0.02" in second and "linear=true" in second and second.endswith(",aresample=48000")
+    assert ":LRA=11:" in second  # the clip's own range (7.1) fits in the target's
+    assert ":LRA=20:" in Loudness(measured=(-20.0, -3.0, 25.0, -30.0, 0.0)).filter()  # widened for a wide clip, at most 20
+    plain = audio_filters(ExportOptions(format="mp4", loudness=Loudness(measured=measured)))
+    assert plain.startswith("[0:a:0]loudnorm=I=-14") and plain.endswith("[a]")
+    assert audio_filters(ExportOptions(format="mp4")) is None  # nothing to do: the track is copied through
+    trimmed = audio_filters(ExportOptions(format="mp4", fps=10, keep=((0.0, 1.0), (2.0, 3.0)), loudness=Loudness()))
+    assert "concat=n=2:v=0:a=1[pre];[pre]loudnorm=" in trimmed
+    mix = AudioMix((AudioLayer("bgm.mp3", loop=True),), length=3.0)
+    mixed = audio_filters(ExportOptions(format="mp4", mix=mix, loudness=Loudness()))
+    assert "level=0[pre];[pre]loudnorm=" in mixed  # after the limiter of the mix
+    cmd = build_loudness_command("in.mp4", ExportOptions(format="mp4", start=5, end=8, mix=mix, loudness=Loudness(measured=measured)), ffmpeg="ffmpeg")
+    assert cmd[-3:] == ["-f", "null", "-"] and "bgm.mp3" in cmd and "-vn" in cmd and "print_format=json" in cmd[cmd.index("-filter_complex") + 1]
+    with pytest.raises(ValueError, match="no sound"):
+        ExportOptions(format="gif", loudness=Loudness())
+    with pytest.raises(ValueError):
+        Loudness(target=0)
+
+
+def integrated(path: Path) -> float:
+    import re
+
+    log = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-af", "ebur128", "-f", "null", "-"], capture_output=True, text=True).stderr
+    return float(re.findall(r"I:\s+(-?[\d.]+) LUFS", log)[-1])
+
+
+@needs_ffmpeg
+def test_export_brings_the_sound_to_the_target(talk_then_pause, tmp_path):
+    from stream2clip.export import export, measure_loudness, probe
+    from stream2clip.ffmpeg import Loudness
+
+    quiet = tmp_path / "quiet.mp4"
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(talk_then_pause), "-af", "volume=-12dB", "-c:v", "copy", "-c:a", "aac", str(quiet)], check=True)
+    before = integrated(quiet)
+    out = export(quiet, tmp_path / "loud.mp4", ExportOptions(format="mp4", fps=10, loudness=Loudness()))
+    assert before < -24 and integrated(out) == pytest.approx(-14.0, abs=1.0)
+    mute = tmp_path / "mute.mp4"
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=64x64:r=10:d=2", "-c:v", "libx264", "-preset", "ultrafast", str(mute)], check=True)
+    assert measure_loudness(mute, ExportOptions(format="mp4", loudness=Loudness())).loudness is None  # no sound: nothing to bring up
+    assert not probe(export(mute, tmp_path / "still_mute.mp4", ExportOptions(format="mp4", fps=10, loudness=Loudness()))).has_audio
+
+
+# --------------------------------------------------------------------------- effects on the moment
+
+
+def burst_at(seconds: float, length: float = 8.0, rate: int = 16000) -> np.ndarray:
+    rng = np.random.default_rng(1)
+    samples = rng.normal(0, 0.002, int(length * rate)).astype(np.float32)  # a quiet room
+    i = int(seconds * rate)
+    piece = tone(300, 0.6, amplitude=0.4, rate=rate)[: samples.size - i]
+    samples[i : i + piece.size] += piece
+    return samples
+
+
+def test_effects_snap_to_the_nearest_sharp_rise():
+    from stream2clip.soundtrack import onset_near
+
+    assert onset_near(burst_at(3.2), 16000, 4.0) == pytest.approx(3.2, abs=0.04)  # the shout began before chat reacted
+    assert onset_near(burst_at(4.6), 16000, 4.0) == pytest.approx(4.6, abs=0.04)
+    assert onset_near(burst_at(0.5), 16000, 4.0) == 4.0  # too far before: left where chat put it
+    assert onset_near(burst_at(7.0)[: 16000 * 6], 16000, 4.0) == 4.0  # nothing near
+    assert onset_near(np.zeros(100, dtype=np.float32), 16000, 0.5) == 0.5
+
+
+@needs_ffmpeg
+def test_peak_effect_lands_on_the_shout(tmp_path):
+    from stream2clip.pipeline import make_clips
+
+    video = tmp_path / "shout.mp4"
+    subprocess.run(  # quiet until a loud tone starts at 1.3 s; chat's peak says 2.0 s
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=blue:s=64x64:r=10:d=4",
+         "-f", "lavfi", "-i", "aevalsrc=0.4*sin(2*PI*300*t)*gte(t\\,1.3)+0.002*sin(2*PI*50*t):s=48000:d=4", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", str(video)],
+        check=True,
+    )
+    h = Highlight(1, 0.0, 4.0, 2.0, 1.0)
+    snapped = make_clips(video, [h], tmp_path / "a", options=ExportOptions(format="mp4", fps=10), soundtrack=Soundtrack(effects=(Effect(builtin_sound("pop")),)))
+    exact = make_clips(video, [h], tmp_path / "b", options=ExportOptions(format="mp4", fps=10), soundtrack=Soundtrack(effects=(Effect(builtin_sound("pop")),), snap=False))
+    assert snapped[0].sounds[0].at == pytest.approx(1.3, abs=0.1) and exact[0].sounds[0].at == 2.0
+
+
+# --------------------------------------------------------------------------- Openverse
+
+
+OPENVERSE_ITEM = {
+    "id": "2f5d351d-a1de-41d9-ba70-c73ba285c875", "title": "Lofi Jazz Organ Loop 95 BPM.wav", "foreign_landing_url": "https://freesound.org/people/holizna/sounds/629154",
+    "url": "https://cdn.freesound.org/previews/629/629154_12574855-hq.mp3", "creator": "holizna", "license": "cc0", "license_version": "1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/", "provider": "freesound", "source": "freesound",
+    "attribution": "\"Lofi Jazz Organ Loop 95 BPM.wav\" by holizna is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.",
+    "duration": 40421, "filetype": "mp3",
+}
+
+
+class FakeOpenverse:
+    """Answers like the Openverse API: a page of results for a search, one item for an id."""
+
+    def __init__(self, *items):
+        self.items, self.asked = items, []
+
+    def __call__(self, url):
+        self.asked.append(url)
+        if "?" in url:
+            return json.dumps({"result_count": len(self.items), "results": list(self.items)}).encode()
+        return json.dumps(self.items[0]).encode()
+
+
+def test_openverse_search_and_facts():
+    from urllib.parse import parse_qs, urlparse
+
+    from stream2clip.openverse import audio_detail, license_key, search_audio
+
+    by_nc = {**OPENVERSE_ITEM, "id": "00000000-0000-0000-0000-000000000001", "license": "by-nc", "license_version": "3.0", "attribution": "x"}
+    fake = FakeOpenverse(OPENVERSE_ITEM, by_nc)
+    found = search_audio("lofi", kind="music", limit=50, get=fake)
+    query = parse_qs(urlparse(fake.asked[0]).query)
+    assert query == {"q": ["lofi"], "page_size": ["20"], "license_type": ["commercial,modification"], "length": ["short,medium"]}
+    assert [f.key for f in found] == ["cc0", "cc-by-nc-3.0"] and found[0].seconds == pytest.approx(40.421)
+    assert found[0].facts() == {"title": "Lofi Jazz Organ Loop 95 BPM.wav", "author": "holizna", "url": OPENVERSE_ITEM["foreign_landing_url"], "license": "cc0", "credit": OPENVERSE_ITEM["attribution"]}
+    search_audio("whoosh", commercial=False, kind="sound_effect", get=fake)
+    assert "license_type" not in fake.asked[1] and "length=shortest" in fake.asked[1]
+    assert license_key("by", "4.0") == "cc-by-4.0" and license_key("pdm", "1.0") == "pdm" and license_key("sampling+", "1.0") == "" and license_key("by", "2.5") == ""
+    assert audio_detail(OPENVERSE_ITEM["id"].upper(), get=fake).title.startswith("Lofi")
+    with pytest.raises(ValueError):
+        audio_detail("../../etc", get=fake)
+    with pytest.raises(ValueError):
+        search_audio("  ", get=fake)
+
+
+def test_sounds_command_with_openverse(tmp_path, capsys, monkeypatch):
+    from stream2clip import openverse
+    from stream2clip.cli import main
+
+    monkeypatch.setattr(openverse, "_http_get", FakeOpenverse(OPENVERSE_ITEM))
+    assert main(["sounds", "search", "lofi"]) == 0
+    out = capsys.readouterr().out
+    assert OPENVERSE_ITEM["id"] in out and "cc0" in out and "freesound.org/people/holizna" in out and "does not endorse" in out
+    song = write_wav(tone(500, 0.5), tmp_path / "organ.wav")
+    assert main(["sounds", "--sounds", str(tmp_path / "lib"), "add", str(song), "--openverse", OPENVERSE_ITEM["id"], "--title", "Organ"]) == 0
+    sound = SoundLibrary(tmp_path / "lib").find("organ")
+    assert (sound.license, sound.author, sound.title, sound.url) == ("cc0", "holizna", "Organ", OPENVERSE_ITEM["foreign_landing_url"])  # what is given wins
+    assert sound.credit == OPENVERSE_ITEM["attribution"]
+    monkeypatch.setattr(openverse, "_http_get", FakeOpenverse({**OPENVERSE_ITEM, "license": "sampling+"}))
+    capsys.readouterr()
+    assert main(["sounds", "--sounds", str(tmp_path / "lib"), "add", str(song), "--name", "other", "--openverse", OPENVERSE_ITEM["id"]]) != 0
+    assert "give --license" in capsys.readouterr().err and SoundLibrary(tmp_path / "lib").find("other") is None
