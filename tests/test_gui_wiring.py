@@ -662,10 +662,22 @@ def test_upload_dialog_shows_what_would_be_sent(app, tmp_path):
     body = dialog.preview()
     assert body["status"]["privacyStatus"] == "private" and body["snippet"]["tags"] == ["버튜버", "clip"]
     assert body["snippet"]["description"].endswith("#Shorts")
+    assert body["paidProductPlacementDetails"] == {"hasPaidProductPlacement": False} and not dialog.paid_check.isChecked()
+    dialog.paid_check.setChecked(True)
+    body = dialog.preview()
+    assert body["paidProductPlacementDetails"] == {"hasPaidProductPlacement": True}
     assert json.loads(dialog.preview_box.toPlainText()) == body and "아직 아무것도 올리지 않았습니다" in dialog.status.text()
 
     dialog.title_edit.setText("")
     assert dialog.preview() is None and dialog.status.text().startswith("확인 필요")
+
+    # Nothing in the form covers anything else (the preview box once sat on the OAuth file row).
+    grid, taken = dialog.layout(), {}
+    for index in range(grid.count()):
+        row, column, rows, columns = grid.getItemPosition(index)
+        for cell in ((r, c) for r in range(row, row + rows) for c in range(column, column + columns)):
+            assert cell not in taken, f"grid cell {cell} is used twice"
+            taken[cell] = index
     dialog.close()
 
 

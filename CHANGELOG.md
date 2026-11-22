@@ -17,6 +17,10 @@
 - 자막: `Cue.speaker`, `to_ass`의 `context`, `speaker_colors`, `speaker_names`. 번역, 구간 자르기, 무음 구간 제거 후에도 화자 유지
 - 모듈 추가: `stream2clip.titles`, `stream2clip.thumbnails`, `stream2clip.presets`, `stream2clip.speakers`
 
+### YouTube 업로드
+- 유료 광고 표기: 업로드마다 `paidProductPlacementDetails.hasPaidProductPlacement`를 명시하여 전송(기본값 `false`). YouTube API가 2026-11-16부터 값이 없는 영상을 유료 광고 없음으로 간주하지 않는 변경에 대응. 협찬, 간접 광고(PPL), 보증 광고가 있으면 `upload --paid-placement`, 업로드 창의 **유료 광고 포함**(열 때마다 해제 상태). `videos.insert`의 `part`는 요청 본문에 든 항목으로 구성
+- 업로드 창: 보낼 내용 미리보기 칸이 **OAuth 파일** 줄을 가려 OAuth 클라이언트 파일을 입력할 수 없던 문제 수정
+
 ### 확인 내용
 - 실제 방송(일본어)의 하이라이트로 제목 제안 확인: 최고 순간 대사, 탤런트 이름, 기획사 이름 순서의 일본어 제목. 자막 단어 사이 공백과 마침표 정리
 - 썸네일: 실제 방송 클립으로 아바타 영역 확대판과 확대 없는 판을 화면으로 비교. 장면 선택(흐린 장면 제외)과 문구 위치(얼굴 반대편)는 자동 테스트로 확인

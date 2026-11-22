@@ -40,6 +40,7 @@ def video_resource(
     privacy: str = "private",
     made_for_kids: bool = False,
     synthetic_media: bool | None = None,
+    paid_placement: bool = False,
     language: str | None = None,
     shorts: bool = False,
     publish_at: "datetime | str | None" = None,
@@ -48,7 +49,9 @@ def video_resource(
     """The ``snippet`` / ``status`` body for ``videos.insert``; raises ``ValueError`` for what YouTube would reject.
 
     ``synthetic_media`` sets ``status.containsSyntheticMedia`` (altered or synthetic content
-    disclosure). ``shorts`` adds ``#Shorts`` to the description when it is not there yet.
+    disclosure). ``paid_placement`` is sent as ``paidProductPlacementDetails.hasPaidProductPlacement``
+    every time: since 2026-11-16 it no longer defaults to false, and a video sent without it is not
+    declared free of paid product placement. ``shorts`` adds ``#Shorts`` to the description when it is not there yet.
     ``publish_at`` schedules the video: it is uploaded private and YouTube makes it public at
     that time (a ``datetime``, or text like ``2026-12-24 18:00``; without a time zone it is
     local time). YouTube only takes a schedule for a private video, and only a future one.
@@ -82,7 +85,7 @@ def video_resource(
         status["publishAt"] = when.strftime("%Y-%m-%dT%H:%M:%SZ")
     if synthetic_media is not None:
         status["containsSyntheticMedia"] = bool(synthetic_media)
-    return {"snippet": snippet, "status": status}
+    return {"snippet": snippet, "status": status, "paidProductPlacementDetails": {"hasPaidProductPlacement": bool(paid_placement)}}
 
 
 def scheduled_time(value: "datetime | str") -> datetime:
@@ -160,7 +163,7 @@ def upload_video(
             service = build("youtube", "v3", credentials=credentials, cache_discovery=False)
         if media is None:
             media = MediaFileUpload(str(video), chunksize=chunk_size, resumable=True, mimetype="video/*")
-    request = service.videos().insert(part="snippet,status", body=resource, media_body=media)
+    request = service.videos().insert(part=",".join(resource), body=resource, media_body=media)  # the parts the body sets
     response = None
     while response is None:
         status, response = request.next_chunk()

@@ -593,5 +593,7 @@
  "최고 순간 미리 보기": "Peak teaser",
  "클립 맨 앞에 최고 순간 2초를 먼저 보여 줌(ちょい見せ). 소리가 커지는 지점에 맞춤 (MP4, WebM)": "Shows 2 seconds of the peak before the clip starts, lined up with where it gets loud (MP4, WebM)",
  "썸네일": "Thumbnail",
- "최고 순간 근처의 가장 선명한 장면에 제목 앞부분을 크게 넣은 1280x720 썸네일(clip_01.jpg)": "A 1280x720 thumbnail: the sharpest frame near the peak, with the start of the title in large type (clip_01.jpg)"
+ "최고 순간 근처의 가장 선명한 장면에 제목 앞부분을 크게 넣은 1280x720 썸네일(clip_01.jpg)": "A 1280x720 thumbnail: the sharpest frame near the peak, with the start of the title in large type (clip_01.jpg)",
+ "유료 광고 포함": "Includes paid promotion",
+ "협찬, 간접 광고(PPL), 보증 광고가 있으면 선택. 선택하지 않으면 유료 광고가 없는 영상으로 YouTube에 알림": "Tick when the video has a sponsorship, paid product placement or endorsement. Unticked, the video is declared to YouTube as free of paid promotion"
 }

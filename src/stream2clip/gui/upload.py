@@ -100,6 +100,9 @@ class UploadDialog(QDialog):
         row.addWidget(self.privacy_combo, 1)
         self.shorts_check = QCheckBox(tr("Shorts (#Shorts 붙이기)"), checked=bool(saved.get("shorts", False)))
         row.addWidget(self.shorts_check)
+        self.paid_check = QCheckBox(tr("유료 광고 포함"))  # declared each time, like the privacy
+        self.paid_check.setToolTip(tr("협찬, 간접 광고(PPL), 보증 광고가 있으면 선택. 선택하지 않으면 유료 광고가 없는 영상으로 YouTube에 알림"))
+        row.addWidget(self.paid_check)
         grid.addLayout(row, 4, 1, 1, 2)
 
         grid.addWidget(QLabel(tr("예약")), 5, 0)
@@ -127,7 +130,7 @@ class UploadDialog(QDialog):
         self.preview_box = QPlainTextEdit(readOnly=True)
         self.preview_box.setPlaceholderText(tr("보낼 내용 보기 버튼을 누르면 YouTube에 보낼 내용이 여기에 표시됩니다. 업로드는 실행되지 않습니다."))
         self.preview_box.setMaximumHeight(130)
-        grid.addWidget(self.preview_box, 6, 0, 1, 3)
+        grid.addWidget(self.preview_box, 7, 0, 1, 3)  # below the OAuth row, not on it
 
         bottom = QHBoxLayout()
         self.status = QLabel(tr("비공개로 올린 뒤 YouTube 스튜디오에서 확인하고 공개하는 것을 권합니다"), objectName="Muted")
@@ -146,7 +149,7 @@ class UploadDialog(QDialog):
         self.upload_button.setMinimumHeight(36)
         self.upload_button.clicked.connect(self.upload)
         bottom.addWidget(self.upload_button)
-        grid.addLayout(bottom, 7, 0, 1, 3)
+        grid.addLayout(bottom, 8, 0, 1, 3)
         grid.setColumnStretch(1, 1)
         self.resize(640, 600)
 
@@ -177,6 +180,7 @@ class UploadDialog(QDialog):
         return video_resource(
             self.title_edit.text(), self.description_edit.toPlainText(), tags=tags,
             privacy=self.privacy_combo.currentData(), shorts=self.shorts_check.isChecked(), publish_at=when,
+            paid_placement=self.paid_check.isChecked(),
         )
 
     def problems(self) -> list[str]:

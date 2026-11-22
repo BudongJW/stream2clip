@@ -203,10 +203,12 @@ def test_video_resource_defaults_to_private():
     assert body == {
         "snippet": {"title": "레전드 장면", "description": "원본: https://youtu.be/x", "categoryId": "20", "tags": ["버튜버", "clip"]},
         "status": {"privacyStatus": "private", "selfDeclaredMadeForKids": False},
+        # Sent every time: since 2026-11-16 YouTube no longer takes a missing value as "no paid placement".
+        "paidProductPlacementDetails": {"hasPaidProductPlacement": False},
     }
-    public = video_resource("t", privacy="public", synthetic_media=True, language="ko", made_for_kids=True)
+    public = video_resource("t", privacy="public", synthetic_media=True, paid_placement=True, language="ko", made_for_kids=True)
     assert public["status"] == {"privacyStatus": "public", "selfDeclaredMadeForKids": True, "containsSyntheticMedia": True}
-    assert public["snippet"]["defaultLanguage"] == "ko"
+    assert public["snippet"]["defaultLanguage"] == "ko" and public["paidProductPlacementDetails"] == {"hasPaidProductPlacement": True}
 
 
 def test_video_resource_rejects_what_youtube_rejects():
@@ -249,7 +251,7 @@ def test_upload_reports_progress_and_returns_the_video(tmp_path):
     response = upload_video(video, body, service=service, media="MEDIA", on_progress=seen.append)
     assert response["id"] == "abc123" and video_url(response["id"]) == "https://www.youtube.com/watch?v=abc123"
     assert seen == [0.4, 0.8, 1.0]
-    assert service.calls == [{"part": "snippet,status", "body": body, "media_body": "MEDIA"}]
+    assert service.calls == [{"part": "snippet,status,paidProductPlacementDetails", "body": body, "media_body": "MEDIA"}]  # every part the body sets
     with pytest.raises(FileNotFoundError):
         upload_video(tmp_path / "missing.mp4", body, service=service, media="MEDIA")
 
@@ -264,6 +266,9 @@ def test_cli_upload_dry_run_sends_nothing(green_screen_video, tmp_path, capsys):
     body = json.loads(out.out.split("dry run")[0])
     assert body["status"]["privacyStatus"] == "private" and body["snippet"]["tags"] == ["vtuber", "clip"]
     assert body["snippet"]["description"].endswith("#Shorts") and "가로 영상" in out.err  # 160x120 is not vertical
+    assert body["paidProductPlacementDetails"] == {"hasPaidProductPlacement": False}
+    assert main(args + ["--paid-placement"]) == 0
+    assert json.loads(capsys.readouterr().out.split("dry run")[0])["paidProductPlacementDetails"] == {"hasPaidProductPlacement": True}
 
     assert main(["upload", str(green_screen_video), "--title", "t"]) == 1  # no client secrets, no dry run
     assert "--client-secrets" in capsys.readouterr().err

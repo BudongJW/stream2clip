@@ -1103,7 +1103,7 @@ def cmd_upload(args: argparse.Namespace) -> int:
     tags = [t for t in (args.tags or "").split(",") if t.strip()]
     resource = video_resource(
         args.title, description, tags=tags, category_id=args.category, privacy=args.privacy, made_for_kids=args.made_for_kids,
-        synthetic_media=True if args.synthetic_media else None, language=args.language, shorts=args.shorts, publish_at=args.publish_at,
+        synthetic_media=True if args.synthetic_media else None, paid_placement=args.paid_placement, language=args.language, shorts=args.shorts, publish_at=args.publish_at,
     )
     if args.shorts:
         info = probe(args.video)
@@ -1573,6 +1573,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--language", help="default language of the title / description, e.g. ko")
     p.add_argument("--made-for-kids", action="store_true")
     p.add_argument("--synthetic-media", action="store_true", help="declare altered or synthetic content (AI voice, AI video ...)")
+    p.add_argument("--paid-placement", action="store_true", help="declare paid product placement, sponsorship or endorsement; without it the video is declared free of them")
     p.add_argument("--shorts", action="store_true", help="add #Shorts and warn when the video is not vertical or longer than 3 minutes")
     p.add_argument("--client-secrets", help="your Google Cloud OAuth client file (Desktop app)")
     p.add_argument("--token", help="where to keep the refresh token (default: token.json next to the client file)")
