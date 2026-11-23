@@ -477,6 +477,10 @@ def make_clips(
 
         if fonts_dir().is_dir():  # caption fonts fetched from the catalog: the captions may name them
             options = replace(options, fonts_dir=fonts_dir())
+    if subtitle_style is not None:
+        from .subtitles import with_available_font
+
+        subtitle_style = with_available_font(subtitle_style, options.fonts_dir)  # a font not fetched: the automatic one, at plain sizes
     if loudness is not None:
         from .ffmpeg import Loudness
 

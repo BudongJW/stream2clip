@@ -672,5 +672,6 @@
  "방송 화면 아래쪽에 겹쳐 (Shorts)": "On the lower part of the stream picture (Shorts)",
  "방송 화면 바로 위 (Shorts)": "Just over the stream picture (Shorts)",
  "이 자막 모양은 무료 글꼴 {0}을 씁니다. 내려받을까요?\n(SIL Open Font License, 받은 뒤 확인값 검사)": "This caption look uses the free font {0}. Download it?\n(SIL Open Font License, checked against its checksum after the download)",
- "자막 글꼴 {0} 내려받는 중": "Downloading the caption font {0}"
+ "자막 글꼴 {0} 내려받는 중": "Downloading the caption font {0}",
+ "자막 글꼴 {0}을 받지 못해 기본 글꼴로 만드는 중": "Could not download the caption font {0}: making the clips in the standard font"
 }

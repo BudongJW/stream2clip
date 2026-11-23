@@ -32,6 +32,7 @@ __all__ = [
     "FONT_CANDIDATES",
     "installed_fonts",
     "pick_font",
+    "with_available_font",
     "script_of",
     "caption_issues",
     "Transcriber",
@@ -350,6 +351,29 @@ def caption_font(style: SubtitleStyle, script: str) -> tuple[str, bool]:
     if {"": "en", "zh": "ja"}.get(script, script) not in entry.scripts:
         return pick_font(script), style.bold
     return entry.family, entry.bold
+
+
+def with_available_font(style: SubtitleStyle, folder: "str | os.PathLike[str] | None" = None) -> SubtitleStyle:
+    """``style``, or its colours and place in the automatic font when its catalog font is not on this PC.
+
+    A look of the caption font catalog (:mod:`stream2clip.fonts`) whose font is neither installed nor in the
+    fonts folder (``folder``, else :func:`stream2clip.fonts.fonts_dir`), because the download failed or was
+    skipped, would be drawn in a stand-in at a size picked for its own font: some draw small or narrow
+    (Dongle at 210, Bebas Neue at 154) and the stand-in runs out of the frame. It falls back to
+    :func:`pick_font` at the plain look's sizes and line lengths, the outline and shadow scaled with them.
+    """
+    if style.font == "auto":
+        return style
+    from .fonts import find, installed
+
+    entry = find(style.font)
+    if entry is None or _has_family(entry.family, installed_fonts()) or installed(entry, folder):
+        return style
+    plain = SubtitleStyle()
+    k = plain.size / style.size
+    return replace(style, font="auto", bold=plain.bold, size=plain.size, max_chars=plain.max_chars, portrait_size=plain.portrait_size,
+                   portrait_max_chars=plain.portrait_max_chars, outline_width=round(style.outline_width * k, 1),
+                   shadow=None if style.shadow is None else round(style.shadow * k, 1))
 
 
 #: Per script, the families tried in order: Noto first, then what Windows, macOS and Linux bring along.

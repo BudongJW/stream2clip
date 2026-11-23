@@ -551,14 +551,21 @@ def _soundtrack(args: argparse.Namespace):
 
 
 def _fetch_caption_fonts(families: "list[str]") -> None:
-    """Fetch the catalog fonts a caption look names and this PC does not have yet (pinned, checksum checked)."""
+    """Fetch the catalog fonts a caption look names and this PC does not have yet (pinned, checksum checked).
+
+    A font that cannot be fetched (no connection, a checksum that does not match) does not stop the clips:
+    their captions keep the look's colours and place in the automatic font (``with_available_font``).
+    """
     from .fonts import install, missing_for
     from .subtitles import _has_family, installed_fonts
 
     system = installed_fonts()
     for font in missing_for([f for f in families if not _has_family(f, system)]):
         print(f"font   {font.family}: fetching {font.megabytes} MB ({font.licence}) from {font.url.split('/')[2]}", flush=True)
-        install(font)
+        try:
+            install(font)
+        except (OSError, RuntimeError) as exc:
+            print(f"font   {font.family}: not fetched ({exc}); the captions use the automatic font", file=sys.stderr, flush=True)
 
 
 def _make_clips(args: argparse.Namespace, highlights) -> int:

@@ -1501,7 +1501,10 @@ class HighlightsWindow(QMainWindow):
 
                 for font in fetch_fonts:
                     self._progress.emit(0, steps, tr("자막 글꼴 {0} 내려받는 중").format(font.family))
-                    install(font)
+                    try:
+                        install(font)
+                    except (OSError, RuntimeError):  # no connection: the clips keep the look's colours in the automatic font
+                        self._progress.emit(0, steps, tr("자막 글꼴 {0}을 받지 못해 기본 글꼴로 만드는 중").format(font.family))
             cues = load_subtitles(subs_path) if subs_path else None
             session, zero = open_session(*chosen_session)  # the expression hotkeys the streamer pressed: the clearest moments for effects
             hotkeys = [at for at, _name in session.hotkeys(zero)] if session is not None else []
