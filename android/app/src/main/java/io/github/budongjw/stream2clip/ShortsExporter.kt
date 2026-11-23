@@ -146,7 +146,9 @@ class ShortsExporter(private val context: Context) {
         val margin = width * 0.06f
         val box = (width - 2 * margin).toInt()
         val text = caption.trim()
-        val full = width * (if (height > width) 0.065f else 0.04f)
+        // Korean clip channels' Shorts title lines are about 5% of the frame's height (4.5 to 6.5%); 8% of the
+        // width draws Hangul at about 4.7% with its outline. Horizontal clips keep a smaller line.
+        val full = width * (if (height > width) 0.08f else 0.04f)
         fun paints(size: Float): Pair<TextPaint, TextPaint> {
             val fill = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE

@@ -214,23 +214,43 @@ def retime_cues(cues: Iterable[Cue], keep: "Iterable[tuple[float, float]]") -> l
 
 @dataclass(frozen=True)
 class SubtitleStyle:
+    """How captions look. ``size``, ``max_chars`` and ``outline_width`` are for landscape frames (horizontal clips);
+    portrait frames (Shorts) take ``portrait_size`` and ``portrait_max_chars``, the outline growing with the letters.
+
+    Measured on Korean clip channels in 2026-11 (reports/한국 키리누키 자막 크기.md): a spoken caption is about
+    5.5% of the frame's height in horizontal clips (4 to 6.5%) and 4.5% in Shorts (3.5 to 5.5%), about ten
+    characters to a line there. These defaults render at 5.5% and 4.5% (4.6 and 2.6% before, at 64 for both).
+    """
+
     #: A font family, or "auto": the first installed one that suits the language of the text (see :func:`pick_font`).
     font: str = "auto"
-    size: int = 64
+    size: int = 80
     color: str = "#FFFFFF"           # text before it is spoken (karaoke) / normal text
     highlight: str = HIGHLIGHT       # spoken words (karaoke)
     outline: str = INK
-    outline_width: float = 5.0
+    #: About an eighth of the letters' height, as thick as the Korean clips' outlines; a soft shadow sits under it.
+    outline_width: float = 7.5
     bold: bool = True
     alignment: int = 2               # numpad layout: 2 = bottom centre, 5 = middle, 8 = top
     margin_v: int = 380              # px on a 1080x1920 canvas: keeps captions above the Shorts / TikTok UI
     margin_h: int = 60
-    max_chars: int = 18              # line length before wrapping, in full-width characters (a Latin letter counts about half)
+    max_chars: int = 22              # line length before wrapping, in full-width characters (a Latin letter counts about half)
     max_lines: int = 3               # a longer cue is set smaller instead of running out of the frame
     #: A plate behind the text instead of an outline (``outline`` is its colour, ``outline_width`` its padding).
     box: bool = False
     #: Sizes above are for a canvas whose short side is 1080 px; other sizes scale proportionally.
     reference: int = 1080
+    #: Portrait frames: the letter size and line length there (``None``: as on landscape frames).
+    portrait_size: int | None = 112
+    portrait_max_chars: int | None = 12
+
+    def for_frame(self, width: int, height: int) -> "SubtitleStyle":
+        """This style as a ``width`` x ``height`` frame shows it: the portrait size and line length on a portrait frame."""
+        if height <= width:
+            return self
+        size = self.portrait_size or self.size
+        return replace(self, size=size, max_chars=self.portrait_max_chars or self.max_chars,
+                       outline_width=round(self.outline_width * size / self.size, 1), portrait_size=None, portrait_max_chars=None)
 
 
 #: Ready-made looks for ``--subtitle-style``.
@@ -238,7 +258,7 @@ SUBTITLE_STYLES: dict[str, SubtitleStyle] = {
     "default": SubtitleStyle(),
     "box": SubtitleStyle(box=True, outline="#15131FD9", outline_width=14.0),  # readable over a busy game picture
     "pink": SubtitleStyle(highlight=LIVE_PINK),
-    "small": SubtitleStyle(size=48, outline_width=3.5, bold=False, max_chars=24),
+    "small": SubtitleStyle(size=56, outline_width=4.0, bold=False, max_chars=30, portrait_size=72, portrait_max_chars=18),
 }
 #: Where the captions sit: (alignment, margin from that edge on a 1080x1920 canvas).
 SUBTITLE_POSITIONS: dict[str, tuple[int, int]] = {"bottom": (2, 380), "middle": (5, 0), "top": (8, 260)}
@@ -257,7 +277,9 @@ def subtitle_style(name: str = "default", *, position: str | None = None, font: 
     if font:
         style = replace(style, font=font)
     if size:
-        style = replace(style, size=size)
+        # One size for every frame; lines hold as many more (or fewer) letters as the size gives room for.
+        style = replace(style, size=size, max_chars=max(6, round(style.max_chars * style.size / size)), portrait_size=None,
+                        portrait_max_chars=max(6, round(style.portrait_max_chars * (style.portrait_size or style.size) / size)) if style.portrait_max_chars else None)
     return style
 
 
@@ -555,15 +577,17 @@ def to_ass(
     (Japanese clips open with such a 状況説明 line within the first second).
     ``speaker_colors`` (speaker to colour) outlines each speaker's lines in their colour, as clip
     editors colour the captions of a collab per talent; ``speaker_names`` puts the name in front."""
-    st = style or SubtitleStyle()
+    W, H = play_res
+    st = (style or SubtitleStyle()).for_frame(W, H)
     cues = sorted(cues, key=lambda c: c.start)
     font = pick_font(script_of("".join(_cue_text(c) for c in cues))) if st.font == "auto" else st.font
-    W, H = play_res
     k = min(W, H) / st.reference
     size, outline = max(8, round(st.size * k)), round(st.outline_width * k, 1)
     # margin_v is defined for a 1080x1920 portrait canvas; landscape video keeps captions low (6%).
     margin_v = round(H * st.margin_v / 1920) if H >= W else (round(H * 0.06) if st.alignment != 5 else 0)
     border = 3 if st.box else 1
+    # Outlined captions cast a soft shadow (BackColour, 60% black), as Korean clip captions do; a plate needs none.
+    shadow = 0 if st.box else round(outline * 0.4, 1)
     margin_h = round(st.margin_h * k)
     primary, secondary = (st.highlight, st.color) if karaoke else (st.color, st.color)
     header = [
@@ -579,7 +603,7 @@ def to_ass(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
         "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         f"Style: Default,{font},{size},{_ass_color(primary)},{_ass_color(secondary)},{_ass_color(st.outline)},&H64000000,"
-        f"{-1 if st.bold else 0},0,0,0,100,100,0,0,{border},{outline:g},0,{st.alignment},{margin_h},{margin_h},{margin_v},1",
+        f"{-1 if st.bold else 0},0,0,0,100,100,0,0,{border},{outline:g},{shadow:g},{st.alignment},{margin_h},{margin_h},{margin_v},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -592,7 +616,7 @@ def to_ass(
         header.insert(
             header.index("[Events]") - 1,
             f"Style: {name},{font},{size},{_ass_color(primary)},{_ass_color(secondary)},{_ass_color(edge)},&H64000000,"
-            f"{-1 if st.bold else 0},0,0,0,100,100,0,0,{border},{outline:g},0,{st.alignment},{margin_h},{margin_h},{margin_v},1",
+            f"{-1 if st.bold else 0},0,0,0,100,100,0,0,{border},{outline:g},{shadow:g},{st.alignment},{margin_h},{margin_h},{margin_v},1",
         )
 
     def said(c: Cue) -> str:
@@ -640,8 +664,9 @@ def to_ass(
         tag_font = pick_font(script_of("".join(t.text for t in tags))) if st.font == "auto" else st.font
         header.insert(
             header.index("[Events]") - 1,
-            f"Style: Tag,{tag_font},{max(8, round(size * 2.0))},{_ass_color('#FFFFFF')},{_ass_color('#FFFFFF')},{_ass_color(EMPHASIS_EDGE)},&H64000000,"
-            f"-1,0,0,0,100,100,0,0,1,{round(outline * 1.4, 1):g},0,5,0,0,0,1",
+            # A fixed size (twice the captions' former 64): the tag stays a tag when the captions grow.
+            f"Style: Tag,{tag_font},{max(8, round(128 * k))},{_ass_color('#FFFFFF')},{_ass_color('#FFFFFF')},{_ass_color(EMPHASIS_EDGE)},&H64000000,"
+            f"-1,0,0,0,100,100,0,0,1,{round(7 * k, 1):g},0,5,0,0,0,1",
         )
         # Beside the captions, away from them: upper right over low captions, lower right over high ones.
         x = round(W * (0.84 if W > H else 0.76))

@@ -478,7 +478,7 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--subtitle-style", default="default", choices=["default", "box", "pink", "small"], help="look of the captions: box = on a dark plate, pink = pink highlight, small = smaller and lighter")
     s.add_argument("--subtitle-position", default="bottom", choices=["bottom", "middle", "top"], help="where the captions sit (default bottom; top keeps them off a game's own text box)")
     s.add_argument("--font", metavar="FAMILY", help="caption font (default: an installed font for the language of the text)")
-    s.add_argument("--font-size", type=int, metavar="PIXELS", help="caption size on a 1080 px wide frame (default 64)")
+    s.add_argument("--font-size", type=int, metavar="PIXELS", help="caption size on a frame whose short side is 1080 px, for both orientations (default: 80 on horizontal clips, 112 on Shorts, as Korean clip channels caption)")
     s.add_argument("--snap", type=float, default=3.0, metavar="SECONDS", help="with --subtitles: move a clip edge that falls inside a spoken line to the edge of that line, by at most this much (default 3; 0 = leave the edges alone)")
     s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")

@@ -609,7 +609,8 @@ def make_clips(
                                      teaser=opened > 0, profile=profile)
             from .subtitles import caption_issues
 
-            result.captions = caption_issues(clip_cues or [], subtitle_style)  # per clip, apart from the guideline check
+            # per clip, apart from the guideline check; lines as long as this frame's captions hold (shorter on a Short)
+            result.captions = caption_issues(clip_cues or [], (subtitle_style or SubtitleStyle()).for_frame(*play_res))
             result.effects = fx_plan.to_dict() if fx_plan is not None else None  # (plan is the soundtrack's, above)
             result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)

@@ -151,8 +151,26 @@ def test_a_cue_too_long_for_three_lines_is_set_smaller():
     scale = re.match(r"[{]" + re.escape(chr(92)) + r"fscx(\d+)" + re.escape(chr(92)) + r"fscy(\d+)[}]", text)
     assert scale and scale.group(1) == scale.group(2) and 55 <= int(scale.group(1)) < 100
     assert "fscx" not in dialogue(to_ass([Cue(0, 3, "短い字幕です")], karaoke=False))
-    english = dialogue(to_ass([Cue(0, 3, "That was the funniest thing I have ever seen on this stream honestly")], karaoke=False))
-    assert english.count(N) == 1 and "fscx" not in english  # Latin letters are narrow: two lines are enough
+    sentence = [Cue(0, 3, "That was the funniest thing I have ever seen on this stream honestly")]
+    english = dialogue(to_ass(sentence, play_res=(1920, 1080), karaoke=False))
+    assert english.count(N) == 1 and "fscx" not in english  # Latin letters are narrow: two lines are enough on a horizontal clip
+    assert dialogue(to_ass(sentence, karaoke=False)).count(N) == 2  # a Short's letters are bigger: three lines
+
+
+def test_caption_size_follows_the_frame():
+    """Korean clip channels caption at about 5.5% of a horizontal clip's height and 4.5% of a Short's, ten letters to a line."""
+    style = SubtitleStyle()
+    wide, tall = style.for_frame(1920, 1080), style.for_frame(1080, 1920)
+    assert (wide.size, wide.max_chars, wide.outline_width) == (80, 22, 7.5)
+    assert (tall.size, tall.max_chars, tall.outline_width) == (112, 12, 10.5) and tall.for_frame(1080, 1920) == tall  # the outline grows with the letters
+    shadow = style_line(to_ass([Cue(0, 1, "字幕です")]))[17]
+    assert shadow == "4.2" and style_line(to_ass([Cue(0, 1, "字幕です")], style=subtitle_style("box")))[17] == "0"  # a soft shadow; a plate needs none
+    assert style_line(to_ass([Cue(0, 1, "字幕です")]))[2] == "112" and style_line(to_ass([Cue(0, 1, "字幕です")], play_res=(1920, 1080)))[2] == "80"
+    given = subtitle_style(size=64)  # one size for every frame, lines as long as it leaves room for
+    assert (given.for_frame(1920, 1080).size, given.for_frame(1080, 1920).size) == (64, 64)
+    assert (given.for_frame(1920, 1080).max_chars, given.for_frame(1080, 1920).max_chars) == (28, 21)
+    small = subtitle_style("small")
+    assert small.for_frame(1080, 1920).size < tall.size and small.for_frame(1920, 1080).size < wide.size
 
 
 def test_karaoke_words_wrap_with_the_same_rules():
@@ -234,7 +252,7 @@ def test_caption_check_before_upload():
     laugh = Cue(13.0, 16.0, "はははははははは")  # laughter, not a loop
     invented = Cue(16.0, 19.0, "ご視聴ありがとうございました")
     same = [Cue(20.0 + i, 21.0 + i, "そうだね") for i in range(4)]
-    found = caption_issues([fast, wide, flash, loop, laugh, invented, *same])
+    found = caption_issues([fast, wide, flash, loop, laugh, invented, *same], SubtitleStyle().for_frame(1080, 1920))  # as on a Short
     assert len(found) == 6
     assert "2줄이 읽기에 빠름" in found[0] and found[0].endswith("字幕です")
     assert "1줄이 길어 화면 밖" in found[1] and found[1].endswith("あ" * 24 + "...")  # a long example is cut
