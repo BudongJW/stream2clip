@@ -1,0 +1,43 @@
+name: Android
+
+# The Android app (android/) is built from the same Python package as the desktop app (src/stream2clip),
+# so it is built again when either changes. The debug APK is kept as a download for two weeks.
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", "src/stream2clip/**", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["android/**", "src/stream2clip/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      # Chaquopy runs pip and compiles bytecode with a Python of the app's own version (3.13).
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build the APK, run the unit tests and Android lint
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug testDebugUnitTest lintDebug --console=plain
+      - uses: actions/upload-artifact@v7
+        with:
+          name: stream2clip-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

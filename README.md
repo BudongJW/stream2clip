@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-684-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-692-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -164,6 +164,7 @@ stream2clip auto "방송 주소" --top 5 -o clips
 | 영상 형태 | Shorts(9:16), 가로 클립(1~3분), 가로 모음 영상(10분 전후, 챕터) 프리셋. 첫 3초의 상황 설명, 최고 순간 2초 미리 보기, 콜라보의 화자별 자막 색, 재사용 콘텐츠 점검 |
 | 특수효과 | 최고 순간 한 곳에만 펀치인 확대, 자막 단어 강조, 채팅 반응 꼬리표. 기준 순간은 스트리머가 누른 VTube Studio 핫키나 소리 시작점이며, 뚜렷하지 않으면 넣지 않음 |
 | 편집 프로그램 연계 | 하이라이트를 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내어 DaVinci Resolve, Premiere Pro 등에서 이어서 편집 |
+| 안드로이드 앱(베타) | 휴대폰에서 다시보기 주소로 하이라이트 찾기, 제목과 설명란 복사, Shorts 제작과 공유. 데스크톱과 같은 파이썬 코어 사용([안드로이드 앱](#안드로이드-앱베타)) |
 
 ### 이식
 
@@ -786,6 +787,26 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 - 오래된 CHZZK 다시보기는 채팅이 남아 있지 않을 수 있음
 - SOOP는 2026-06-01부터 일반 스트리머의 다시보기를 올라온 지 90일 후 삭제(고유 조회 50회 이상이면 1년). `fetch`, `auto`, 앱의 주소로 시작하기에서 안내하며 방송 정보의 날짜로 경과 일수 표시
 
+### 안드로이드 앱(베타)
+
+휴대폰에서 다시보기 주소로 하이라이트를 찾고 Shorts를 만드는 앱(`android/`). 검출, 제목, 설명란은 이 저장소의 `stream2clip` 파이썬 패키지를 Chaquopy로 앱 안에서 그대로 실행하고, 클립은 Media3와 휴대폰 인코더로 하이라이트 구간만 읽어 제작
+
+| &numsp;&numsp;항&NoBreak;목&numsp;&numsp; | 내용 |
+|:---:|---|
+| 입력 | 치지직, SOOP, YouTube 다시보기 주소. 각 앱의 공유 메뉴로도 전달 |
+| 결과 | 하이라이트 목록(시각, 점수 막대, 근거), 데스크톱과 같은 제목, 해시태그, 설명란 복사, 원본 위치 열기. 제목과 영상 문구 직접 수정 |
+| Shorts | 1080x1920 흐린 배경 레이아웃(GPU 셰이더), 제목과 `원본: 채널` 표기. `Movies/stream2clip`에 저장 후 열기, 공유 |
+| 화면 | 브랜드 로고와 어두운 테마, 마스코트 키리, 키리 얼굴 실행 아이콘. 한국어, 일본어, 영어 |
+| 받기 | GitHub Actions의 `Android` 작업이 만든 디버그 APK(`stream2clip-android-debug`, 2주 보관) |
+| 제외 | 자막(받아쓰기), 음량, 웃음소리 검출, 앱 안의 YouTube 업로드, 효과, 배경 음악 |
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+```
+
+- 빌드 준비(JDK 17, Android SDK, 빌드용 Python 3.13), 에뮬레이터 사용법, 데스크톱과의 차이: [docs/ANDROID.md](docs/ANDROID.md)
+
 ### 입출력 형식
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;입&NoBreak;력&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 형식 |
@@ -903,7 +924,7 @@ Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방�
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 684개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 692개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -1518,6 +1539,7 @@ python packaging/build_brand.py
 | 특수효과 | 흔들림, 흰 플래시와 깜박임 검사, 컬러 이모지, 集中線, 삐 처리, 모음 영상 전환, 리플레이와 슬로 모션(보고서 7.1절 2, 3단계), 실제 클립으로 배율과 길이 조정 |
 | 검출 조정 | 같은 채널의 여러 방송으로 프로필 효과 확인, 후보 검토 HTML 보고서, 학습형 웃음 신호(AudioSet 태거) |
 | 클립 채널 형식 | 실제 업로드 후 제목, 썸네일 형식의 효과와 재사용 콘텐츠 판정 확인, 실제 콜라보 녹화로 화자 판정 검증, 화자 분리 기능 내장(현재는 RTTM, whisperX 결과, 마이크별 트랙 사용) |
+| 안드로이드 앱 | 실기기 검증, 자막(whisper.cpp 검토), 클립 미리 보기, 앱 안의 YouTube 업로드, 출시용 서명과 용량 줄이기, CI의 APK 빌드 |
 
 ### 완료
 

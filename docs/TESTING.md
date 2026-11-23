@@ -49,6 +49,7 @@
 | `test_vrm.py` | VRM 1.0, 0.x 메타 판독(합성한 GLB 파일), 0.x 라이선스 이름의 환산, VRM이 아닌 파일 거부, 수익화 및 법인 사용 대조, `check --vrm` |
 | `test_translation.py` | 용어집(긴 이름 우선), 번역 후 시간 유지, 이름 고정, 원문 병기 자막, 묶음 전송, Holodex 초안, `--translate`. 용어집 `heard` 열과 이름 힌트(카라오케 단어 합치기, JSON 형식, 저장 후 읽기), 받아쓰기 힌트 전달(hotwords, 구버전의 initial prompt), 번역 없는 `--glossary`의 표기 교정 |
 | `test_translator_loading.py` | 번역기를 파일, 모듈에서 불러오기(함수, 클래스, 객체, Windows 드라이브 경로), 잘못된 지정에 대한 안내, 예제 번역기(가짜 응답: 목록 추출, 줄 수 불일치 시 1줄씩 재요청), `--translator file.py` |
+| `test_android_bridge.py` | 안드로이드 앱의 파이썬 연결(`android/app/src/main/python/s2c_android.py`)을 PC에서 실행: 휴대폰이 읽을 스트림 선택(그림과 소리, 높이 제한, 헤더), 하이라이트별 제목, 영상 문구(`[이름]` 없이 자르지 않은 대사), 해시태그, 설명란, 시각 링크(데스크톱과 같은 형식, 방송 제목의 언어), 치지직 다시보기 분석(가짜 채팅 API, 진행 단계, 채팅 파일), 방송 정보 거부 시 채팅만으로 진행, YouTube 다시보기(채팅 파일, 많이 다시 본 구간). Kotlin 쪽 결과 읽기와 시각 표기는 `android/app/src/test`의 Gradle 단위 테스트 |
 | `test_avatar_schedule.py` | 투명 배경 아바타 영상의 인식(MOV, WebM)과 합성, 알파 WebM의 디코더 지정, 하이라이트 창의 아바타 영상 입력, 예약 게시 시각 해석과 요청 본문, `upload --publish-at`, 업로드 창의 예약 게시 |
 | `test_audio_signals.py` | 오디오 트랙 선택(마이크 트랙 기준 음량과 무음 판정, 없는 트랙 안내), 웃음소리 신호(크고 끊어지는 소리), 가산 신호가 다른 하이라이트를 줄이지 않는지 여부, 노래 구간 검출(합성 음성, 노래), 노래 표시 및 제외 |
 | `test_evaluation.py` | 댓글의 타임스탬프 읽기(시각이 아닌 숫자 제외), 인접 표시 묶기, 댓글 수 집계, precision, recall, 무작위 기대값 계산, 설정값별 비교, `evaluate`, `fetch --comments`. 설정 조정(기본값 이상, 같은 시드 같은 결과, 하나씩 빼고 검증), 선택 기록을 표시로 추가, heatmap과 음량(1회 측정 후 보관), 프로필 저장과 읽기, `--tune`, `--save-profile`, `--profile` |
