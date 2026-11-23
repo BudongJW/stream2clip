@@ -62,15 +62,15 @@ class ShortsExporter(private val context: Context) {
         const val MAX_LINES = 3
     }
 
-    /** `caption` is drawn at the top: the clip's suggested words, or what the user wrote in their place. */
-    suspend fun export(stream: Stream, source: Source, clip: Clip, caption: String, form: String, onProgress: (Int) -> Unit): Uri {
+    /** `text.caption` is drawn in its font, colour and place: the clip's suggested words, or what the user wrote. */
+    suspend fun export(stream: Stream, source: Source, clip: Clip, text: ClipText, form: String, onProgress: (Int) -> Unit): Uri {
         val vertical = form == "shorts"
         val out = File(context.cacheDir, "clip_${clip.rank.toString().padStart(2, '0')}.mp4")
-        withContext(Dispatchers.Main) { run(stream, source, clip, caption, vertical, out, onProgress) }
+        withContext(Dispatchers.Main) { run(stream, source, clip, text, vertical, out, onProgress) }
         return withContext(Dispatchers.IO) { saveToMovies(out, source, clip) }
     }
 
-    private suspend fun run(stream: Stream, source: Source, clip: Clip, caption: String, vertical: Boolean, out: File, onProgress: (Int) -> Unit) =
+    private suspend fun run(stream: Stream, source: Source, clip: Clip, text: ClipText, vertical: Boolean, out: File, onProgress: (Int) -> Unit) =
         suspendCancellableCoroutine { done ->
             val http = DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true)
@@ -86,7 +86,7 @@ class ShortsExporter(private val context: Context) {
                 )
                 .build()
             val frame = if (vertical) Pair(1080, 1920) else Pair(1920, 1080)
-            val overlay = OverlayEffect(ImmutableList.of<TextureOverlay>(textOverlay(caption, source.channel, frame.first, frame.second)))
+            val overlay = OverlayEffect(ImmutableList.of<TextureOverlay>(textOverlay(text, source.channel, frame.first, frame.second)))
             // 30 fps, as the desktop app's clips (`default_clip_options`): a 60 fps stream is halved before any other work.
             val fps = FrameDropEffect.createDefaultFrameDropEffect(FPS)
             val video = if (vertical) listOf(fps, BlurFitEffect(frame.first, frame.second), overlay) else listOf(fps, Presentation.createForWidthAndHeight(frame.first, frame.second, Presentation.LAYOUT_SCALE_TO_FIT), overlay)
@@ -140,23 +140,26 @@ class ShortsExporter(private val context: Context) {
      * The clip's words at the top, white on a dark outline: as large as fits in [MAX_LINES] lines, down to 70% of the
      * full size before anything is cut. `원본: 채널` goes in the lower left.
      */
-    private fun textOverlay(caption: String, channel: String, width: Int, height: Int): BitmapOverlay {
+    private fun textOverlay(look: ClipText, channel: String, width: Int, height: Int): BitmapOverlay {
         val bitmap = createBitmap(width, height)
         val canvas = Canvas(bitmap)
         val margin = width * 0.06f
         val box = (width - 2 * margin).toInt()
-        val text = caption.trim()
+        val text = look.caption.trim()
+        val font = TextLooks.font(look.font)
+        val colors = TextLooks.color(look.color)
+        val face = font.typeface(context)
         // Korean clip channels' Shorts title lines are about 5% of the frame's height (4.5 to 6.5%); 8% of the
         // width draws Hangul at about 4.7% with its outline. Horizontal clips keep a smaller line.
         val full = width * (if (height > width) 0.08f else 0.04f)
         fun paints(size: Float): Pair<TextPaint, TextPaint> {
             val fill = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
+                color = colors.fill
                 textSize = size
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                typeface = face
             }
             val stroke = TextPaint(fill).apply {
-                color = Color.BLACK
+                color = colors.edge
                 style = Paint.Style.STROKE
                 strokeWidth = size * 0.16f
                 strokeJoin = Paint.Join.ROUND
@@ -171,7 +174,15 @@ class ShortsExporter(private val context: Context) {
             var size = full
             while (size > full * 0.7f && layout(paints(size).first, cut = false).lineCount > MAX_LINES) size *= 0.92f
             val (fill, stroke) = paints(size)
-            canvas.withTranslation(margin, height * (if (height > width) 0.09f else 0.05f)) {
+            val block = layout(fill, cut = true).height
+            val portrait = height > width
+            // Top: the band over the picture; middle: across it; bottom: above the corner credit (and the Shorts buttons).
+            val top = when (look.place) {
+                "middle" -> (height - block) / 2f
+                "bottom" -> height * (if (portrait) 0.80f else 0.92f) - block
+                else -> height * (if (portrait) 0.09f else 0.05f)
+            }
+            canvas.withTranslation(margin, top) {
                 layout(stroke, cut = true).draw(this)
                 layout(fill, cut = true).draw(this)
             }

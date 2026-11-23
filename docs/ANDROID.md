@@ -15,8 +15,9 @@
 2. 형태 선택: Shorts(세로, 15~90초) 또는 가로 클립(1~3분). 데스크톱 `--preset shorts`, `clip`과 같은 구간 길이
 3. **하이라이트 찾기**: 방송 정보, 채팅 다시보기 받기, 검출 순서로 진행 표시
 4. 하이라이트마다 **제목, 설명 복사**(제안 제목과 설명란 전체), **원본에서 보기**(사이트별 시각 링크), **Shorts 만들기**. 연필 단추로 **제목(YouTube)**(100자까지, 글자 수 표시)과 **영상 문구**(영상 위쪽 글자) 고치기. 영상 문구의 기본값은 `[이름]` 없이 자르지 않은 대사(방송 제목). 3줄을 넘으면 글자를 70%까지 줄인 뒤에도 넘칠 때만 끝을 줄임표로
-5. 여러 하이라이트의 **Shorts 만들기**를 누르면 차례로 제작(앞 영상이 끝나면 다음 시작). 휴대폰 인코더와 내려받기를 나눠 쓰지 않아 각각 빨리 끝남
-6. 만든 영상은 `Movies/stream2clip`에 저장. **영상 열기**, **공유**(YouTube 앱 등)
+5. 영상 문구의 **글꼴**(검은고딕, 도현체, 주아체, 고딕 A1 블랙, 프리텐다드 블랙, 기본 글꼴), **색**(흰색, 노랑, 분홍 채움에 흰 테두리), **위치**(위, 가운데, 아래) 선택. 글꼴은 데스크톱 자막 글꼴 목록의 한국어 글꼴 5종을 앱에 포함(약 7.8MB, 라이선스 파일 함께). 고른 모양은 다음 클립에도 적용
+6. 여러 하이라이트의 **Shorts 만들기**를 누르면 차례로 제작(앞 영상이 끝나면 다음 시작). 휴대폰 인코더와 내려받기를 나눠 쓰지 않아 각각 빨리 끝남
+7. 만든 영상은 `Movies/stream2clip`에 저장. **영상 열기**, **공유**(YouTube 앱 등)
 
 | &numsp;&numsp;&numsp;형&NoBreak;태&numsp;&numsp;&numsp; | 결과 |
 |:---:|---|
@@ -91,6 +92,7 @@ adb shell am start -a android.intent.action.SEND -t text/plain --es android.inte
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;구&NoBreak;성&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 라이선스 |
 |:---:|---|
 | Chaquopy | MIT |
+| 앱에 포함한 글꼴(Black Han Sans, Do Hyeon, Jua, Gothic A1, Pretendard) | SIL Open Font License 1.1. `assets/fonts`에 각 라이선스 파일 |
 | Media3, AndroidX, Jetpack Compose | Apache-2.0 |
 | yt-dlp | Unlicense |
 | numpy | BSD-3-Clause |

@@ -617,6 +617,23 @@ def test_singing_and_laughter_options(app, window, stream_files, monkeypatch):  
     assert seen["laughter"] is False and window.list.count() == 1 and "노래 구간" not in window.status.text()
 
 
+def test_caption_looks_and_places_to_choose_from(app, tmp_path, monkeypatch):
+    from stream2clip import subtitles
+    from stream2clip.subtitles import SUBTITLE_POSITIONS, SUBTITLE_STYLES
+
+    win = HighlightsWindow()
+    looks = [win.style_combo.itemData(i) for i in range(win.style_combo.count())]
+    places = [win.position_combo.itemData(i) for i in range(win.position_combo.count())]
+    assert looks == list(SUBTITLE_STYLES) and places == list(SUBTITLE_POSITIONS)  # every look and place, in the same order
+    monkeypatch.setenv("STREAM2CLIP_FONTS_DIR", str(tmp_path))
+    monkeypatch.setattr(subtitles, "installed_fonts", lambda: frozenset({"malgun gothic"}))
+    assert win.caption_fonts_to_fetch("default") == [] and win.caption_fonts_to_fetch("box") == []  # the system's fonts
+    assert [f.key for f in win.caption_fonts_to_fetch("dohyeon")] == ["do-hyeon"]
+    monkeypatch.setattr(subtitles, "installed_fonts", lambda: frozenset({"do hyeon"}))
+    assert win.caption_fonts_to_fetch("dohyeon") == []  # installed in the system already
+    win.close()
+
+
 def test_highlights_window_remembers_its_choices(app, tmp_path):
     first = HighlightsWindow()
     first.audio_check.setChecked(False)

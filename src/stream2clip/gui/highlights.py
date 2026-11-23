@@ -53,8 +53,21 @@ _STAGES = {
     "singing": tr("노래 구간 찾는 중"), "detect": tr("하이라이트 찾는 중"), "avatar": tr("아바타 찾는 중"),
     "fetch-info": tr("방송 정보 받는 중"), "fetch-chat": tr("채팅 다시보기 받는 중 (긴 방송은 몇 분 걸립니다)"),
 }
-_SUBTITLE_STYLES = [("default", tr("기본")), ("box", tr("상자")), ("pink", tr("분홍 강조")), ("small", tr("작게"))]
-_SUBTITLE_POSITIONS = [("bottom", tr("아래쪽")), ("middle", tr("가운데")), ("top", tr("위쪽"))]
+#: Caption looks (stream2clip.subtitles.SUBTITLE_STYLES). The ones after the first four name a free font, fetched when first used.
+_SUBTITLE_STYLES = [
+    ("default", tr("기본")), ("box", tr("상자")), ("pink", tr("분홍 강조")), ("small", tr("작게")),
+    ("dohyeon", tr("도현체")), ("black-han", tr("검은고딕")), ("gothic-black", tr("고딕 A1 블랙")), ("yellow", tr("노란 예능 자막")),
+    ("pink-pop", tr("분홍 채움 (주아체)")), ("plate", tr("상자 (프리텐다드)")), ("cute", tr("동글 (분홍 테두리)")), ("handwriting", tr("손글씨 (나눔펜)")),
+    ("game", tr("구기체 (게임)")), ("sunflower", tr("해바라기체")), ("pretendard", tr("프리텐다드 블랙")), ("nanum", tr("나눔고딕 엑스트라볼드")),
+    ("brush", tr("붓글씨 (연성체)")), ("doodle", tr("싱글데이 (분홍)")),
+    ("telop", tr("일본어 둥근 테롭")), ("telop-yellow", tr("일본어 노란 테롭")), ("zen-maru", tr("일본어 젠마루 (분홍 테두리)")),
+    ("rocknroll", tr("일본어 RocknRoll")), ("reggae", tr("일본어 Reggae (노랑)")),
+    ("impact", tr("영어 Anton")), ("comic", tr("영어 만화체 (Bangers)")), ("heavy", tr("영어 Archivo Black")), ("poster", tr("영어 Bebas Neue")),
+]
+_SUBTITLE_POSITIONS = [
+    ("bottom", tr("아래쪽")), ("low", tr("맨 아래")), ("middle", tr("가운데")), ("top", tr("위쪽")),
+    ("under-video", tr("방송 화면 바로 아래 (Shorts)")), ("over-video", tr("방송 화면 아래쪽에 겹쳐 (Shorts)")), ("above-video", tr("방송 화면 바로 위 (Shorts)")),
+]
 _SINGING = [("off", tr("노래 구간 안 봄")), ("mark", tr("노래 구간 표시")), ("skip", tr("노래 구간 제외"))]
 #: Sound effects of the export settings: none, chosen by chat's reaction, or one of the built-in ones (stream2clip.soundtrack).
 _EFFECTS = [
@@ -718,12 +731,12 @@ class HighlightsWindow(QMainWindow):
         self.style_combo = QComboBox()
         for key, label in _SUBTITLE_STYLES:
             self.style_combo.addItem(label, key)
-        self.style_combo.setToolTip(tr("자막의 모양. 상자는 복잡한 게임 화면 위에서도 읽기 쉽습니다."))
+        self.style_combo.setToolTip(tr("자막의 모양. 상자는 복잡한 게임 화면 위에서도 읽기 쉽습니다.\n글꼴 이름이 붙은 모양은 처음 쓸 때 무료 글꼴(SIL Open Font License)을 내려받습니다."))
         grid.addWidget(self.style_combo, 6, 1)
         self.position_combo = QComboBox()
         for key, label in _SUBTITLE_POSITIONS:
             self.position_combo.addItem(label, key)
-        self.position_combo.setToolTip(tr("자막의 위치. 게임 자체의 대사 창이 아래에 있으면 위쪽을 고르세요."))
+        self.position_combo.setToolTip(tr("자막의 위치. 게임 자체의 대사 창이 아래에 있으면 위쪽을 고르세요.\n방송 화면 바로 아래, 위, 겹쳐는 Shorts에서 가운데 방송 화면 기준 위치입니다."))
         grid.addWidget(self.position_combo, 6, 2)
 
         grid.addWidget(QLabel(tr("번역")), 7, 0)
@@ -1144,6 +1157,16 @@ class HighlightsWindow(QMainWindow):
         self.top_spin.setValue(preset.top)
         self._on_layout_changed()
 
+    def caption_fonts_to_fetch(self, look: str) -> list:
+        """Catalog fonts the caption look needs that neither the system nor the fonts folder has (:mod:`stream2clip.fonts`)."""
+        from ..fonts import missing_for
+        from ..subtitles import SUBTITLE_STYLES, _has_family, installed_fonts
+
+        style = SUBTITLE_STYLES.get(look)
+        if style is None or style.font == "auto" or _has_family(style.font, installed_fonts()):
+            return []
+        return missing_for([style.font])
+
     def open_sound_library(self):
         """The sound library window; a track picked there goes into the music box."""
         from .sounds import SoundLibraryDialog
@@ -1453,6 +1476,12 @@ class HighlightsWindow(QMainWindow):
         if (bgm_spec or sfx_key) and self.format_combo.currentData() not in ("mp4", "webm"):
             self._on_failed(tr("배경 음악과 효과음은 소리가 있는 형식(MP4, WebM)에만 넣을 수 있습니다."))
             return
+        fetch_fonts = self.caption_fonts_to_fetch(look) if (subs_path or model) else []
+        if fetch_fonts and self.dialogs:
+            listed = ", ".join(f"{f.family} ({f.megabytes} MB)" for f in fetch_fonts)
+            answer = QMessageBox.question(self, tr("자막 글꼴"), tr("이 자막 모양은 무료 글꼴 {0}을 씁니다. 내려받을까요?\n(SIL Open Font License, 받은 뒤 확인값 검사)").format(listed))
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         self.remember()
         self._set_busy(True, tr("클립 {0}개 내보내는 중").format(len(chosen)))
         folder = self.source_folder(url) if url else None
@@ -1467,6 +1496,12 @@ class HighlightsWindow(QMainWindow):
             from ..subtitles import FasterWhisperTranscriber, load_subtitles, subtitle_style
             from ..translation import Glossary
 
+            if fetch_fonts:
+                from ..fonts import install
+
+                for font in fetch_fonts:
+                    self._progress.emit(0, steps, tr("자막 글꼴 {0} 내려받는 중").format(font.family))
+                    install(font)
             cues = load_subtitles(subs_path) if subs_path else None
             session, zero = open_session(*chosen_session)  # the expression hotkeys the streamer pressed: the clearest moments for effects
             hotkeys = [at for at, _name in session.hotkeys(zero)] if session is not None else []

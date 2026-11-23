@@ -39,8 +39,22 @@
     <string name="title_label">Title (YouTube)</string>
     <string name="caption_label">Words on the video</string>
     <string name="caption_hint">Shown at the top of the video; past three lines the letters get smaller</string>
-    <string name="caption_preview">On the video: %1$s</string>
     <string name="cancel">Cancel</string>
     <string name="save_text">Save</string>
     <string name="waiting">Starts after the one before it</string>
+    <string name="look_font">Font</string>
+    <string name="look_color">Colour</string>
+    <string name="look_place">Place</string>
+    <string name="font_black_han">Black Han Sans</string>
+    <string name="font_do_hyeon">Do Hyeon</string>
+    <string name="font_jua">Jua</string>
+    <string name="font_gothic_black">Gothic A1 Black</string>
+    <string name="font_pretendard">Pretendard Black</string>
+    <string name="font_system">Standard font</string>
+    <string name="color_white">White</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_pink">Pink (white edge)</string>
+    <string name="place_top">Top</string>
+    <string name="place_middle">Middle</string>
+    <string name="place_bottom">Bottom</string>
 </resources>

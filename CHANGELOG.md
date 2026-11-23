@@ -9,6 +9,16 @@
 - 확인: 실제 치지직 다시보기 20초를 faster-whisper small로 받아써 Shorts와 가로 클립으로 제작, Shorts 대사 약 4%, 가로 약 5%로 참고 영상 범위 안. 글자는 참고 영상의 굵은 디스플레이 글꼴보다 얇음(설치된 Noto Sans KR 가변 글꼴의 합성 굵기)
 - 안드로이드 앱의 영상 문구를 너비의 8%로(Shorts 제목 띠 한 줄 약 5%에 맞춤)
 
+### 자막 글꼴과 위치
+- 자막 글꼴 목록(`stream2clip.fonts`, `stream2clip fonts`): 무료 글꼴 24종(한국어 14, 일본어 6, 영어 4, SIL Open Font License). Google Fonts 저장소의 한 커밋과 Pretendard v1.3.9에 고정한 주소와 SHA-256. 처음 쓸 때 도구 폴더의 `fonts`에 받고 확인값이 맞을 때만 저장, 라이선스 파일 함께
+- 글꼴 모양 23종 추가(모두 27종): 한국어 `dohyeon`, `black-han`, `gothic-black`, `yellow`, `pink-pop`, `plate`, `cute`, `handwriting`, `game`, `sunflower`, `pretendard`, `nanum`, `brush`, `doodle`, 일본어 `telop`, `telop-yellow`, `zen-maru`, `rocknroll`, `reggae`, 영어 `impact`, `comic`, `heavy`, `poster`. 채움 색, 외곽선 색과 두께, 상자, 그림자(`SubtitleStyle.shadow`) 조합
+- 위치 4종 추가(모두 7종): `low`(아래 가장자리), `under-video`, `over-video`, `above-video`(Shorts의 방송 화면 바로 아래, 겹쳐, 바로 위). 가로 프레임은 위치마다 따로(`landscape_alignment`, `landscape_margin`)
+- ffmpeg `subtitles` 필터에 글꼴 폴더 전달(`ExportOptions.fonts_dir`, `fontsdir`): 시스템에 설치하지 않고 사용
+- 자막 문자를 그리지 못하는 글꼴은 언어에 맞는 글꼴로 대신 표시(`caption_font`). 원래 굵은 글꼴에는 합성 굵기를 더하지 않음
+- `clips`는 고른 모양의 글꼴이 없으면 받은 뒤 진행. 앱은 하이라이트 창의 스타일 줄에 모양 27종과 위치 7종, 받기 전에 확인
+- 안드로이드 앱: 영상 문구의 글꼴(한국어 5종 포함), 색(흰색, 노랑, 분홍 채움), 위치(위, 가운데, 아래) 선택. 고른 모양은 다음 클립에도 적용
+- 확인: 모든 모양과 위치를 Shorts와 가로 클립 표본 화면에 그려 글꼴 적용과 크기 확인. Dongle, 영어 글꼴은 글자가 작게 그려져 크기를 키우고, 폭이 넓은 구기체와 해바라기체는 한 줄 글자 수를 줄임
+
 ### 안드로이드 앱(베타)
 - `android/`: 휴대폰에서 다시보기 주소로 하이라이트를 찾고 Shorts를 만드는 앱. Kotlin, Jetpack Compose 화면. 한국어, 일본어, 영어
 - 검출, 제목, 설명란: 이 저장소의 `stream2clip` 패키지(gui 제외)를 Chaquopy로 앱 안에서 실행(파이썬 3.13, numpy 1.26.2, Pillow 11.0.0, yt-dlp). 연결 모듈 `s2c_android.py`가 방송 정보, 채팅, 검출, 문구를 JSON으로 반환

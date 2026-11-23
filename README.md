@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-693-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-703-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -353,16 +353,25 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avat
 | | `box` | 반투명 어두운 상자 위에 표시. 복잡한 게임 화면용 |
 | | `pink` | 강조 색을 라이브 핑크로 변경 |
 | | `small` | 작은 크기, 얇은 외곽선, 보통 굵기 |
-| `--subtitle-position` | `bottom`, `middle`, `top` | 자막 위치. 기본값 `bottom`. 게임 자체의 대사 창이 아래에 있는 경우 `top` 사용 |
+| | 한국어 글꼴 모양 | `dohyeon`(도현체), `black-han`(검은고딕), `gothic-black`(고딕 A1 블랙), `yellow`(노란 채움), `pink-pop`(주아체 분홍 채움, 흰 테두리), `plate`(프리텐다드 상자), `cute`(동글, 분홍 테두리), `handwriting`(나눔펜), `game`(구기체), `sunflower`(해바라기체), `pretendard`(프리텐다드 블랙), `nanum`(나눔고딕 엑스트라볼드), `brush`(연성체), `doodle`(싱글데이 분홍) |
+| | 일본어 글꼴 모양 | `telop`(M PLUS Rounded 1c Black), `telop-yellow`(Dela Gothic One 노랑), `zen-maru`(Zen Maru Gothic, 분홍 테두리), `rocknroll`(RocknRoll One), `reggae`(Reggae One 노랑) |
+| | 영어 글꼴 모양 | `impact`(Anton), `comic`(Bangers 노랑), `heavy`(Archivo Black), `poster`(Bebas Neue) |
+| `--subtitle-position` | `bottom` | 기본값. Shorts 버튼 위 |
+| | `low` | 아래 가장자리 가까이(가로 클립은 높이의 3%). 한국어 가로 키리누키의 위치 |
+| | `middle`, `top` | 가운데, 위쪽. 게임 자체의 대사 창이 아래에 있는 경우 `top` |
+| | `under-video`, `over-video`, `above-video` | Shorts의 가운데 방송 화면 바로 아래, 화면 아래쪽에 겹쳐, 화면 바로 위(blur, fit 레이아웃 기준). 가로 클립에서는 아래쪽 또는 위쪽 |
 | `--font-size` | 픽셀 | 짧은 변 1080px 화면 기준 글자 크기. 지정하면 가로, 세로 모두 같은 크기(한 줄 글자 수는 크기에 맞춰 조정). 기본값은 가로 80, 세로 112 |
 
 ```bash
 stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --subtitle-style box --subtitle-position top -o clips
 ```
 
-- 앱: 하이라이트 창의 **스타일** 줄에서 모양과 위치 선택
 - 자막 확인: 클립마다 읽기에 빠른 줄(초당 글자 수. 일본어, 중국어 8자, 한국어 15자, 그 외 25자의 경험값), 가장 작게 줄여도 화면 폭을 넘는 줄, 0.3초 미만 표시, 같은 자막 3회 이상 연속, 한 줄 안의 같은 말 되풀이, 받아쓰기가 무음에서 지어내기 쉬운 문구를 `clips.json`의 `captions`에 기록. 명령줄은 클립별로 출력, 앱은 내보낸 후 개수 표시. 가이드라인 점검과 별도
-- 라이브러리: `subtitle_style("box", position="top")` 또는 `SubtitleStyle(...)`을 `make_clips(subtitle_style=...)`에 전달
+- 글꼴 모양은 무료 글꼴(SIL Open Font License) 목록의 글꼴을 처음 쓸 때 내려받음. 고정한 출처(Google Fonts 저장소의 한 커밋, Pretendard 릴리스 태그)에서 받고 SHA-256이 맞을 때만 저장. 시스템에 설치하지 않고 ffmpeg에 글꼴 폴더(`fontsdir`)로 전달. 같은 이름의 글꼴이 시스템에 있으면 그 글꼴 사용
+- 자막 언어를 그리지 못하는 글꼴(한국어 글꼴에 일본어 자막 등)은 언어에 맞는 설치된 글꼴로 대신 표시. 원래 굵은 글꼴은 합성 굵기를 더하지 않음
+- `stream2clip fonts`: 글꼴 24종 목록(키, 이름, 크기, 문자, 용도, 쓰는 모양, 받은 것 표시). `stream2clip fonts do-hyeon gugi` 또는 `all`로 미리 받기. `--script ko`로 한국어 글꼴만. `--font 이름`에도 목록의 글꼴 사용 가능
+- 앱: 하이라이트 창의 **스타일** 줄에서 모양 27종과 위치 7종 선택. 받지 않은 글꼴이 필요한 모양은 내보내기 전에 내려받을지 확인
+- 라이브러리: `subtitle_style("box", position="top")` 또는 `SubtitleStyle(...)`을 `make_clips(subtitle_style=...)`에 전달. 글꼴 목록과 받기는 `stream2clip.fonts`(`CAPTION_FONTS`, `install`)
 
 ### 자막 번역
 
@@ -925,7 +934,7 @@ Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방�
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 693개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 703개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |

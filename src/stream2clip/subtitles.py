@@ -243,6 +243,12 @@ class SubtitleStyle:
     #: Portrait frames: the letter size and line length there (``None``: as on landscape frames).
     portrait_size: int | None = 112
     portrait_max_chars: int | None = 12
+    #: Landscape frames: where the captions sit there (``margin_v`` and ``alignment`` are for portrait frames).
+    #: ``landscape_margin`` is a share of the frame's height; ``landscape_alignment`` ``None`` keeps ``alignment``.
+    landscape_margin: float = 0.06
+    landscape_alignment: int | None = None
+    #: The soft shadow under outlined captions, in px like ``outline_width``; ``None``: 0.4 of the outline.
+    shadow: float | None = None
 
     def for_frame(self, width: int, height: int) -> "SubtitleStyle":
         """This style as a ``width`` x ``height`` frame shows it: the portrait size and line length on a portrait frame."""
@@ -253,27 +259,68 @@ class SubtitleStyle:
                        outline_width=round(self.outline_width * size / self.size, 1), portrait_size=None, portrait_max_chars=None)
 
 
-#: Ready-made looks for ``--subtitle-style``.
+_PINK_FILL = "#FF7AA8"
+_WHITE = "#FFFFFF"
+
+#: Ready-made looks for ``--subtitle-style``. The first four use whatever font suits the language; the others
+#: name a font of the caption font catalog (:mod:`stream2clip.fonts`), fetched the first time it is used,
+#: in the looks Korean, Japanese and English clip channels caption with (a fill, a thick outline, a plate).
 SUBTITLE_STYLES: dict[str, SubtitleStyle] = {
     "default": SubtitleStyle(),
     "box": SubtitleStyle(box=True, outline="#15131FD9", outline_width=14.0),  # readable over a busy game picture
     "pink": SubtitleStyle(highlight=LIVE_PINK),
     "small": SubtitleStyle(size=56, outline_width=4.0, bold=False, max_chars=30, portrait_size=72, portrait_max_chars=18),
+    # Korean clip channels
+    "dohyeon": SubtitleStyle(font="Do Hyeon", outline_width=9.0),                           # the plain dialogue font of Korean clips
+    "black-han": SubtitleStyle(font="Black Han Sans", outline_width=9.0),                    # heavy, for few and short lines
+    "gothic-black": SubtitleStyle(font="Gothic A1 Black", outline_width=8.0),                # a clean heavy gothic
+    "yellow": SubtitleStyle(font="Gothic A1 Black", color=HIGHLIGHT, highlight=_WHITE, outline_width=9.0),  # variety yellow
+    "pink-pop": SubtitleStyle(font="Jua", color=_PINK_FILL, highlight=HIGHLIGHT, outline=_WHITE, outline_width=8.0),  # pink fill, white edge
+    "plate": SubtitleStyle(font="Pretendard ExtraBold", box=True, outline="#15131FD9", outline_width=14.0),
+    "cute": SubtitleStyle(font="Dongle", outline=LIVE_PINK, outline_width=8.0, size=150, portrait_size=210, portrait_max_chars=13),  # Dongle is drawn small
+    "handwriting": SubtitleStyle(font="Nanum Pen", outline_width=6.0, size=92, portrait_size=128),
+    "game": SubtitleStyle(font="Gugi", outline_width=8.0, max_chars=19, portrait_max_chars=10),  # wide letters
+    "sunflower": SubtitleStyle(font="Sunflower", outline_width=8.0, max_chars=20, portrait_max_chars=11),
+    "pretendard": SubtitleStyle(font="Pretendard Black", outline_width=9.0),                 # a modern heavy gothic
+    "nanum": SubtitleStyle(font="NanumGothicExtraBold", outline_width=8.0),
+    "brush": SubtitleStyle(font="Yeon Sung", outline_width=7.0, size=88, portrait_size=124),  # brush lettering
+    "doodle": SubtitleStyle(font="Single Day", color=_PINK_FILL, highlight=HIGHLIGHT, outline=_WHITE, outline_width=7.0, size=88, portrait_size=124),
+    # Japanese 切り抜き telops
+    "telop": SubtitleStyle(font="Rounded Mplus 1c Black", outline_width=9.0),
+    "telop-yellow": SubtitleStyle(font="Dela Gothic One", color=HIGHLIGHT, highlight=_WHITE, outline_width=9.0),
+    "zen-maru": SubtitleStyle(font="Zen Maru Gothic Black", outline=LIVE_PINK, outline_width=8.0),
+    "rocknroll": SubtitleStyle(font="RocknRoll One", outline_width=9.0),
+    "reggae": SubtitleStyle(font="Reggae One", color=HIGHLIGHT, highlight=_WHITE, outline_width=9.0),
+    # English clips
+    "impact": SubtitleStyle(font="Anton", size=100, portrait_size=140, outline_width=8.0, max_chars=26, portrait_max_chars=14),  # Latin letters are short beside Hangul
+    "comic": SubtitleStyle(font="Bangers", color=HIGHLIGHT, highlight=_WHITE, size=100, portrait_size=140, outline_width=8.0, max_chars=24, portrait_max_chars=13),
+    "heavy": SubtitleStyle(font="Archivo Black", size=92, portrait_size=128, outline_width=8.0, max_chars=24, portrait_max_chars=13),
+    "poster": SubtitleStyle(font="Bebas Neue", size=110, portrait_size=154, outline_width=8.0, max_chars=28, portrait_max_chars=15),
 }
-#: Where the captions sit: (alignment, margin from that edge on a 1080x1920 canvas).
-SUBTITLE_POSITIONS: dict[str, tuple[int, int]] = {"bottom": (2, 380), "middle": (5, 0), "top": (8, 260)}
+#: Where the captions sit: (alignment and margin on a 1080x1920 portrait canvas, alignment and margin as a share of
+#: the height on a landscape one). The portrait places around the picture follow the blur and fit layouts, whose
+#: 16:9 picture fills the middle third of a 9:16 frame (656 to 1263 px).
+SUBTITLE_POSITIONS: dict[str, tuple[int, int, int, float]] = {
+    "bottom": (2, 380, 2, 0.06),         # above the Shorts / TikTok buttons
+    "low": (2, 200, 2, 0.03),            # close to the bottom edge, as horizontal Korean clips set them
+    "middle": (5, 0, 5, 0.0),
+    "top": (8, 260, 8, 0.05),
+    "under-video": (8, 1300, 2, 0.06),   # in the band just under the picture
+    "over-video": (2, 690, 2, 0.06),     # on the lower part of the picture itself
+    "above-video": (2, 1290, 8, 0.05),   # in the band just over the picture
+}
 
 
 def subtitle_style(name: str = "default", *, position: str | None = None, font: str | None = None, size: int | None = None) -> SubtitleStyle:
-    """A preset, optionally moved (``bottom`` / ``middle`` / ``top``) and with another font or size."""
+    """A preset, optionally moved (one of :data:`SUBTITLE_POSITIONS`) and with another font or size."""
     if name not in SUBTITLE_STYLES:
         raise ValueError(f"Unknown subtitle style {name!r}; choose one of {', '.join(SUBTITLE_STYLES)}")
     style = SUBTITLE_STYLES[name]
     if position is not None:
         if position not in SUBTITLE_POSITIONS:
             raise ValueError(f"Unknown subtitle position {position!r}; choose one of {', '.join(SUBTITLE_POSITIONS)}")
-        alignment, margin = SUBTITLE_POSITIONS[position]
-        style = replace(style, alignment=alignment, margin_v=margin)
+        alignment, margin, wide_alignment, wide_margin = SUBTITLE_POSITIONS[position]
+        style = replace(style, alignment=alignment, margin_v=margin, landscape_alignment=wide_alignment, landscape_margin=wide_margin)
     if font:
         style = replace(style, font=font)
     if size:
@@ -284,6 +331,26 @@ def subtitle_style(name: str = "default", *, position: str | None = None, font: 
 
 
 # --------------------------------------------------------------------------- fonts
+
+
+def caption_font(style: SubtitleStyle, script: str) -> tuple[str, bool]:
+    """The family and boldness the captions ask for: the style's font, or one that suits ``script``.
+
+    A font of the caption font catalog (:mod:`stream2clip.fonts`) that does not draw the captions' script
+    (a Korean font for Japanese lines) gives way to :func:`pick_font`, and is asked for with its own
+    boldness: a font heavy by design is not thickened again by a synthetic bold.
+    """
+    if style.font == "auto":
+        return pick_font(script), style.bold
+    from .fonts import find
+
+    entry = find(style.font)
+    if entry is None:
+        return style.font, style.bold
+    if {"": "en", "zh": "ja"}.get(script, script) not in entry.scripts:
+        return pick_font(script), style.bold
+    return entry.family, entry.bold
+
 
 #: Per script, the families tried in order: Noto first, then what Windows, macOS and Linux bring along.
 FONT_CANDIDATES: dict[str, tuple[str, ...]] = {
@@ -580,14 +647,15 @@ def to_ass(
     W, H = play_res
     st = (style or SubtitleStyle()).for_frame(W, H)
     cues = sorted(cues, key=lambda c: c.start)
-    font = pick_font(script_of("".join(_cue_text(c) for c in cues))) if st.font == "auto" else st.font
+    font, bold = caption_font(st, script_of("".join(_cue_text(c) for c in cues)))
     k = min(W, H) / st.reference
     size, outline = max(8, round(st.size * k)), round(st.outline_width * k, 1)
-    # margin_v is defined for a 1080x1920 portrait canvas; landscape video keeps captions low (6%).
-    margin_v = round(H * st.margin_v / 1920) if H >= W else (round(H * 0.06) if st.alignment != 5 else 0)
+    # margin_v and alignment are for a 1080x1920 portrait canvas; a landscape one has its own (low, 6%, by default).
+    alignment = st.alignment if H >= W else (st.landscape_alignment or st.alignment)
+    margin_v = round(H * st.margin_v / 1920) if H >= W else (round(H * st.landscape_margin) if alignment != 5 else 0)
     border = 3 if st.box else 1
     # Outlined captions cast a soft shadow (BackColour, 60% black), as Korean clip captions do; a plate needs none.
-    shadow = 0 if st.box else round(outline * 0.4, 1)
+    shadow = 0 if st.box else (round(st.shadow * k, 1) if st.shadow is not None else round(outline * 0.4, 1))
     margin_h = round(st.margin_h * k)
     primary, secondary = (st.highlight, st.color) if karaoke else (st.color, st.color)
     header = [
@@ -603,7 +671,7 @@ def to_ass(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
         "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         f"Style: Default,{font},{size},{_ass_color(primary)},{_ass_color(secondary)},{_ass_color(st.outline)},&H64000000,"
-        f"{-1 if st.bold else 0},0,0,0,100,100,0,0,{border},{outline:g},{shadow:g},{st.alignment},{margin_h},{margin_h},{margin_v},1",
+        f"{-1 if bold else 0},0,0,0,100,100,0,0,{border},{outline:g},{shadow:g},{alignment},{margin_h},{margin_h},{margin_v},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -616,7 +684,7 @@ def to_ass(
         header.insert(
             header.index("[Events]") - 1,
             f"Style: {name},{font},{size},{_ass_color(primary)},{_ass_color(secondary)},{_ass_color(edge)},&H64000000,"
-            f"{-1 if st.bold else 0},0,0,0,100,100,0,0,{border},{outline:g},{shadow:g},{st.alignment},{margin_h},{margin_h},{margin_v},1",
+            f"{-1 if bold else 0},0,0,0,100,100,0,0,{border},{outline:g},{shadow:g},{alignment},{margin_h},{margin_h},{margin_v},1",
         )
 
     def said(c: Cue) -> str:
@@ -637,7 +705,7 @@ def to_ass(
         until = duration if duration else max((c.end for c in cues), default=0.0)
         if until <= 0:
             raise ValueError("A credit needs the length of the clip")
-        credit_font = pick_font(script_of(credit)) if st.font == "auto" else st.font
+        credit_font = caption_font(st, script_of(credit))[0]
         # Small and out of the way; on a portrait canvas the bottom corners stay above the Shorts / TikTok buttons.
         low = credit_position.startswith("bottom")
         margin_cv = round(H * (0.2 if low and H >= W else 0.05))
@@ -650,7 +718,7 @@ def to_ass(
     context = " ".join((context or "").split())
     if context:
         until = min(context_seconds, duration) if duration else context_seconds
-        context_font = pick_font(script_of(context)) if st.font == "auto" else st.font
+        context_font = caption_font(st, script_of(context))[0]
         below_credit = bool(credit) and credit_position.startswith("top")
         margin_top = round(H * ((0.1 if below_credit else 0.05) if H >= W else (0.13 if below_credit else 0.05)))
         header.insert(
@@ -661,7 +729,7 @@ def to_ass(
         events.insert(0, f"Dialogue: 2,{_ass_time(0)},{_ass_time(until)},Context,,0,0,0,,{{\\fad(150,250)}}{_escape(context)}")
     tags = [t for t in tags if str(getattr(t, "text", "")).strip() and t.end > t.start]
     if tags:
-        tag_font = pick_font(script_of("".join(t.text for t in tags))) if st.font == "auto" else st.font
+        tag_font = caption_font(st, script_of("".join(t.text for t in tags)))[0]
         header.insert(
             header.index("[Events]") - 1,
             # A fixed size (twice the captions' former 64): the tag stays a tag when the captions grow.

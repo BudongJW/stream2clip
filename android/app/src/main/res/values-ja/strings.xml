@@ -37,8 +37,22 @@
     <string name="title_label">タイトル (YouTube)</string>
     <string name="caption_label">動画の文字</string>
     <string name="caption_hint">動画の上部に表示。3行を超えると文字が小さくなる</string>
-    <string name="caption_preview">動画の文字: %1$s</string>
     <string name="cancel">キャンセル</string>
     <string name="save_text">保存</string>
     <string name="waiting">前の動画の後に開始</string>
+    <string name="look_font">フォント</string>
+    <string name="look_color">色</string>
+    <string name="look_place">位置</string>
+    <string name="font_black_han">Black Han Sans</string>
+    <string name="font_do_hyeon">Do Hyeon</string>
+    <string name="font_jua">Jua</string>
+    <string name="font_gothic_black">Gothic A1 Black</string>
+    <string name="font_pretendard">Pretendard Black</string>
+    <string name="font_system">標準フォント</string>
+    <string name="color_white">白</string>
+    <string name="color_yellow">黄色</string>
+    <string name="color_pink">ピンク (白い縁)</string>
+    <string name="place_top">上</string>
+    <string name="place_middle">中央</string>
+    <string name="place_bottom">下</string>
 </resources>

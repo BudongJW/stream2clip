@@ -57,6 +57,8 @@ import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.StayCurrentLandscape
 import androidx.compose.material.icons.filled.StayCurrentPortrait
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -71,17 +73,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -346,13 +351,15 @@ private fun ClipCard(model: MainViewModel, found: Analysis, clip: Clip, best: Do
             val text = model.text(clip)
             var editing by rememberSaveable(clip.rank) { mutableStateOf(false) }
             if (editing) {
-                TextEditor(text, onDone = { title, caption -> model.edit(clip, title, caption); editing = false }, onCancel = { editing = false })
+                TextEditor(text, onDone = { edited -> model.edit(clip, edited); editing = false }, onCancel = { editing = false })
             } else {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(text.title, style = MaterialTheme.typography.titleSmall)
-                        if (text.caption.isNotBlank() && text.caption != text.title) {
-                            Text(stringResource(R.string.caption_preview, text.caption), style = MaterialTheme.typography.bodySmall, color = Brand.PinkLight, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (text.caption.isNotBlank()) {
+                            // The words on the video, in their own font and colour.
+                            Text(text.caption, fontFamily = overlayFamily(text.font), color = Color(TextLooks.color(text.color).fill),
+                                 style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     IconButton(onClick = { editing = true }, modifier = Modifier.size(36.dp)) {
@@ -371,11 +378,26 @@ private fun ClipCard(model: MainViewModel, found: Analysis, clip: Clip, best: Do
     }
 }
 
-/** Rewrite the YouTube title (100 characters at most) and the words on the video (they shrink to fit three lines). */
+/** The Compose family of one of the video text's fonts (the platform's bold for the system one). */
 @Composable
-private fun TextEditor(text: ClipText, onDone: (String, String) -> Unit, onCancel: () -> Unit) {
+private fun overlayFamily(key: String): FontFamily? {
+    val context = LocalContext.current
+    val asset = TextLooks.font(key).asset ?: return null
+    return remember(asset) { FontFamily(Font(asset, context.assets)) }
+}
+
+/**
+ * Rewrite the YouTube title (100 characters at most) and the words on the video (they shrink to fit three lines),
+ * and pick how those words look: one of the app's fonts, a fill and outline, a place on the frame.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TextEditor(text: ClipText, onDone: (ClipText) -> Unit, onCancel: () -> Unit) {
     var title by rememberSaveable { mutableStateOf(text.title) }
     var caption by rememberSaveable { mutableStateOf(text.caption) }
+    var font by rememberSaveable { mutableStateOf(text.font) }
+    var color by rememberSaveable { mutableStateOf(text.color) }
+    var place by rememberSaveable { mutableStateOf(text.place) }
     val colors = OutlinedTextFieldDefaults.colors(
         focusedContainerColor = Brand.Surface2,
         unfocusedContainerColor = Brand.Surface2,
@@ -404,18 +426,46 @@ private fun TextEditor(text: ClipText, onDone: (String, String) -> Unit, onCance
             maxLines = 4,
             shape = RoundedCornerShape(12.dp),
             colors = colors,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = overlayFamily(font), color = Color(TextLooks.color(color).fill)),
         )
+        ChoiceRow(R.string.look_font, TextLooks.fonts.map { it.key to it.label }, font) { font = it }
+        ChoiceRow(R.string.look_color, TextLooks.colors.map { it.key to it.label }, color) { color = it }
+        ChoiceRow(R.string.look_place, TextLooks.places.map { it.key to it.label }, place) { place = it }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Spacer(Modifier.weight(1f))
             OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Brand.Border)) {
                 Text(stringResource(R.string.cancel), color = Brand.Paper)
             }
             Button(
-                onClick = { onDone(title.trim(), caption.trim()) },
+                onClick = { onDone(ClipText(title.trim(), caption.trim(), font, color, place)) },
                 enabled = title.isNotBlank(),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.Pink, contentColor = Brand.Ink),
             ) { Text(stringResource(R.string.save_text), fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+/** One of the video text's choices as a row of chips, the chosen one in pink. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChoiceRow(@StringRes title: Int, options: List<Pair<String, Int>>, chosen: String, onPick: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(title), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            options.forEach { (key, label) ->
+                FilterChip(
+                    selected = key == chosen,
+                    onClick = { onPick(key) },
+                    label = { Text(stringResource(label)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = Brand.Surface2,
+                        labelColor = Brand.Paper,
+                        selectedContainerColor = Brand.Pink.copy(alpha = 0.22f),
+                        selectedLabelColor = Brand.PinkLight,
+                    ),
+                )
+            }
         }
     }
 }

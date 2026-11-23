@@ -21,8 +21,17 @@ data class ExportState(val percent: Int = 0, val uri: Uri? = null, val error: St
     val running: Boolean get() = uri == null && error == null
 }
 
-/** What the user wrote over the suggestion: the YouTube title and the words on the video. */
-data class ClipText(val title: String, val caption: String)
+/**
+ * What the user wrote over the suggestion: the YouTube title and the words on the video, and how those words look
+ * (keys of [TextLooks]: a heavy Korean gothic, white, at the top, as Korean clip channels title their Shorts).
+ */
+data class ClipText(
+    val title: String,
+    val caption: String,
+    val font: String = "black-han-sans",
+    val color: String = "white",
+    val place: String = "top",
+)
 
 /** YouTube's longest title, in characters (as `upload.TITLE_LIMIT` on the desktop). */
 const val TITLE_LIMIT = 100
@@ -52,11 +61,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         Regex("""https?://\S+""").find(text)?.let { url = it.value.trimEnd('.', ',', ')') }
     }
 
-    fun text(clip: Clip): ClipText = edits[clip.rank] ?: ClipText(clip.title, clip.caption)
+    /** The look last chosen: the next clip opens with it. */
+    private var lastLook = ClipText("", "")
+
+    fun text(clip: Clip): ClipText = edits[clip.rank] ?: lastLook.copy(title = clip.title, caption = clip.caption)
 
     /** Keep what the user wrote; YouTube takes at most 100 characters in a title. */
-    fun edit(clip: Clip, title: String, caption: String) {
-        edits[clip.rank] = ClipText(title.replace('\n', ' ').take(TITLE_LIMIT), caption)
+    fun edit(clip: Clip, text: ClipText) {
+        edits[clip.rank] = text.copy(title = text.title.replace('\n', ' ').take(TITLE_LIMIT))
+        lastLook = text.copy(title = "", caption = "")
     }
 
     fun analyse() {
@@ -92,13 +105,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val found = analysis ?: return
         val stream = found.stream ?: return
         if (exports[clip.rank]?.running == true) return
-        val caption = text(clip).caption
+        val text = text(clip)
         exports[clip.rank] = ExportState(waiting = encoder.isLocked)
         viewModelScope.launch {
             exports[clip.rank] = try {
                 encoder.withLock {
                     exports[clip.rank] = ExportState()
-                    val uri = ShortsExporter(getApplication()).export(stream, found.source, clip, caption, found.form) { percent ->
+                    val uri = ShortsExporter(getApplication()).export(stream, found.source, clip, text, found.form) { percent ->
                         exports[clip.rank] = ExportState(percent)
                     }
                     ExportState(100, uri)

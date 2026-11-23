@@ -472,6 +472,11 @@ def make_clips(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     options = resolve_encoder(options or default_clip_options())  # "auto": find the GPU encoder once for every clip
+    if options.fonts_dir is None:
+        from .fonts import fonts_dir
+
+        if fonts_dir().is_dir():  # caption fonts fetched from the catalog: the captions may name them
+            options = replace(options, fonts_dir=fonts_dir())
     if loudness is not None:
         from .ffmpeg import Loudness
 

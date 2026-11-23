@@ -184,7 +184,7 @@ def test_karaoke_words_wrap_with_the_same_rules():
 
 
 def test_presets_and_positions():
-    assert set(SUBTITLE_STYLES) == {"default", "box", "pink", "small"} and set(SUBTITLE_POSITIONS) == {"bottom", "middle", "top"}
+    assert {"default", "box", "pink", "small"} <= set(SUBTITLE_STYLES) and {"bottom", "middle", "top"} <= set(SUBTITLE_POSITIONS)
     assert subtitle_style() == SubtitleStyle()
     top = subtitle_style("box", position="top", font="Meiryo", size=40)
     assert top.box and top.alignment == 8 and top.font == "Meiryo" and top.size == 40
