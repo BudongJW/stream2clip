@@ -51,7 +51,7 @@
 <div class="wrap dochead">
   <h1>stream2clip 사용 설명서</h1>
   <dl>
-    <dt>적용 버전</dt><dd>v0.18</dd>
+    <dt>적용 버전</dt><dd>v0.19</dd>
     <dt>대상</dt><dd>Windows 설치 프로그램, 실행 파일 및 파이썬 패키지 사용자</dd>
     <dt>배포처</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -309,7 +309,7 @@
         <tbody>
           <tr><th scope="row">자막 파일</th><td>SRT, WebVTT 지원. YouTube 자동 자막 사용 가능</td></tr>
           <tr><th scope="row">카라오케</th><td>발화 단어에 맞춰 색상 변경. 단어별 시각 정보가 있는 자막에 적용</td></tr>
-          <tr><th scope="row">스타일</th><td>모양 4종(기본, 상자, 분홍 강조, 작게)과 위치 3종(아래쪽, 가운데, 위쪽) 선택. 폰트는 자막의 언어에 맞춰 자동 선택</td></tr>
+          <tr><th scope="row">스타일</th><td>모양 27종과 위치 7종 선택. 기본, 상자, 분홍 강조, 작게는 자막 언어에 맞는 설치된 글꼴, 나머지는 무료 글꼴(한국어 14종, 일본어 6종, 영어 4종, SIL Open Font License)을 처음 쓸 때 내려받아 사용(확인값 검사). 위치는 아래쪽, 아래 가장자리, 가운데, 위쪽과 Shorts의 방송 화면 바로 아래, 화면 위, 화면 바로 위. 크기는 한국 키리누키 기준(Shorts는 높이의 약 4.5%, 가로 클립은 약 5.5%)</td></tr>
           <tr><th scope="row">문장 경계 맞춤</th><td>자막 파일이 있는 경우 구간의 시작과 끝을 자막 줄의 경계로 이동. 이동 한도 3초. 하이라이트 찾기 실행 시 적용</td></tr>
           <tr><th scope="row">받아쓰기</th><td>자막이 없는 경우 음성에서 자막 생성(Whisper small, medium, large-v3-turbo, large-v3). large 계열은 GPU 권장. 파이썬 패키지에서 제공</td></tr>
           <tr><th scope="row">번역</th><td>번역기 목록의 <strong>번역기 파일 고르기</strong>에서 <code>translators\openai_compatible.py</code> 선택 시 OpenAI 호환 주소(로컬 Ollama 등)로 번역</td></tr>

@@ -51,7 +51,7 @@
 <div class="wrap dochead">
   <h1>stream2clip user manual</h1>
   <dl>
-    <dt>Version</dt><dd>v0.18</dd>
+    <dt>Version</dt><dd>v0.19</dd>
     <dt>Audience</dt><dd>Users of the Windows installer, the executables and the Python package</dd>
     <dt>Source</dt><dd>github.com/BudongJW/stream2clip</dd>
   </dl>
@@ -309,7 +309,7 @@
         <tbody>
           <tr><th scope="row">Subtitle file</th><td>SRT and WebVTT. YouTube automatic captions can be used</td></tr>
           <tr><th scope="row">Karaoke</th><td>Colour follows the spoken word. Applies to subtitles with word timing</td></tr>
-          <tr><th scope="row">Style</th><td>Four looks (Default, Box, Pink highlight, Small) and three places (Bottom, Middle, Top). The font follows the language of the captions</td></tr>
+          <tr><th scope="row">Style</th><td>27 looks and 7 places. Default, Box, Pink highlight and Small use an installed font that suits the language of the captions; the others use free fonts (14 Korean, 6 Japanese, 4 English, SIL Open Font License), downloaded on first use and checked against their checksums. Places: Bottom, Bottom edge, Middle, Top, and for Shorts right under, over and right above the stream picture. Sizes follow Korean clip channels (about 4.5% of the height in Shorts, 5.5% in horizontal clips)</td></tr>
           <tr><th scope="row">Snap to spoken lines</th><td>With a subtitle file, the start and the end of each span move to the edge of a subtitle line. Limit 3 seconds. Applied when highlights are searched</td></tr>
           <tr><th scope="row">Transcription</th><td>Subtitles made from speech when there is no file (Whisper small, medium, large-v3-turbo, large-v3). The large models need a GPU to be quick. Provided by the Python package</td></tr>
           <tr><th scope="row">Translation</th><td><strong>Choose a translator file</strong> in the translator list with <code>translators\openai_compatible.py</code> translates through an OpenAI compatible address such as a local Ollama</td></tr>

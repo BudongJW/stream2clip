@@ -1,6 +1,8 @@
 # 변경 내역
 
-## 미출시
+## v0.19.0: 2026-11-24
+
+v0.18.0은 별도로 배포하지 않았으며 그 변경 사항도 이 릴리즈에 포함
 
 ### 마스코트 디자인 레퍼런스
 - `packaging/mascot_lab.py`: 마스코트 키리의 2D, 3D 레퍼런스를 만드는 작업 환경. 로컬 모델(LCM Dreamshaper v7 OpenVINO, TripoSR, rembg `isnet-anime`)은 저장소 밖의 별도 Python 3.13 가상환경에 리비전 고정으로 설치(`setup`), 외부 모델은 Hugging Face Space의 Qwen-Image-Edit-2511(Multiple-Angles, Anime LoRA)과 TRELLIS를 이 PC의 Hugging Face 로그인으로 사용

@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.18.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.19.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -95,7 +95,7 @@ stream2clip auto "방송 주소" --top 5 -o clips
 | 용도 | 방송 화면 및 다시보기(VOD)의 장면 캡쳐, 편집, 움짤 녹화, 하이라이트 클립 자동 제작 |
 | 구성 | 데스크톱 앱(PySide6), 명령줄 도구, 파이썬 라이브러리 |
 | 지원 환경 | Windows, macOS, Linux. ffmpeg 필요(Windows는 설치 과정 또는 앱에서 내려받기). 파이썬 패키지는 Python 3.10 이상 |
-| 배포 형태 | Windows 설치 프로그램 및 zip([홈페이지](https://budongjw.github.io/stream2clip/)), 파이썬 패키지(소스 설치) |
+| 배포 형태 | Windows 설치 프로그램 및 zip([홈페이지](https://budongjw.github.io/stream2clip/)), 안드로이드 APK(베타, [앱 소개](https://budongjw.github.io/stream2clip/app.html)), 파이썬 패키지(소스 설치) |
 | 화면 언어 | 한국어, 日本語, English |
 | 사용 설명서 | [웹 페이지](https://budongjw.github.io/stream2clip/guide.html), [PDF](https://budongjw.github.io/stream2clip/stream2clip-guide.pdf) |
 | 라이선스 | [Apache-2.0](LICENSE) |
@@ -108,7 +108,8 @@ stream2clip auto "방송 주소" --top 5 -o clips
 
 | &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 주요 변경 |
 |:---:|---|
-| v0.18 | 최고 순간의 특수효과(펀치인 확대, 자막 단어 강조, 채팅 반응 꼬리표), 효과 프리셋, VTube Studio 핫키 전체 기록 |
+| v0.19 | 안드로이드 앱(베타), 한국 키리누키 기준 자막 크기, 무료 자막 글꼴 24종과 자막 모양 27종, 위치 7종, 앱 소개 페이지와 릴리즈마다 서명한 APK, 보안 보강, 마스코트 디자인 레퍼런스 |
+| v0.18 | 최고 순간의 특수효과(펀치인 확대, 자막 단어 강조, 채팅 반응 꼬리표), 효과 프리셋, VTube Studio 핫키 전체 기록. 한국 개인 스트리머의 제목, 해시태그, 설명란 형식(v0.19에 포함해 배포) |
 | v0.17 | 받아쓰기 이름 힌트와 잘못 들은 표기 교정, 큰 받아쓰기 모델, GPU 인코딩, Shorts 썸네일 업로드, 업로드 전 자막 확인, 선택 기록과 채널별 검출 조정, 소리와 heatmap의 시각 보정, 채팅 지연 추정, SOOP 다시보기 만료 안내 |
 | v0.16 | 클립 채널 형식: 클립별 제목과 해시태그 제안, 썸네일, 가로 클립과 가로 모음 영상 형태(`--preset`), 상황 설명과 최고 순간 미리 보기, 재사용 콘텐츠 점검, 콜라보의 화자별 자막 색 |
 | v0.15 | 배경 음악, 효과음: 무료 음원을 클립 소리 아래에 깔고 말하는 동안 줄임, 내장 효과음 5종, 음원 목록의 출처와 라이선스로 설명란 크레디트와 점검, Openverse 음원 검색, 음량 정규화(-14 LUFS) |
@@ -1110,8 +1111,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.18.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.18.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
+| `dist/stream2clip-0.19.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.19.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -1559,7 +1560,7 @@ python packaging/build_brand.py
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 59건</b></summary>
+<summary><b>버전별 완료 항목 66건</b></summary>
 
 <br>
 
@@ -1626,6 +1627,11 @@ python packaging/build_brand.py
 | v0.18 | 효과 프리셋 JSON과 스키마(`fx`), `clips.json`의 효과 기록, VTube Studio 핫키 전체 기록과 기준 순간 사용, 특수효과 조사 보고서 |
 | v0.18 | 한국 개인 스트리머 형식: `[이름] 대사` 제목, 합방 상대(`--guest`), 게임 괄호(`--title-template game`), 플랫폼 해시태그, 제목 언어의 설명란과 방송 날짜, 채널 링크(`--streamer-link`), 연락 문구(`--contact-note`) |
 | v0.18 | 업로드 분류 자동 선택(`--category auto`, 업로드 창의 **분류**), 치지직(`currentTime`)과 SOOP(`change_second`) 시각 링크, 치지직 다시보기의 게임 여부와 방송 시작일, 가로 형태의 문장 자막, 독케익 키리누키 채널 분석 보고서 |
+| v0.19 | 안드로이드 앱(베타): 다시보기 주소와 공유 메뉴로 하이라이트 찾기, 제목과 설명란 복사, 휴대폰에서 Shorts 제작, 영상 문구의 글꼴, 색, 위치 선택 |
+| v0.19 | 한국 키리누키 기준 자막 크기(Shorts 4.5%, 가로 5.5%), 무료 자막 글꼴 24종(`fonts`), 자막 모양 27종과 위치 7종, 글꼴을 받지 못할 때의 대체 |
+| v0.19 | 앱 소개 페이지(`app.html`), 릴리즈마다 한 키로 서명한 APK와 SHA-256, README와 홈페이지의 앱 안내 |
+| v0.19 | 보안 보강: 앱이 여는 주소 제한, 서명 비밀값의 보호 환경과 커밋 고정 액션, 홈페이지 콘텐츠 보안 정책, 자막 파일의 줄 추가 방지 |
+| v0.19 | 마스코트 디자인 작업 환경(`packaging/mascot_lab.py`: 로컬, 외부 모델), 턴어라운드, 표정 시트, 3D 피규어 렌더와 메시 |
 
 </details>
 
