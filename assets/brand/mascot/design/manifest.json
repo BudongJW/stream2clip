@@ -1,0 +1,138 @@
+{
+ "character": "kiri",
+ "files": {
+  "3d/kiri_figure.png": {
+   "tool": "Hugging Face Space prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast",
+   "model": "Qwen-Image-Edit-2511 (Rapid-AIO, 4 steps)",
+   "licence": "Apache-2.0",
+   "lora": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA (Apache-2.0)",
+   "input": [
+    "assets/brand/mascot/source/reference/kiri_wink_green.png"
+   ],
+   "prompt": "Turn this character into a 3D chibi collectible figure render, smooth vinyl toy finish: same pink bob hair with bangs, black cat-ear headphones with yellow inner ears and magenta ear cups, yellow diamond hair clip, cream hoodie with yellow-tipped drawstrings and a pink scissors mark on the sleeve, winking happy face. Upper body, front view, soft studio lighting, plain white background.",
+   "seed": 7,
+   "steps": 4,
+   "made": "2026-11-24"
+  },
+  "3d/kiri_figure_triposr.glb": {
+   "tool": "local TripoSR (CPU)",
+   "model": "stabilityai/TripoSR@5b52193",
+   "licence": "MIT",
+   "input": [
+    "assets/brand/mascot/design/3d/kiri_figure.png"
+   ],
+   "settings": "marching cubes 256, foreground 0.85",
+   "made": "2026-11-24"
+  },
+  "3d/kiri_figure_triposr_views.png": {
+   "tool": "packaging/mascot_lab.py views (three.js 0.170.0 in a headless browser)",
+   "input": [
+    "assets/brand/mascot/design/3d/kiri_figure_triposr.glb"
+   ],
+   "settings": "front, front-right, right, back, above; yaw 0",
+   "made": "2026-11-24"
+  },
+  "expressions/raw_angry.png": {
+   "tool": "Hugging Face Space prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast",
+   "model": "Qwen-Image-Edit-2511 (Rapid-AIO, 4 steps)",
+   "licence": "Apache-2.0",
+   "lora": "prithivMLmods/Qwen-Image-Edit-2511-Anime",
+   "input": [
+    "assets/brand/mascot/source/reference/kiri_wink_green.png"
+   ],
+   "prompt": "Change only her facial expression to cute angry: furrowed brows, puffed cheeks, a small pout and an anger mark. Keep everything else exactly the same: hair, cat-ear headphones, hair clip, hoodie, pose, framing, thick outlines, flat colors, plain green background.",
+   "seed": 7,
+   "steps": 4,
+   "made": "2026-11-24"
+  },
+  "expressions/raw_sad.png": {
+   "tool": "Hugging Face Space prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast",
+   "model": "Qwen-Image-Edit-2511 (Rapid-AIO, 4 steps)",
+   "licence": "Apache-2.0",
+   "lora": "prithivMLmods/Qwen-Image-Edit-2511-Anime",
+   "input": [
+    "assets/brand/mascot/source/reference/kiri_wink_green.png"
+   ],
+   "prompt": "Change only her facial expression to sad: teary eyes with big tears and a small wobbly frown. Keep everything else exactly the same: hair, cat-ear headphones, hair clip, hoodie, pose, framing, thick outlines, flat colors, plain green background.",
+   "seed": 7,
+   "steps": 4,
+   "made": "2026-11-24"
+  },
+  "outfits/raw_winter.png": {
+   "tool": "local OpenVINO (GPU)",
+   "model": "rupeshs/LCM-dreamshaper-v7-openvino@d12d364",
+   "licence": "CreativeML OpenRAIL-M",
+   "input": [
+    "assets/brand/mascot/kiri_wink_512.png"
+   ],
+   "prompt": "chibi anime girl wearing a red knitted winter scarf and a knit beanie hat over black cat ear headphones, pink bob hair, yellow diamond hair clip, cream hoodie, thick black outlines, flat cel colors, sticker art, white background",
+   "seed": 7,
+   "steps": 6,
+   "strength": 0.7,
+   "made": "2026-11-24"
+  },
+  "sheet_expressions.png": {
+   "tool": "packaging/mascot_lab.py sheets",
+   "input": [
+    "assets/brand/mascot/kiri_wink_512.png",
+    "assets/brand/mascot/kiri_laugh_512.png",
+    "assets/brand/mascot/kiri_surprised_512.png",
+    "assets/brand/mascot/kiri_cut_512.png",
+    "assets/brand/mascot/kiri_focus_512.png",
+    "assets/brand/mascot/design/expressions/raw_sad.png",
+    "assets/brand/mascot/design/expressions/raw_angry.png"
+   ],
+   "made": "2026-11-24"
+  },
+  "sheet_turnaround.png": {
+   "tool": "packaging/mascot_lab.py sheets",
+   "input": [
+    "assets/brand/mascot/kiri_wink_512.png",
+    "assets/brand/mascot/kiri_turn_left_512.png",
+    "assets/brand/mascot/design/turnaround/raw_right.png",
+    "assets/brand/mascot/design/turnaround/raw_back-right.png",
+    "assets/brand/mascot/design/turnaround/raw_back.png"
+   ],
+   "made": "2026-11-24"
+  },
+  "turnaround/raw_back-right.png": {
+   "tool": "Hugging Face Space prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast",
+   "model": "Qwen-Image-Edit-2511 (Rapid-AIO, 4 steps)",
+   "licence": "Apache-2.0",
+   "lora": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA (Apache-2.0)",
+   "input": [
+    "assets/brand/mascot/source/reference/kiri_wink_green.png"
+   ],
+   "prompt": "<sks> back-right quarter view eye-level shot medium shot",
+   "seed": 7,
+   "steps": 4,
+   "made": "2026-11-24"
+  },
+  "turnaround/raw_back.png": {
+   "tool": "Hugging Face Space prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast",
+   "model": "Qwen-Image-Edit-2511 (Rapid-AIO, 4 steps)",
+   "licence": "Apache-2.0",
+   "lora": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA (Apache-2.0)",
+   "input": [
+    "assets/brand/mascot/source/reference/kiri_wink_green.png"
+   ],
+   "prompt": "<sks> back view eye-level shot medium shot",
+   "seed": 7,
+   "steps": 4,
+   "made": "2026-11-24"
+  },
+  "turnaround/raw_right.png": {
+   "tool": "Hugging Face Space prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast",
+   "model": "Qwen-Image-Edit-2511 (Rapid-AIO, 4 steps)",
+   "licence": "Apache-2.0",
+   "lora": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA (Apache-2.0)",
+   "input": [
+    "assets/brand/mascot/source/reference/kiri_wink_green.png"
+   ],
+   "prompt": "<sks> right side view eye-level shot medium shot",
+   "seed": 7,
+   "steps": 4,
+   "made": "2026-11-24"
+  }
+ }
+}

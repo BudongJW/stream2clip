@@ -2,6 +2,13 @@
 
 ## 미출시
 
+### 마스코트 디자인 레퍼런스
+- `packaging/mascot_lab.py`: 마스코트 키리의 2D, 3D 레퍼런스를 만드는 작업 환경. 로컬 모델(LCM Dreamshaper v7 OpenVINO, TripoSR, rembg `isnet-anime`)은 저장소 밖의 별도 Python 3.13 가상환경에 리비전 고정으로 설치(`setup`), 외부 모델은 Hugging Face Space의 Qwen-Image-Edit-2511(Multiple-Angles, Anime LoRA)과 TRELLIS를 이 PC의 Hugging Face 로그인으로 사용
+- 명령: 다른 각도(`angle`), 표정과 의상 편집(`edit`), 3D 모델(`trellis`, `mesh`), 로컬 변형 시안(`sketch`), 3D 모델을 다섯 방향에서 본 그림(`views`, 헤드리스 브라우저의 three.js), 시트(`sheets`). 파일마다 도구, 모델, 라이선스, 입력, 프롬프트, 시드를 `assets/brand/mascot/design/manifest.json`에 기록
+- 레퍼런스(`assets/brand/mascot/design`): 턴어라운드(옆, 3/4 뒤, 뒷모습 추가)와 색상표, 표정 시트(기존 5종과 슬픔, 화남), 3D 피규어 렌더, 피규어 렌더에서 만든 3D 메시와 다섯 방향 그림, 로컬 의상 시안
+- 제외한 모델: Hunyuan3D-2(라이선스가 한국 제외), rembg 기본 모델 BRIA RMBG 2.0(비상업)
+- 문서 `docs/MASCOT.md`: 캐릭터 기준과 색, 레퍼런스, 모델 구성, 사용법, 확인 내용(평면 그림은 3D 모델이 판 모양이 되어 피규어 렌더를 거침, 로컬 2D 시안은 캐릭터 일치도 낮음, 무료 계정의 하루 GPU 사용량)
+
 ### 보안
 - 안드로이드 앱: 치지직, SOOP, YouTube의 https 주소만 열기(`checked_address`). 다른 앱이 공유한 문구의 내부망 주소, 비슷한 도메인, 사용자 정보가 든 주소, 다른 스킴과 포트는 아무것도 받기 전에 거부. 원본에서 보기는 https 링크만, 읽기 권한 부여는 저장한 영상을 열 때만
 - 릴리즈 APK 서명: 서명 비밀값은 `v*` 태그에서만 쓰는 `android-release` 환경에. 릴리즈 작업의 액션을 커밋 SHA로 고정, Gradle 캐시 미사용, Gradle 래퍼 검증(풀 리퀘스트 빌드 포함). 태그와 패키지 버전이 다르면 중단, 저장소 변수 `ANDROID_CERT_SHA256`이 있으면 서명 인증서 대조, APK의 SHA-256 파일 첨부, 키 파일은 소유자 전용 권한으로 두고 작업 끝에 삭제. `*.keystore`, `*.jks`는 저장소에서 제외
