@@ -15,6 +15,7 @@
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
+<a href="#안드로이드-앱베타"><img alt="Android app" src="https://img.shields.io/badge/Android-beta-3DDC84?style=for-the-badge&logo=android&logoColor=white&labelColor=15131F"></a>
 
 <!-- 기술 스택 -->
 <a href="#기술-스펙"><img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white"></a>
@@ -39,7 +40,7 @@
 
 <br>
 
-**[다운로드, 사용 설명서](https://budongjw.github.io/stream2clip/)** ([English](https://budongjw.github.io/stream2clip/en/), [日本語](https://budongjw.github.io/stream2clip/ja/)) | [빠른 시작](#빠른-시작) | [주요 기능](#주요-기능) | [자동 클립](#방송-클립-자동화) | [스크린샷](#스크린샷) | [기술 스펙](#기술-스펙) | [설치](#설치) | [사용법](#사용법) | [이식](#라이브러리로-쓰기-다른-프로젝트에-이식) | [구조](#구조) | [브랜드](#브랜드) | [로드맵](#로드맵)
+**[다운로드, 사용 설명서](https://budongjw.github.io/stream2clip/)** ([English](https://budongjw.github.io/stream2clip/en/), [日本語](https://budongjw.github.io/stream2clip/ja/)) | [빠른 시작](#빠른-시작) | [주요 기능](#주요-기능) | [자동 클립](#방송-클립-자동화) | [안드로이드 앱](#안드로이드-앱베타) | [스크린샷](#스크린샷) | [기술 스펙](#기술-스펙) | [설치](#설치) | [사용법](#사용법) | [이식](#라이브러리로-쓰기-다른-프로젝트에-이식) | [구조](#구조) | [브랜드](#브랜드) | [로드맵](#로드맵)
 
 <br>
 
@@ -62,6 +63,7 @@ Windows 앱 기준. 설치부터 첫 클립까지 4단계
 
 - 캡쳐와 움짤 녹화: 앱 실행 상태에서 <kbd>F8</kbd> 영역 캡쳐, <kbd>F9</kbd> 영역 녹화
 - 방송 중 기록: 시작 화면의 **방송 기록기**. 상세는 [방송 기록기](#방송-기록기)
+- 휴대폰: [안드로이드 앱(베타)](#안드로이드-앱베타)에 다시보기 주소 입력 또는 치지직, SOOP, YouTube 앱에서 공유. 하이라이트 확인 후 Shorts 제작. 릴리즈 미포함, GitHub Actions 빌드 결과물 또는 소스에서 빌드
 
 명령줄 기준(macOS, Linux 포함). Python 3.10 이상과 ffmpeg 필요
 
@@ -802,13 +804,14 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 
 휴대폰에서 다시보기 주소로 하이라이트를 찾고 Shorts를 만드는 앱(`android/`). 검출, 제목, 설명란은 이 저장소의 `stream2clip` 파이썬 패키지를 Chaquopy로 앱 안에서 그대로 실행하고, 클립은 Media3와 휴대폰 인코더로 하이라이트 구간만 읽어 제작
 
-| &numsp;&numsp;항&NoBreak;목&numsp;&numsp; | 내용 |
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 입력 | 치지직, SOOP, YouTube 다시보기 주소. 각 앱의 공유 메뉴로도 전달 |
 | 결과 | 하이라이트 목록(시각, 점수 막대, 근거), 데스크톱과 같은 제목, 해시태그, 설명란 복사, 원본 위치 열기. 제목과 영상 문구 직접 수정 |
 | Shorts | 1080x1920 흐린 배경 레이아웃(GPU 셰이더), 제목과 `원본: 채널` 표기. `Movies/stream2clip`에 저장 후 열기, 공유 |
+| 영상 문구 | 글꼴(앱에 넣은 한국어 5종: Black Han Sans, Do Hyeon, Jua, Gothic A1 Black, Pretendard Black, 그리고 시스템 글꼴), 색(흰색, 노랑, 분홍 채움), 위치(위, 가운데, 아래). 고른 모양은 다음 클립에도 적용 |
 | 화면 | 브랜드 로고와 어두운 테마, 마스코트 키리, 키리 얼굴 실행 아이콘. 한국어, 일본어, 영어 |
-| 받기 | GitHub Actions의 `Android` 작업이 만든 디버그 APK(`stream2clip-android-debug`, 2주 보관) |
+| 받기 | GitHub Actions의 [Android 작업](https://github.com/BudongJW/stream2clip/actions/workflows/android.yml)이 만든 디버그 APK(`stream2clip-android-debug`, GitHub 로그인 필요, 2주 보관). 릴리즈에는 미포함 |
 | 제외 | 자막(받아쓰기), 음량, 웃음소리 검출, 앱 안의 YouTube 업로드, 효과, 배경 음악 |
 
 ```powershell
@@ -1550,7 +1553,7 @@ python packaging/build_brand.py
 | 특수효과 | 흔들림, 흰 플래시와 깜박임 검사, 컬러 이모지, 集中線, 삐 처리, 모음 영상 전환, 리플레이와 슬로 모션(보고서 7.1절 2, 3단계), 실제 클립으로 배율과 길이 조정 |
 | 검출 조정 | 같은 채널의 여러 방송으로 프로필 효과 확인, 후보 검토 HTML 보고서, 학습형 웃음 신호(AudioSet 태거) |
 | 클립 채널 형식 | 실제 업로드 후 제목, 썸네일 형식의 효과와 재사용 콘텐츠 판정 확인, 실제 콜라보 녹화로 화자 판정 검증, 화자 분리 기능 내장(현재는 RTTM, whisperX 결과, 마이크별 트랙 사용) |
-| 안드로이드 앱 | 실기기 검증, 자막(whisper.cpp 검토), 클립 미리 보기, 앱 안의 YouTube 업로드, 출시용 서명과 용량 줄이기, CI의 APK 빌드 |
+| 안드로이드 앱 | 실기기 검증, 자막(whisper.cpp 검토), 클립 미리 보기, 앱 안의 YouTube 업로드, 출시용 서명과 용량 줄이기, 릴리즈에 APK 첨부 |
 
 ### 완료
 

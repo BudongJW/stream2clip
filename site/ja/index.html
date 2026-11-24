@@ -106,6 +106,7 @@
               <tr><th scope="row">整合性の確認</th><td><a href="https://github.com/BudongJW/stream2clip/releases/latest">リリースページ</a>のSHA-256値と照合</td></tr>
               <tr><th scope="row">別途インストールの機能</th><td>字幕の文字起こし(Whisper)、YouTubeアップロードはPythonパッケージで提供</td></tr>
               <tr><th scope="row">その他のOS</th><td>macOS、LinuxはPythonパッケージでインストール。Python 3.10以上が必要</td></tr>
+              <tr><th scope="row">Android (ベータ)</th><td>スマートフォン用アプリ。リリースには未収録。GitHub Actionsの<a href="https://github.com/BudongJW/stream2clip/actions/workflows/android.yml">Androidワークフロー</a>の成果物(デバッグAPK、GitHubへのログインが必要、2週間保存)またはソースからビルド。<a href="https://github.com/BudongJW/stream2clip/blob/main/docs/ANDROID.md">ビルドと使い方</a>(韓国語)</td></tr>
             </tbody>
           </table>
         </div>
@@ -151,6 +152,14 @@
             <li>9:16レイアウト5種: blur、center、fit、stack、pip</li>
             <li>カラオケ字幕、字幕翻訳、用語集</li>
             <li>元配信のタイトルとURLを含む概要欄の自動作成</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>Androidアプリ(ベータ)</dt>
+          <dd><ul>
+            <li>スマートフォンで配信アーカイブのURLを入力、またはCHZZK、SOOP、YouTubeアプリの共有メニューからハイライトを検出</li>
+            <li>デスクトップ版と同じ検出、タイトル、ハッシュタグ、概要欄。クリップごとにタイトルと画面テキストを編集</li>
+            <li>ハイライト区間だけを読み込んで1080x1920のShortsを作成。画面テキストのフォント、色、位置を選択</li>
           </ul></dd>
         </div>
         <div>
