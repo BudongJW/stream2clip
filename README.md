@@ -28,7 +28,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-704-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-713-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -63,7 +63,7 @@ Windows 앱 기준. 설치부터 첫 클립까지 4단계
 
 - 캡쳐와 움짤 녹화: 앱 실행 상태에서 <kbd>F8</kbd> 영역 캡쳐, <kbd>F9</kbd> 영역 녹화
 - 방송 중 기록: 시작 화면의 **방송 기록기**. 상세는 [방송 기록기](#방송-기록기)
-- 휴대폰: [안드로이드 앱(베타)](#안드로이드-앱베타)에 다시보기 주소 입력 또는 치지직, SOOP, YouTube 앱에서 공유. 하이라이트 확인 후 Shorts 제작. 릴리즈 미포함, GitHub Actions 빌드 결과물 또는 소스에서 빌드
+- 휴대폰: [안드로이드 앱(베타)](#안드로이드-앱베타)에 다시보기 주소 입력 또는 치지직, SOOP, YouTube 앱에서 공유. 하이라이트 확인 후 Shorts 제작. [앱 소개 페이지](https://budongjw.github.io/stream2clip/app.html)에서 APK 다운로드
 
 명령줄 기준(macOS, Linux 포함). Python 3.10 이상과 ffmpeg 필요
 
@@ -811,7 +811,7 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 | Shorts | 1080x1920 흐린 배경 레이아웃(GPU 셰이더), 제목과 `원본: 채널` 표기. `Movies/stream2clip`에 저장 후 열기, 공유 |
 | 영상 문구 | 글꼴(앱에 넣은 한국어 5종: Black Han Sans, Do Hyeon, Jua, Gothic A1 Black, Pretendard Black, 그리고 시스템 글꼴), 색(흰색, 노랑, 분홍 채움), 위치(위, 가운데, 아래). 고른 모양은 다음 클립에도 적용 |
 | 화면 | 브랜드 로고와 어두운 테마, 마스코트 키리, 키리 얼굴 실행 아이콘. 한국어, 일본어, 영어 |
-| 받기 | GitHub Actions의 [Android 작업](https://github.com/BudongJW/stream2clip/actions/workflows/android.yml)이 만든 디버그 APK(`stream2clip-android-debug`, GitHub 로그인 필요, 2주 보관). 릴리즈에는 미포함 |
+| 받기 | [앱 소개 페이지](https://budongjw.github.io/stream2clip/app.html) 또는 릴리즈의 `stream2clip-<버전>-android.apk`(릴리즈마다 같은 키로 서명, 기존 앱 위에 설치). 개발 빌드는 [Android 작업](https://github.com/BudongJW/stream2clip/actions/workflows/android.yml)의 디버그 APK(`stream2clip-android-debug`, 2주 보관). 서명 키 등록은 [docs/ANDROID.md](docs/ANDROID.md#릴리즈-서명) |
 | 제외 | 자막(받아쓰기), 음량, 웃음소리 검출, 앱 안의 YouTube 업로드, 효과, 배경 음악 |
 
 ```powershell
@@ -938,7 +938,7 @@ Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방�
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 704개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 713개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -1553,7 +1553,7 @@ python packaging/build_brand.py
 | 특수효과 | 흔들림, 흰 플래시와 깜박임 검사, 컬러 이모지, 集中線, 삐 처리, 모음 영상 전환, 리플레이와 슬로 모션(보고서 7.1절 2, 3단계), 실제 클립으로 배율과 길이 조정 |
 | 검출 조정 | 같은 채널의 여러 방송으로 프로필 효과 확인, 후보 검토 HTML 보고서, 학습형 웃음 신호(AudioSet 태거) |
 | 클립 채널 형식 | 실제 업로드 후 제목, 썸네일 형식의 효과와 재사용 콘텐츠 판정 확인, 실제 콜라보 녹화로 화자 판정 검증, 화자 분리 기능 내장(현재는 RTTM, whisperX 결과, 마이크별 트랙 사용) |
-| 안드로이드 앱 | 실기기 검증, 자막(whisper.cpp 검토), 클립 미리 보기, 앱 안의 YouTube 업로드, 출시용 서명과 용량 줄이기, 릴리즈에 APK 첨부 |
+| 안드로이드 앱 | 실기기 검증, 자막(whisper.cpp 검토), 클립 미리 보기, 앱 안의 YouTube 업로드, 용량 줄이기, Google Play 등록 |
 
 ### 완료
 

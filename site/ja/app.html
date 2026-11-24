@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<title>stream2clip Androidアプリ - スマートフォンでハイライトとShortsを作成</title>
+<meta name="description" content="アーカイブURLひとつでハイライトを見つけ、スマホでそのままShortsを作るAndroidアプリ(ベータ)。APKのダウンロードとインストール方法。">
+<meta name="theme-color" content="#15131F">
+<meta property="og:type" content="website">
+<meta property="og:title" content="stream2clip Androidアプリ(ベータ)">
+<meta property="og:description" content="アーカイブURLひとつでスマホからShorts完成">
+<meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="ko" href="https://budongjw.github.io/stream2clip/app.html">
+<link rel="alternate" hreflang="en" href="https://budongjw.github.io/stream2clip/en/app.html">
+<link rel="alternate" hreflang="ja" href="https://budongjw.github.io/stream2clip/ja/app.html">
+<link rel="icon" href="../assets/favicon.ico" sizes="48x48">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@300;700&display=swap">
+<link rel="stylesheet" href="../css/site.css">
+</head>
+<body class="has-getbar">
+<a class="skip" href="#main">本文へ移動</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="lockup" href="./" aria-label="stream2clip ホーム">
+      <img src="../assets/symbol-on-dark.svg" alt="" width="38" height="38">
+      <span><span class="s">stream</span><span class="two">2</span><span class="c">clip</span></span>
+    </a>
+    <nav class="nav" aria-label="メインメニュー">
+      <a href="#find">機能</a>
+      <a href="#install">インストール</a>
+      <a href="./">デスクトップ版</a>
+      <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+      <details class="lang">
+        <summary aria-label="言語を選択"><span class="flag">🇯🇵</span> 日本語</summary>
+        <ul>
+          <li><a href="../app.html" lang="ko" hreflang="ko"><span class="flag">🇰🇷</span> 한국어</a></li>
+          <li><a href="../en/app.html" lang="en" hreflang="en"><span class="flag">🇺🇸</span> English</a></li>
+          <li><a href="app.html" lang="ja" aria-current="true"><span class="flag">🇯🇵</span> 日本語</a></li>
+        </ul>
+      </details>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="app-hero">
+    <div class="wrap">
+      <div>
+        <p class="appname"><img src="../assets/app/icon.png" alt="" width="256" height="256"><span>stream2clip Androidアプリ</span><span class="beta">ベータ</span></p>
+        <h1>URLひとつで<br><em>Shorts</em>完成。</h1>
+        <p class="summary">CHZZK、SOOP、YouTubeのアーカイブからハイライトを見つけ、スマホでそのままShortsに</p>
+        <div class="actions">
+          <a class="btn" data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            APKをダウンロード
+          </a>
+          <a class="text" href="#install">インストール方法</a>
+        </div>
+        <dl class="facts">
+          <dt>バージョン</dt><dd data-apk="version">最新リリース</dd>
+          <dt>ファイルサイズ</dt><dd data-apk="size">リリースページ参照</dd>
+          <dt>対応環境</dt><dd>Android 10以上</dd>
+          <dt>価格</dt><dd>無料</dd>
+        </dl>
+      </div>
+
+      <div class="phones">
+        <figure class="phone back"><img src="../assets/app/list.webp" alt="ハイライト一覧: 区間の時刻、スコアバー、タイトルと選んだフォントの画面テキスト" width="540" height="1200"></figure>
+        <figure class="phone front"><img src="../assets/app/start.webp" alt="最初の画面: アーカイブURL、形式の選択、ハイライトを探すボタンと1つ目のハイライト" width="540" height="1200"></figure>
+        <img class="kiri" src="../assets/kiri/kiri_wink_512.png" alt="" width="512" height="512">
+      </div>
+    </div>
+  </section>
+
+  <section class="step" id="find">
+    <div class="wrap">
+      <div>
+        <p class="tag">ハイライトを探す</p>
+        <h2>共有するだけで<br><em>ハイライト</em>が一目で</h2>
+        <p>チャットが盛り上がった場面をスコア順に表示</p>
+      </div>
+      <figure class="phone"><img src="../assets/app/start.webp" alt="アーカイブURLの入力と形式の選択画面" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="step flip" id="edit">
+    <div class="wrap">
+      <div>
+        <p class="tag">タイトルとテキスト</p>
+        <h2>タイトルもテキストも<br><em>思いどおりに</em></h2>
+        <p>クリップごとにタイトルと画面テキストを編集。フォント、色、位置も選択</p>
+      </div>
+      <figure class="phone"><img src="../assets/app/editor.webp" alt="編集画面: タイトル、画面テキスト、フォント、色、位置の選択" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="step" id="copy">
+    <div class="wrap">
+      <div>
+        <p class="tag">アップロード準備</p>
+        <h2>タイトル、ハッシュタグ、概要欄を<br><em>まとめて</em>コピー</h2>
+        <p>元配信のリンクと時刻入りで、貼り付けるだけ</p>
+      </div>
+      <figure class="phone"><img src="../assets/app/list.webp" alt="ハイライトカード: タイトルと説明のコピー、元配信で見る、Shorts作成" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="step flip" id="make">
+    <div class="wrap">
+      <div>
+        <p class="tag">Shorts作成</p>
+        <h2>必要な区間だけで<br><em>スマホで完結</em></h2>
+        <p>アーカイブ全体をダウンロードしないので速くて軽い。完成したShortsはそのまま保存、共有</p>
+      </div>
+      <figure class="phone"><img src="../assets/app/short.webp" alt="アプリが作ったShorts: ぼかし背景の上の配信画面と黄色の画面テキスト" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="block" id="install">
+    <div class="wrap">
+      <h2 class="peeked">インストール<img class="peek" src="../assets/kiri/kiri_turn_left_512.png" alt="" width="512" height="512" loading="lazy"></h2>
+      <div class="split">
+        <div class="tablewrap">
+          <table>
+            <tbody>
+              <tr><th scope="row">対応環境</th><td>Android 10以上</td></tr>
+              <tr><th scope="row">言語</th><td>한국어、日本語、English</td></tr>
+              <tr><th scope="row">アップデート</th><td>新しいバージョンをそのまま上書きインストール</td></tr>
+              <tr><th scope="row">権限</th><td>インターネットのみ</td></tr>
+              <tr><th scope="row">価格</th><td>無料(オープンソース、Apache-2.0)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3>インストール手順</h3>
+          <ol class="procedure">
+            <li>スマホのブラウザで<a data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">APKをダウンロード</a></li>
+            <li>ファイルを開いてインストール(初回は提供元不明のアプリを許可)</li>
+            <li>アーカイブアプリの共有メニューでstream2clipを選択、またはURLを貼り付け</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <img src="../assets/app/icon.png" alt="stream2clipアプリのアイコン" width="256" height="256" loading="lazy">
+      <h2>stream2clip Androidアプリ</h2>
+      <p>無料のオープンソース</p>
+      <a class="btn" data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">APKをダウンロード</a>
+      <a class="text" href="./">デスクトップ版を見る</a>
+    </div>
+  </section>
+</main>
+
+<div class="getbar"><a class="btn" data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">APKをダウンロード</a></div>
+
+<footer>
+  <div class="wrap">
+    <span class="tagline">Stream in. Clips out.</span>
+    <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+    <a href="https://github.com/BudongJW/stream2clip/releases">リリース</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/CHANGELOG.md">変更履歴</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/LICENSE">ライセンス</a>
+    <p>オープンソースソフトウェア(Apache-2.0)。本ページはGoogle Fontsの書体、jsDelivrの国旗フォント、GitHubのリリース情報を読み込む。</p>
+  </div>
+</footer>
+
+<script src="../js/site.js" defer></script>
+</body>
+</html>

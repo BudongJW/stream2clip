@@ -15,6 +15,27 @@ from typing import Any
 #: Highlight lengths per form, from the desktop presets (``stream2clip.presets``).
 FORMS = ("shorts", "clip")
 
+#: The sites the app reads replays from (and their subdomains). Any other address is refused before anything
+#: is fetched: a text shared from another app must not send the phone to pages of that app's choosing, such
+#: as an address on the home network.
+SITES = ("chzzk.naver.com", "sooplive.co.kr", "afreecatv.com", "youtube.com", "youtu.be")
+
+
+def checked_address(url: str) -> str:
+    """``url`` as an https address of CHZZK, SOOP or YouTube; ``ValueError`` for any other address."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    text = (url or "").strip()
+    parts = urlsplit(text)
+    try:
+        host, port = (parts.hostname or "").lower().rstrip("."), parts.port
+    except ValueError:  # a port that is not a number
+        host, port = "", -1
+    known = any(host == site or host.endswith("." + site) for site in SITES)
+    if parts.scheme not in ("https", "http") or not known or parts.username or parts.password or port not in (None, 443, 80):
+        raise ValueError("Only CHZZK, SOOP and YouTube replay addresses can be opened")
+    return urlunsplit(("https", host, parts.path, parts.query, ""))
+
 
 def set_language(code: str) -> None:
     """Show the core's texts (highlight reasons, guideline notes) in the phone's language: ko, ja or en."""
@@ -85,6 +106,7 @@ def analyse(url: str, work_dir: str, form: str = "shorts", language: str = "ko",
     from stream2clip.sources import platform_of, source_from_info
 
     set_language(language)
+    url = checked_address(url)
     tell = _Progress(progress)
     folder = Path(work_dir)
     folder.mkdir(parents=True, exist_ok=True)

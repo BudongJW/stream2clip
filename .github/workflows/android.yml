@@ -2,12 +2,17 @@ name: Android
 
 # The Android app (android/) is built from the same Python package as the desktop app (src/stream2clip),
 # so it is built again when either changes. The debug APK is kept as a download for two weeks.
+# A published release gets the app too: an APK signed with the project's one key (secrets of the
+# android-release environment, see docs/ANDROID.md), attached as stream2clip-<version>-android.apk
+# with its SHA-256, for the site's download button.
 on:
   push:
     branches: [main]
     paths: ["android/**", "src/stream2clip/**", ".github/workflows/android.yml"]
   pull_request:
     paths: ["android/**", "src/stream2clip/**", ".github/workflows/android.yml"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -19,9 +24,12 @@ permissions:
 
 jobs:
   apk:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -31,6 +39,8 @@ jobs:
         with:
           python-version: "3.13"
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: true # a pull request cannot swap the Gradle wrapper for another program
       - name: Build the APK, run the unit tests and Android lint
         working-directory: android
         run: |
@@ -41,3 +51,84 @@ jobs:
           name: stream2clip-android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+
+  release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    # The signing secrets belong to this environment, which only release tags may use (docs/ANDROID.md).
+    environment: android-release
+    permissions:
+      contents: write # to attach the APK to the release
+    steps:
+      # Pinned to commits, not tags: this job holds the signing key and writes to the release.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.13"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-disabled: true # a signed build starts clean: nothing restored from other runs' caches
+          validate-wrappers: true
+      - name: The release tag names the app's version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/stream2clip/__init__.py)
+          if [ -z "$version" ] || [ "$TAG" != "v$version" ]; then
+            echo "::error::The release tag is $TAG but the package version is $version: no APK"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - name: Signing key from the environment's secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::No ANDROID_KEYSTORE_BASE64 secret: the release gets no APK (docs/ANDROID.md, release signing)"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          echo "STREAM2CLIP_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+      - name: Build the signed APK
+        working-directory: android
+        env:
+          STREAM2CLIP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          STREAM2CLIP_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          STREAM2CLIP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --console=plain
+      - name: Check the signature and write the checksum
+        env:
+          EXPECTED: ${{ vars.ANDROID_CERT_SHA256 }}
+        run: |
+          apk="stream2clip-$VERSION-android.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$apk"
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$tools/apksigner" verify --print-certs "$apk" | tee signers.txt
+          # With ANDROID_CERT_SHA256 set (a repository variable), only the project's own certificate passes.
+          if [ -n "$EXPECTED" ]; then
+            found=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' signers.txt | tr -d ': ' | tr 'A-F' 'a-f')
+            wanted=$(printf '%s' "$EXPECTED" | tr -d ': ' | tr 'A-F' 'a-f')
+            if [ "$found" != "$wanted" ]; then
+              echo "::error::The APK is signed with another certificate ($found)"
+              exit 1
+            fi
+          fi
+          sha256sum "$apk" > "$apk.sha256"
+          echo "APK=$apk" >> "$GITHUB_ENV"
+      - name: Attach the APK and its checksum to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "$APK" "$APK.sha256" --clobber --repo "$GITHUB_REPOSITORY"
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"

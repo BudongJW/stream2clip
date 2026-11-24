@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
 <title>stream2clip - 配信ハイライトのクリップ作成ツール</title>
 <meta name="description" content="配信アーカイブからハイライト区間を検出し、縦型クリップとして書き出す動画編集ツール。Windows用実行ファイルと取扱説明書を提供。">
 <meta name="theme-color" content="#15131F">
@@ -34,6 +35,7 @@
     <nav class="nav" aria-label="メインメニュー">
       <a href="#download">ダウンロード</a>
       <a href="#features">主な機能</a>
+      <a href="app.html">Androidアプリ</a>
       <a href="guide.html">取扱説明書</a>
       <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
       <details class="lang">
@@ -106,7 +108,7 @@
               <tr><th scope="row">整合性の確認</th><td><a href="https://github.com/BudongJW/stream2clip/releases/latest">リリースページ</a>のSHA-256値と照合</td></tr>
               <tr><th scope="row">別途インストールの機能</th><td>字幕の文字起こし(Whisper)、YouTubeアップロードはPythonパッケージで提供</td></tr>
               <tr><th scope="row">その他のOS</th><td>macOS、LinuxはPythonパッケージでインストール。Python 3.10以上が必要</td></tr>
-              <tr><th scope="row">Android (ベータ)</th><td>スマートフォン用アプリ。リリースには未収録。GitHub Actionsの<a href="https://github.com/BudongJW/stream2clip/actions/workflows/android.yml">Androidワークフロー</a>の成果物(デバッグAPK、GitHubへのログインが必要、2週間保存)またはソースからビルド。<a href="https://github.com/BudongJW/stream2clip/blob/main/docs/ANDROID.md">ビルドと使い方</a>(韓国語)</td></tr>
+              <tr><th scope="row">Android (ベータ)</th><td>スマートフォン用アプリ。リリースにAPKを添付。<a href="app.html">アプリの紹介とインストール方法</a></td></tr>
             </tbody>
           </table>
         </div>

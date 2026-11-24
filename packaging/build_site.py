@@ -55,6 +55,12 @@ ASSETS: dict[str, str] = {
     "assets/shots/ja/launcher.png": "docs/images/ja/launcher.png",
     "assets/shots/ja/highlights_window.png": "docs/images/ja/highlights_window.png",
     "assets/shots/ja/editor.png": "docs/images/ja/editor.png",
+    # The Android app page: its launcher icon and screens captured on the emulator.
+    "assets/app/icon.png": "assets/brand/app-icons/linux/stream2clip_kiri/stream2clip_kiri_256.png",
+    "assets/app/start.webp": "docs/images/android/start.webp",
+    "assets/app/list.webp": "docs/images/android/list.webp",
+    "assets/app/editor.webp": "docs/images/android/editor.webp",
+    "assets/app/short.webp": "docs/images/android/short.webp",
 }
 
 BROWSERS = (

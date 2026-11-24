@@ -371,7 +371,8 @@ private fun ClipCard(model: MainViewModel, found: Analysis, clip: Clip, best: Do
             if (clip.hashtags.isNotEmpty()) Text(clip.hashtags.joinToString(" "), style = MaterialTheme.typography.bodySmall, color = Brand.Highlight)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallAction(Icons.Filled.ContentCopy, R.string.copy_text) { copy(context, text.title + "\n\n" + clip.description) }
-                if (clip.link.isNotBlank()) SmallAction(Icons.AutoMirrored.Filled.OpenInNew, R.string.open_source) { open(context, clip.link.toUri()) }
+                // The link comes from the replay's information: only an https page is handed to the browser.
+                if (clip.link.startsWith("https://")) SmallAction(Icons.AutoMirrored.Filled.OpenInNew, R.string.open_source) { open(context, clip.link.toUri()) }
             }
             ExportArea(model, found, clip, context)
         }
@@ -531,8 +532,12 @@ private fun copy(context: Context, text: String) {
 
 private fun open(context: Context, uri: Uri, type: String? = null) {
     val intent = Intent(Intent.ACTION_VIEW).apply {
-        if (type != null) setDataAndType(uri, type) else data = uri
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (type != null) {
+            setDataAndType(uri, type)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // the saved video: the chosen player may read it, nothing else is granted
+        } else {
+            data = uri
+        }
     }
     context.startActivity(Intent.createChooser(intent, null))
 }

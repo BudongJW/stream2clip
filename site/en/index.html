@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
 <title>stream2clip - Highlight clip tool for live streams</title>
 <meta name="description" content="Video editing tool that finds highlight moments in stream archives and exports them as vertical clips. Windows download and user manual.">
 <meta name="theme-color" content="#15131F">
@@ -34,6 +35,7 @@
     <nav class="nav" aria-label="Main menu">
       <a href="#download">Download</a>
       <a href="#features">Features</a>
+      <a href="app.html">Android app</a>
       <a href="guide.html">User manual</a>
       <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
       <details class="lang">
@@ -106,7 +108,7 @@
               <tr><th scope="row">Integrity</th><td>Compare with the SHA-256 value on the <a href="https://github.com/BudongJW/stream2clip/releases/latest">releases page</a></td></tr>
               <tr><th scope="row">Separate install</th><td>Speech-to-text subtitles (Whisper) and YouTube upload are provided by the Python package</td></tr>
               <tr><th scope="row">Other systems</th><td>macOS and Linux: Python package. Python 3.10 or later</td></tr>
-              <tr><th scope="row">Android (beta)</th><td>Phone app, not part of the releases. Debug APK from the <a href="https://github.com/BudongJW/stream2clip/actions/workflows/android.yml">Android workflow</a> on GitHub Actions (GitHub sign-in needed, kept for two weeks) or a build from source. <a href="https://github.com/BudongJW/stream2clip/blob/main/docs/ANDROID.md">Build and use notes</a> (Korean)</td></tr>
+              <tr><th scope="row">Android (beta)</th><td>Phone app. The APK is attached to the releases. <a href="app.html">App page and installation</a></td></tr>
             </tbody>
           </table>
         </div>

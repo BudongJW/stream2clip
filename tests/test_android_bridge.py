@@ -94,6 +94,28 @@ def test_analyse_keeps_going_when_chzzk_refuses_the_info(bridge, monkeypatch, tm
         bridge.analyse("https://www.youtube.com/watch?v=abcdef12345", str(tmp_path / "yt"), "shorts", "ko")
 
 
+def test_only_replays_of_the_three_sites_are_opened(bridge, monkeypatch, tmp_path):
+    for good, cleaned in {
+        "https://chzzk.naver.com/video/16230061": "https://chzzk.naver.com/video/16230061",
+        "  http://vod.sooplive.co.kr/player/212422389#chat ": "https://vod.sooplive.co.kr/player/212422389",
+        "https://M.YouTube.com/watch?v=abcdef12345": "https://m.youtube.com/watch?v=abcdef12345",
+        "https://youtu.be/abcdef12345": "https://youtu.be/abcdef12345",
+    }.items():
+        assert bridge.checked_address(good) == cleaned
+    for bad in ("http://192.168.0.1/admin", "https://evil.example/chzzk.naver.com/video/1", "https://chzzk.naver.com.evil.example/video/1",
+                "https://chzzk.naver.com@evil.example/video/1", "file:///sdcard/a.mp4", "javascript:alert(1)", "https://notyoutube.com/watch?v=1",
+                "https://www.youtube.com:8080/watch?v=1", "https://www.youtube.com:x/watch?v=1", "", "chzzk.naver.com/video/1"):
+        with pytest.raises(ValueError):
+            bridge.checked_address(bad)
+
+    def must_not_fetch(url):
+        raise AssertionError(f"fetched {url}")
+
+    monkeypatch.setattr(bridge, "video_info", must_not_fetch)  # a shared text from another app opens nothing
+    with pytest.raises(ValueError, match="CHZZK, SOOP and YouTube"):
+        bridge.analyse("http://10.0.0.1:8080/", str(tmp_path), "shorts", "ko")
+
+
 def test_analyse_a_youtube_replay(bridge, monkeypatch, tmp_path):
     chat = tmp_path / "abc.live_chat.json"
     chat.write_bytes((DATA / "youtube_real_excerpt.live_chat.json").read_bytes())

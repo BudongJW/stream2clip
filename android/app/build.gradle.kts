@@ -5,6 +5,17 @@ plugins {
     id("com.chaquo.python")
 }
 
+// The app's version is the Python package's (src/stream2clip/__init__.py): one release number for both.
+// versionCode grows with it (0.18.0 -> 18000), so a newer release installs over an older one.
+val packageVersion: String = Regex("""__version__ = "([^"]+)"""")
+    .find(rootProject.file("../src/stream2clip/__init__.py").readText())!!.groupValues[1]
+val versionParts = packageVersion.split(".").map { part -> part.takeWhile(Char::isDigit).ifEmpty { "0" }.toInt() } + listOf(0, 0, 0)
+
+// Release APKs are signed with one fixed key, or Android refuses to install a new release over the last one.
+// The key comes from the environment (the Android workflow fills it from the repository's secrets, see
+// docs/ANDROID.md); without it the release APK is left unsigned and debug builds keep the debug key.
+val releaseKeystore: String? = System.getenv("STREAM2CLIP_KEYSTORE")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "io.github.budongjw.stream2clip"
     compileSdk = 36
@@ -13,17 +24,29 @@ android {
         applicationId = "io.github.budongjw.stream2clip"
         minSdk = 29 // Android 10: clips are saved to Movies/stream2clip without a storage permission
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.18.0"
+        versionCode = versionParts[0] * 1_000_000 + versionParts[1] * 1_000 + versionParts[2]
+        versionName = packageVersion
         ndk {
             // Phones (arm64) and the emulator on a PC (x86_64); Chaquopy ships Python for each.
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
 
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("STREAM2CLIP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("STREAM2CLIP_KEY_ALIAS")
+                keyPassword = System.getenv("STREAM2CLIP_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     compileOptions {

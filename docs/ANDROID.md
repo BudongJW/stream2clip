@@ -14,14 +14,14 @@
 1. 다시보기 주소 붙여넣기. 치지직, SOOP, YouTube 앱의 공유 메뉴에서 stream2clip을 골라도 주소 입력
 2. 형태 선택: Shorts(세로, 15~90초) 또는 가로 클립(1~3분). 데스크톱 `--preset shorts`, `clip`과 같은 구간 길이
 3. **하이라이트 찾기**: 방송 정보, 채팅 다시보기 받기, 검출 순서로 진행 표시
-4. 하이라이트마다 **제목, 설명 복사**(제안 제목과 설명란 전체), **원본에서 보기**(사이트별 시각 링크), **Shorts 만들기**. 연필 단추로 **제목(YouTube)**(100자까지, 글자 수 표시)과 **영상 문구**(영상 위쪽 글자) 고치기. 영상 문구의 기본값은 `[이름]` 없이 자르지 않은 대사(방송 제목). 3줄을 넘으면 글자를 70%까지 줄인 뒤에도 넘칠 때만 끝을 줄임표로
+4. 하이라이트마다 **제목, 설명 복사**(제안 제목과 설명란 전체), **원본에서 보기**(사이트별 시각 링크), **Shorts 만들기**. 연필 단추로 **제목(YouTube)**(100자까지, 글자 수 표시)과 **영상 문구**(영상에 얹는 글자) 고치기. 영상 문구의 기본값은 `[이름]` 없이 자르지 않은 대사(방송 제목). 3줄을 넘으면 글자를 70%까지 줄인 뒤에도 넘칠 때만 끝을 줄임표로
 5. 영상 문구의 **글꼴**(검은고딕, 도현체, 주아체, 고딕 A1 블랙, 프리텐다드 블랙, 기본 글꼴), **색**(흰색, 노랑, 분홍 채움에 흰 테두리), **위치**(위, 가운데, 아래) 선택. 글꼴은 데스크톱 자막 글꼴 목록의 한국어 글꼴 5종을 앱에 포함(약 7.8MB, 라이선스 파일 함께). 고른 모양은 다음 클립에도 적용
 6. 여러 하이라이트의 **Shorts 만들기**를 누르면 차례로 제작(앞 영상이 끝나면 다음 시작). 휴대폰 인코더와 내려받기를 나눠 쓰지 않아 각각 빨리 끝남
 7. 만든 영상은 `Movies/stream2clip`에 저장. **영상 열기**, **공유**(YouTube 앱 등)
 
 | &numsp;&numsp;&numsp;형&NoBreak;태&numsp;&numsp;&numsp; | 결과 |
 |:---:|---|
-| Shorts | 1080x1920. 방송 화면 전체를 가운데에 두고 나머지를 같은 화면을 흐리게 확대해 채움(데스크톱 `blur` 레이아웃과 같은 흐림 정도와 밝기, GPU 셰이더 1회 처리). 30fps, 8 Mbps H.264(데스크톱 클립과 같은 30fps, YouTube 권장 1080p30 비트레이트). 위쪽에 영상 문구(너비의 8%, 한국 키리누키 Shorts 제목 띠와 같은 한 줄 약 5%, 3줄까지), 왼쪽 아래에 `원본: 채널` |
+| Shorts | 1080x1920. 방송 화면 전체를 가운데에 두고 나머지를 같은 화면을 흐리게 확대해 채움(데스크톱 `blur` 레이아웃과 같은 흐림 정도와 밝기, GPU 셰이더 1회 처리). 30fps, 8 Mbps H.264(데스크톱 클립과 같은 30fps, YouTube 권장 1080p30 비트레이트). 영상 문구(기본 위쪽, 너비의 8%, 한국 키리누키 Shorts 제목 띠와 같은 한 줄 약 5%, 3줄까지), 왼쪽 아래에 `원본: 채널` |
 | 가로 클립 | 1920x1080. 방송 화면 그대로, 제목과 출처 표기 |
 
 ## 빌드
@@ -40,6 +40,76 @@ cd android
 - 결과: `android/app/build/outputs/apk/debug/app-debug.apk`
 - 첫 빌드에서 Gradle, Android Gradle Plugin, Kotlin, Compose, Media3, Chaquopy, 앱용 파이썬과 numpy, Pillow, yt-dlp를 내려받음
 - 단위 테스트: `.\gradlew.bat testDebugUnitTest`(브리지 결과 읽기, 시각 표기). 브리지 자체는 PC의 pytest(`tests/test_android_bridge.py`)로 확인
+- 버전: 파이썬 패키지의 `__version__`(`src/stream2clip/__init__.py`)을 그대로 사용. `versionCode`는 0.18.0이면 18000으로 릴리즈마다 증가
+
+## 릴리즈 서명
+
+GitHub 릴리즈를 게시하면 `android.yml`의 `release` 작업이 서명한 APK(`stream2clip-<버전>-android.apk`)와 SHA-256 파일을 릴리즈에 첨부. 소개 페이지(`site/app.html`)의 다운로드 버튼이 이 파일로 연결. 서명 키가 바뀌면 기존 앱 위에 새 버전을 설치할 수 없으므로 한 키를 계속 사용
+
+| &numsp;&numsp;보&NoBreak;호&nbsp;장&NoBreak;치&numsp;&numsp; | 내용 |
+|:---:|---|
+| 환경 | 서명 비밀값은 `android-release` 환경에만 두고, 이 환경은 `v*` 태그에서만 사용(다른 브랜치나 풀 리퀘스트의 작업은 키를 받지 못함) |
+| 버전 확인 | 릴리즈 태그가 `v` + 파이썬 패키지 버전과 다르면 APK를 만들지 않음 |
+| 인증서 확인 | 저장소 변수 `ANDROID_CERT_SHA256`이 있으면 APK 서명 인증서의 SHA-256이 같을 때만 첨부 |
+| 빌드 | 액션은 커밋 SHA로 고정, Gradle 캐시 미사용, Gradle 래퍼 검증. 키 파일은 실행 중에만 소유자 전용 권한으로 두고 끝나면 삭제 |
+| 체크섬 | APK와 함께 `.sha256` 파일 첨부 |
+
+| &numsp;&numsp;&numsp;&numsp;&numsp;환&NoBreak;경&nbsp;비&NoBreak;밀&NoBreak;값&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| `ANDROID_KEYSTORE_BASE64` | 키스토어 파일의 base64 |
+| `ANDROID_KEYSTORE_PASSWORD` | 키스토어 비밀번호 |
+| `ANDROID_KEY_ALIAS` | 키 별칭 |
+| `ANDROID_KEY_PASSWORD` | 키 비밀번호 |
+
+준비는 한 번만. 키 파일은 저장소 폴더 밖에서 만들고 비밀번호와 함께 따로 보관(잃어버리면 새 키로 바꿔야 하고, 기존 사용자는 앱을 지우고 다시 설치)
+
+1. `v*` 태그에서만 쓰는 환경 만들기
+
+```powershell
+gh api -X PUT repos/BudongJW/stream2clip/environments/android-release -F "deployment_branch_policy[protected_branches]=false" -F "deployment_branch_policy[custom_branch_policies]=true"
+```
+
+```powershell
+gh api -X POST repos/BudongJW/stream2clip/environments/android-release/deployment-branch-policies -f name="v*" -f type=tag
+```
+
+2. 키 만들기(비밀번호는 입력 받음)
+
+```powershell
+keytool -genkeypair -v -keystore stream2clip-release.keystore -alias stream2clip -keyalg RSA -keysize 4096 -validity 10000
+```
+
+3. 환경 비밀값 등록. 값을 주지 않은 명령은 입력 받아 비밀번호가 명령 기록에 남지 않음
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("stream2clip-release.keystore")) | gh secret set ANDROID_KEYSTORE_BASE64 --env android-release
+```
+
+```powershell
+gh secret set ANDROID_KEYSTORE_PASSWORD --env android-release
+```
+
+```powershell
+gh secret set ANDROID_KEY_ALIAS --env android-release --body stream2clip
+```
+
+```powershell
+gh secret set ANDROID_KEY_PASSWORD --env android-release
+```
+
+4. 인증서 지문 등록(선택). `keytool -list -v`의 `SHA256:` 값
+
+```powershell
+keytool -list -v -keystore stream2clip-release.keystore -alias stream2clip
+```
+
+```powershell
+gh variable set ANDROID_CERT_SHA256 --body "인증서 SHA256 값"
+```
+
+- 비밀값이 없으면 `release` 작업이 실패하고 APK를 첨부하지 않음. 데스크톱 릴리즈 파일에는 영향 없음
+- PC에서 서명 빌드: 환경 변수 `STREAM2CLIP_KEYSTORE`(키스토어 경로), `STREAM2CLIP_KEYSTORE_PASSWORD`, `STREAM2CLIP_KEY_ALIAS`, `STREAM2CLIP_KEY_PASSWORD` 지정 후 `.\gradlew.bat assembleRelease`. 지정하지 않으면 서명 없는 APK
+- `*.keystore`, `*.jks`는 `.gitignore`와 `android/.gitignore`로 저장소에서 제외
 
 ## 에뮬레이터
 

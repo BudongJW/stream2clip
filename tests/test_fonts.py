@@ -94,6 +94,17 @@ def test_caption_font_by_script_and_weight():
     assert line[1] == "Jua" and line[7] == "0" and line[5] == "&H00FFFFFF"  # white edge around the pink fill
 
 
+def test_outside_text_cannot_add_lines_or_tags_to_the_captions():
+    # Captions, a credit and font names can come from a subtitle file, a stream's channel name, a translator or a setting.
+    said = "맛있다\rDialogue: 0,0:00:00.00,0:00:09.00,Default,,0,0,0,,{\\fs400}끼어들기"
+    ass = to_ass([Cue(0, 1, said)], karaoke=False, style=subtitle_style(font="Evil,Font\nStyle: X"), credit="채널\r\n[Events]", duration=1.0)
+    lines = ass.splitlines()
+    assert sum(line.startswith("Dialogue:") for line in lines) == 2 and lines.count("[Events]") == 1  # the caption and the credit only
+    assert not any(line.startswith("Style: X") for line in lines) and "{\\fs400}" not in ass
+    default = style_line(ass)
+    assert default[1] == "Evil Font Style: X" and len(default) == 23  # the font name keeps to its one field
+
+
 def test_places_for_both_orientations():
     assert set(SUBTITLE_POSITIONS) >= {"bottom", "low", "middle", "top", "under-video", "over-video", "above-video"}
     cue = [Cue(0, 1, "자막")]

@@ -347,7 +347,7 @@ def caption_font(style: SubtitleStyle, script: str) -> tuple[str, bool]:
 
     entry = find(style.font)
     if entry is None:
-        return style.font, style.bold
+        return _ass_field(style.font), style.bold  # as given, but kept to its one field of the Style line
     if {"": "en", "zh": "ja"}.get(script, script) not in entry.scripts:
         return pick_font(script), style.bold
     return entry.family, entry.bold
@@ -480,7 +480,15 @@ def _ass_time(t: float) -> str:
 
 
 def _escape(text: str) -> str:
+    """Text as text in an ASS line: braces would open override tags and a carriage return would end the line,
+    so a stream title, a subtitle file or a translator's answer cannot add tags or lines of its own."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     return text.replace("\\", "\\\\").replace("{", "(").replace("}", ")").replace("\n", "\\N")
+
+
+def _ass_field(value: str) -> str:
+    """A value for one comma-separated field of a Style line (a font name): no commas, no line breaks."""
+    return " ".join(re.sub(r"[,\r\n]", " ", value).split())
 
 
 def _width(text: str) -> float:
