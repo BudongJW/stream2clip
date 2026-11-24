@@ -191,6 +191,118 @@ def test_thumbnail_zooms_onto_the_avatar_and_keeps_text_away(tmp_path):
     assert yellow[360:, 960:].sum() == 0  # the duration badge's corner stays free
 
 
+def test_chat_quotes_are_the_lines_typed_most_without_who_typed_them():
+    from stream2clip.chat import ChatMessage
+    from stream2clip.highlights import HighlightConfig, chat_quotes, detect_highlights
+
+    said = [ChatMessage(10.0 + i * 0.1, text, author=f"viewer{i}") for i, text in enumerate([
+        "ㅋㅋㅋㅋㅋㅋㅋㅋ", "ㅋㅋㅋㅋ", "ㅋㅋㅋㅋㅋ", "미쳤다", "미쳤다", "https://example.com 보세요", "@viewer1 ㅋㅋ", "!clip", ":_kiriLaugh:",
+        "안녕하세요", "이건 정말로 너무너무너무 길어서 말풍선에 들어가지 않는 채팅", "헐",
+    ])]
+    said.append(ChatMessage(11.0, "후원", author="fan", kind="paid", amount=1000))
+    said.append(ChatMessage(99.0, "미쳤다", author="late"))  # outside the moment
+    assert chat_quotes(said, 9.0, 20.0) == ["ㅋㅋㅋㅋ", "미쳤다", "헐"]  # a long laugh counts as one line; links, mentions, commands, emotes, greetings out
+    assert chat_quotes(said, 9.0, 20.0, limit=1) == ["ㅋㅋㅋㅋ"] and chat_quotes(said, 50.0, 60.0) == []
+    assert not any("viewer" in quote for quote in chat_quotes(said, 0.0, 100.0))  # never who wrote them
+
+    burst = [ChatMessage(300.0 + i * 0.2, "ㅋㅋㅋㅋ" if i % 3 else "미쳤다 진짜", author=f"v{i}") for i in range(80)]
+    calm = [ChatMessage(t, "음", author="a") for t in range(0, 600, 20)]
+    result = detect_highlights(burst + calm, duration=600.0, config=HighlightConfig(top=1))
+    assert result.highlights[0].quotes[:2] == ["ㅋㅋㅋㅋ", "미쳤다 진짜"]
+    saved = {"highlights": [h.to_dict() for h in result.highlights]}
+    assert saved["highlights"][0]["quotes"][0] == "ㅋㅋㅋㅋ"
+
+
+def test_highlights_without_quotes_still_load(tmp_path):
+    from stream2clip.highlights import load_highlights
+
+    path = tmp_path / "h.json"
+    path.write_text(json.dumps({"highlights": [{"rank": 1, "start": 0, "end": 10}]}), encoding="utf-8")  # made before quotes existed
+    assert load_highlights(path)[0].quotes == []
+    path.write_text(json.dumps({"highlights": [{"rank": 1, "start": 0, "end": 10, "quotes": ["ㅋㅋ"]}]}), encoding="utf-8")
+    assert load_highlights(path)[0].quotes == ["ㅋㅋ"]
+
+
+def test_sticker_thumbnail_parts():
+    from stream2clip.thumbnails import headline_lines, key_word, main_reaction
+
+    assert headline_lines("진짜 너무 맛있다 미쳤다 오늘") == ["진짜 너무", "맛있다 미쳤다"]  # two short lines, the rest left out
+    assert headline_lines("Wait what") == ["Wait what"]
+    assert key_word(["진짜 너무", "맛있다 미쳤다"], ["미쳤다ㅋㅋ"]) == "미쳤다"  # the word the chat typed too
+    assert key_word(["진짜 너무", "맛있다 오늘"]) == "오늘" and key_word([]) == ""
+    assert main_reaction({"react_laugh": 3, "react_shock": 7, "chat_per_min": 40}) == "shock" and main_reaction({}) == ""
+
+
+def test_sticker_art_is_picked_by_the_reaction(tmp_path):
+    from PIL import Image
+
+    from stream2clip.thumbnails import pick_art
+
+    for name in ("b_default.png", "kiri_laugh_512.png", "kiri_surprised_512.png", "notes.txt"):
+        (tmp_path / name).write_bytes(b"x")
+    assert pick_art(tmp_path, "shock").name == "kiri_surprised_512.png" and pick_art(tmp_path, "laugh").name == "kiri_laugh_512.png"
+    assert pick_art(tmp_path, "sad").name == "b_default.png"  # no sad face: the first picture
+    single = tmp_path / "one.png"
+    Image.new("RGBA", (8, 8)).save(single)
+    assert pick_art(single, "laugh") == single and pick_art(None) is None and pick_art(tmp_path / "missing") is None
+
+
+def test_sticker_thumbnail_layout(tmp_path):
+    import numpy as np
+    from PIL import Image, ImageDraw
+
+    from stream2clip.thumbnails import font_file, make_sticker_thumbnail, sticker
+
+    art = Image.new("RGBA", (400, 500), (0, 0, 0, 0))
+    ImageDraw.Draw(art).ellipse((40, 40, 360, 460), fill=(255, 79, 139, 255))
+    cut = sticker(art, outline=12)
+    pixels = np.asarray(cut)
+    ring = (pixels[..., 3] > 200) & (pixels[..., 0] > 240) & (pixels[..., 1] > 240) & (pixels[..., 2] > 240)
+    assert cut.width > art.width - 80 and ring.sum() > 2000  # a white outline around the shape
+    art_file = tmp_path / "art.png"
+    art.save(art_file)
+    font = font_file("")
+    if font is None:
+        pytest.skip("no bold Latin font on this machine")
+    out = make_sticker_thumbnail(picture(), "BIG WIN today", tmp_path / "s.jpg", art=art_file, quote="WIN", reaction="shock", font=font)
+    image = Image.open(out)
+    assert image.size == (1280, 720) and image.format == "JPEG" and out.stat().st_size < 2_000_000
+    rgb = np.asarray(image.convert("RGB")).astype(int)
+    pink = (rgb[..., 0] > 200) & (rgb[..., 1] < 120) & (rgb[..., 2] > 100)
+    yellow = (rgb[..., 0] > 200) & (rgb[..., 1] > 180) & (rgb[..., 2] < 120)
+    assert pink[:, :640].sum() > 20 * max(1, pink[:, 640:].sum())  # the character on the left
+    assert yellow[:360, 640:].sum() > 200  # the key word in yellow, top right
+    assert yellow[600:, 1000:].sum() == 0 and pink[600:, 1000:].sum() == 0  # the duration badge's corner stays free
+    def red(path):  # the symbol's red, not the character's pink
+        values = np.asarray(Image.open(path).convert("RGB")).astype(int)[:200, :300]
+        return int(((values[..., 0] > 220) & (values[..., 1] < 100) & (values[..., 2] < 120)).sum())
+
+    calm = make_sticker_thumbnail(picture(), "BIG WIN today", tmp_path / "c.jpg", art=art_file, reaction="laugh", font=font)
+    assert red(out) > 50 and red(calm) < red(out) / 5  # !? for a shock, nothing for a laugh
+
+
+@needs_ffmpeg
+def test_clips_make_sticker_thumbnails(green_screen_video, tmp_path, capsys):
+    from PIL import Image
+
+    from stream2clip.cli import main
+    from stream2clip.ffmpeg import ExportOptions
+    from stream2clip.pipeline import make_clips
+
+    art = tmp_path / "art"
+    art.mkdir()
+    Image.new("RGBA", (100, 120), (255, 79, 139, 255)).save(art / "kiri_surprised.png")
+    moment = Highlight(1, 0.0, 1.8, 0.8, 5.0, stats={"react_shock": 6}, quotes=["헐 미쳤다"])
+    results = make_clips(green_screen_video, [moment], tmp_path / "out", options=ExportOptions(format="mp4", fps=10),
+                         cues=[Cue(0.0, 1.5, "이게 되네")], thumbnails=True, thumbnail_style="sticker", thumbnail_art=art)
+    assert Image.open(results[0].thumbnail).size == (1280, 720)
+    highlights = tmp_path / "h.json"
+    highlights.write_text(json.dumps({"highlights": [moment.to_dict()]}), encoding="utf-8")
+    code = main(["clips", str(green_screen_video), "--highlights", str(highlights), "--snap", "0", "--layout", "none", "--fps", "10",
+                 "--thumbnail-art", str(tmp_path / "nowhere"), "-o", str(tmp_path / "cli")])
+    assert code != 0 and "--thumbnail-art" in capsys.readouterr().err  # checked before anything is made
+
+
 def test_sensational_words():
     from stream2clip.thumbnails import sensational_words
 

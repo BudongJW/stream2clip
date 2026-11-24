@@ -775,14 +775,25 @@ def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, st
     assert window.list.count() == 1
 
     window.teaser_check.setChecked(True)
+    assert not window.thumbnail_style_combo.isEnabled()  # the thumbnail's look waits for the thumbnail
     window.thumbnail_check.setChecked(True)
+    assert window.thumbnail_style_combo.isEnabled() and window.thumbnail_art_edit.isEnabled()
+    window.thumbnail_style_combo.setCurrentIndex(window.thumbnail_style_combo.findData("sticker"))
+    window.thumbnail_art_edit.setText(str(tmp_path / "no such art"))
     window.guests_edit.setText("니니아, 계춘회")
     window.links_edit.setText("https://www.youtube.com/@official")
     window.contact_check.setChecked(True)
     window.format_combo.setCurrentIndex(window.format_combo.findData("mp4"))
     window.export()
+    assert "make" not in seen and not window.busy  # a missing illustration is caught before anything is made
+    from pathlib import Path
+
+    art = Path(__file__).parents[1] / "assets" / "brand" / "mascot"  # a folder of expressions: kiri_laugh_512.png, kiri_surprised_512.png ...
+    window.thumbnail_art_edit.setText(str(art))
+    window.export()
     wait(app, lambda: not window.busy, 120)
     assert (seen["make"]["context"], seen["make"]["teaser"], seen["make"]["thumbnails"], seen["make"]["karaoke"]) == ("auto", 2.0, True, False)
+    assert (seen["make"]["thumbnail_style"], seen["make"]["thumbnail_art"]) == ("sticker", str(art))
     assert (seen["make"]["guests"], seen["make"]["links"], seen["make"]["contact_note"]) == (("니니아", "계춘회"), ("https://www.youtube.com/@official",), True)
     clip = window.last_results[0]
     assert clip.teaser > 0 and clip.thumbnail is not None and clip.thumbnail.exists()
@@ -794,6 +805,7 @@ def test_form_sets_the_lengths_and_the_opening_reaches_the_clips(app, window, st
     again = HighlightsWindow()
     assert again.preset_combo.currentData() == "clip"
     assert again.context_check.isChecked() and again.teaser_check.isChecked() and again.thumbnail_check.isChecked()
+    assert again.thumbnail_style_combo.currentData() == "sticker" and again.thumbnail_art_edit.text() == str(art)
     again.close()
 
 

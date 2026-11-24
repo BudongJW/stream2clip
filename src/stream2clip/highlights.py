@@ -201,6 +201,8 @@ class Highlight:
     score: float
     reasons: list[str] = field(default_factory=list)
     stats: dict[str, float] = field(default_factory=dict)
+    #: The chat lines typed most around the peak (text only, never who wrote them), for a thumbnail's chat bubble.
+    quotes: list[str] = field(default_factory=list)
 
     @property
     def duration(self) -> float:
@@ -311,6 +313,34 @@ def _bucket_chat(messages: Iterable[ChatMessage], n: int, window: float, skip_gr
                 per_category[c][i] += 1
     unique = np.array([len(a) for a in authors], dtype=np.float64)
     return {"rate": rate, "unique": unique, "reactions": reactions, "paid": paid, "categories": per_category}
+
+
+_EMOTE_ONLY = re.compile(r"^(?::[^:\s]+:\s*)+$")
+_LONG_RUN = re.compile(r"(.)\1{4,}")
+
+
+def chat_quotes(messages: Iterable[ChatMessage], start: float, end: float, *, limit: int = 3, skip_greetings: bool = True,
+                commands: Sequence[str] = ()) -> list[str]:
+    """The chat lines typed most between ``start`` and ``end``, most first: text only, never who wrote them.
+
+    Short lines (20 characters at most) without links, mentions, commands or emote codes; a long run of one
+    letter is cut to four ("ㅋㅋㅋㅋㅋㅋㅋ" and "ㅋㅋㅋㅋ" count as one line), and case does not matter.
+    """
+    counts: dict[str, int] = {}
+    shown: dict[str, str] = {}
+    for m in messages:
+        if not start <= m.time <= end or m.kind != "text":
+            continue
+        text = _LONG_RUN.sub(lambda run: run.group(1) * 4, " ".join(m.text.split()))
+        if not text or len(text) > 20 or _EMOTE_ONLY.match(text) or re.search(r"https?://|www\.|@", text, re.IGNORECASE):
+            continue
+        if text.startswith(("!", "/")) or (skip_greetings and is_routine(text)) or (commands and marker_word(m, commands, ("any",)) is not None):
+            continue
+        key = text.lower()
+        counts[key] = counts.get(key, 0) + 1
+        shown.setdefault(key, text)
+    ranked = sorted(counts, key=lambda key: -counts[key])  # stable: the first typed wins a tie
+    return [shown[key] for key in ranked[:limit]]
 
 
 def marker_times(messages: Iterable[ChatMessage], config: HighlightConfig | None = None) -> list[tuple[float, str]]:
@@ -502,6 +532,8 @@ def detect_highlights(
         if marks:
             h.stats["marker"] = marks
             h.reasons.insert(0, marker_reason(words))
+        if messages:  # the chat answers a moment a few seconds late: from just before the peak to the delay and a window after
+            h.quotes = chat_quotes(messages, h.peak - w, h.peak + cfg.chat_delay + 2 * w, skip_greetings=cfg.skip_greetings, commands=commands)
     return HighlightResult(window=w, duration=total, score=score, signals=signals, highlights=highlights, source=source or {}, messages=len(messages))
 
 
@@ -718,6 +750,7 @@ def load_highlights(path: str | os.PathLike[str]) -> list[Highlight]:
                 score=float(item.get("score", 0)),
                 reasons=list(item.get("reasons", [])),
                 stats=dict(item.get("stats", {})),
+                quotes=[str(q) for q in item.get("quotes", [])],
             )
         )
     return out
