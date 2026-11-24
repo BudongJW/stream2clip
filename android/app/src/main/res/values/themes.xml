@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The desktop app's dark ink (brand INK), so the first frame is not white. -->
+    <style name="Theme.Stream2clip" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ink</item>
+        <item name="android:colorAccent">@color/live_pink</item>
+    </style>
+</resources>

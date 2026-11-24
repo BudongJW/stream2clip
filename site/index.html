@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
 <title>stream2clip - 방송 하이라이트 클립 제작 도구</title>
 <meta name="description" content="방송 다시보기에서 하이라이트 구간을 검출하여 세로형 클립으로 제작하는 영상 편집 도구. Windows 실행 파일과 사용 설명서 제공.">
 <meta name="theme-color" content="#15131F">
@@ -34,6 +35,7 @@
     <nav class="nav" aria-label="주요 메뉴">
       <a href="#download">다운로드</a>
       <a href="#features">주요 기능</a>
+      <a href="app.html">안드로이드 앱</a>
       <a href="guide.html">사용 설명서</a>
       <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
       <details class="lang">
@@ -106,6 +108,7 @@
               <tr><th scope="row">무결성 확인</th><td><a href="https://github.com/BudongJW/stream2clip/releases/latest">릴리즈 페이지</a>의 SHA-256 값과 대조</td></tr>
               <tr><th scope="row">별도 설치 기능</th><td>자막 받아쓰기(Whisper), YouTube 업로드는 파이썬 패키지 설치 시 제공</td></tr>
               <tr><th scope="row">기타 운영체제</th><td>macOS, Linux는 파이썬 패키지로 설치. Python 3.10 이상 필요</td></tr>
+              <tr><th scope="row">안드로이드(베타)</th><td>휴대폰 앱. 릴리즈에 APK 첨부. <a href="app.html">앱 소개와 설치 방법</a></td></tr>
             </tbody>
           </table>
         </div>
@@ -151,6 +154,14 @@
             <li>9:16 레이아웃 5종: blur, center, fit, stack, pip</li>
             <li>카라오케 자막, 자막 번역, 용어집</li>
             <li>원본 제목과 주소를 포함한 설명란 자동 작성</li>
+          </ul></dd>
+        </div>
+        <div>
+          <dt>안드로이드 앱(베타)</dt>
+          <dd><ul>
+            <li>휴대폰에서 다시보기 주소 입력 또는 치지직, SOOP, YouTube 앱의 공유 메뉴로 하이라이트 검출</li>
+            <li>데스크톱과 같은 검출, 제목, 해시태그, 설명란. 클립마다 제목과 영상 문구 수정</li>
+            <li>하이라이트 구간만 읽어 1080x1920 Shorts 제작. 영상 문구의 글꼴, 색, 위치 선택</li>
           </ul></dd>
         </div>
         <div>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="badge_beta">Beta</string>
+    <string name="address_title">Replay address</string>
+    <string name="paste">Paste</string>
+    <string name="form_shorts">Shorts</string>
+    <string name="form_shorts_hint">Vertical, 15 to 90 s</string>
+    <string name="form_clip">Horizontal clip</string>
+    <string name="form_clip_hint">Horizontal, 1 to 3 min</string>
+    <string name="find">Find highlights</string>
+    <string name="step_info">Stream info</string>
+    <string name="step_chat">Chat replay</string>
+    <string name="step_detect">Detection</string>
+    <string name="empty_hint">Paste a CHZZK, SOOP or YouTube replay address, or pick stream2clip in that app\'s share menu</string>
+    <string name="source_title">Original stream</string>
+    <plurals name="messages_count">
+        <item quantity="one">%1$d chat message</item>
+        <item quantity="other">%1$d chat messages</item>
+    </plurals>
+    <plurals name="clips_count">
+        <item quantity="one">%1$d highlight</item>
+        <item quantity="other">%1$d highlights</item>
+    </plurals>
+    <string name="no_highlights">No moment rose above the baseline. The stream may have had little chat</string>
+    <string name="no_stream">The video cannot be read from this address, so no clip can be made. The title and description still work</string>
+    <string name="length_seconds">%1$d s</string>
+    <string name="copy_text">Copy title and description</string>
+    <string name="copied">Title and description copied</string>
+    <string name="open_source">Open in the original</string>
+    <string name="make_short">Make a Short</string>
+    <string name="make_clip">Make a clip</string>
+    <string name="making">Making %1$d%%</string>
+    <string name="saved">Saved to Movies/stream2clip</string>
+    <string name="open_video">Open video</string>
+    <string name="share">Share</string>
+    <string name="failed">Failed: %1$s</string>
+    <string name="credit_line">Original: %1$s</string>
+    <string name="edit_text">Edit the title and the words on the video</string>
+    <string name="title_label">Title (YouTube)</string>
+    <string name="caption_label">Words on the video</string>
+    <string name="caption_hint">Shown at the top of the video; past three lines the letters get smaller</string>
+    <string name="cancel">Cancel</string>
+    <string name="save_text">Save</string>
+    <string name="waiting">Starts after the one before it</string>
+    <string name="look_font">Font</string>
+    <string name="look_color">Colour</string>
+    <string name="look_place">Place</string>
+    <string name="font_black_han">Black Han Sans</string>
+    <string name="font_do_hyeon">Do Hyeon</string>
+    <string name="font_jua">Jua</string>
+    <string name="font_gothic_black">Gothic A1 Black</string>
+    <string name="font_pretendard">Pretendard Black</string>
+    <string name="font_system">Standard font</string>
+    <string name="color_white">White</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_pink">Pink (white edge)</string>
+    <string name="place_top">Top</string>
+    <string name="place_middle">Middle</string>
+    <string name="place_bottom">Bottom</string>
+</resources>

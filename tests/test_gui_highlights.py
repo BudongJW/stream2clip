@@ -350,7 +350,10 @@ def test_caption_look_chosen_in_the_window_reaches_the_clip(app, window, stream_
     window.set_paths(video=str(video), chat=str(chat), subtitles=str(subs), output=str(out))
     window.audio_check.setChecked(False)
     window.snap_check.setChecked(False)
-    assert [window.style_combo.itemData(i) for i in range(window.style_combo.count())] == ["default", "box", "pink", "small"]
+    from stream2clip.subtitles import SUBTITLE_STYLES
+
+    looks = [window.style_combo.itemData(i) for i in range(window.style_combo.count())]
+    assert looks[:4] == ["default", "box", "pink", "small"] and sorted(looks) == sorted(SUBTITLE_STYLES)  # the plain looks first, then every font look
     window.style_combo.setCurrentIndex(window.style_combo.findData("box"))
     window.position_combo.setCurrentIndex(window.position_combo.findData("top"))
     window.analyse()

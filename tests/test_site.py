@@ -14,7 +14,7 @@ import stream2clip
 from stream2clip import brand
 
 ROOT = Path(__file__).parents[1]
-PAGES = ("index.html", "guide.html", "en/index.html", "en/guide.html", "ja/index.html", "ja/guide.html")
+PAGES = ("index.html", "guide.html", "app.html", "en/index.html", "en/guide.html", "en/app.html", "ja/index.html", "ja/guide.html", "ja/app.html")
 FOLDERS = {"ko": "", "en": "en/", "ja": "ja/"}
 
 
@@ -95,16 +95,36 @@ def test_download_buttons_follow_the_latest_release(built, home, manual, pdf):
     assert len(buttons) == 3 and [attrs["data-download"] for _link, attrs in buttons].count("zip") == 1  # installer twice, the zip once
     for link, _attrs in buttons:  # without the script (or the API) they lead to the releases page, never to an old file
         assert link == "https://github.com/BudongJW/stream2clip/releases/latest"
-    everything = "".join((built / name).read_text(encoding="utf-8") for name in (*PAGES, "js/site.js"))
+    everything = "".join((built / name).read_text(encoding="utf-8") for name in PAGES)
     assert "releases/download/" not in everything
     script = (built / "js" / "site.js").read_text(encoding="utf-8")
+    assert not re.search(r"releases/download/\w", script)  # the prefix a file must start with, never a file of one release
+    assert 'OURS = "https://github.com/" + REPO + "/releases/download/"' in script and "indexOf(OURS) === 0" in script
     assert 'REPO = "BudongJW/stream2clip"' in script and "/releases/latest" in script and "windows-x64-setup" in script and "windows-x64" in script and ".catch(" in script
     links = [link for _tag, link, _attrs in index.links]
     assert manual in links and pdf in links
     assert "data-release=\"date\"" not in (built / home).read_text(encoding="utf-8") and "published_at" not in script  # no release date on the page
 
 
-@pytest.mark.parametrize("name", ["index.html", "guide.html"])
+@pytest.mark.parametrize("app", ["app.html", "en/app.html", "ja/app.html"])
+def test_the_app_page_offers_the_apk_of_the_latest_release(built, app):
+    html = (built / app).read_text(encoding="utf-8")
+    page = Page(html)
+    buttons = [(link, attrs) for _tag, link, attrs in page.links if "data-download" in attrs]
+    assert len(buttons) >= 3 and all(attrs["data-download"] == "apk" for _link, attrs in buttons)  # never the Windows installer
+    assert all(link == "https://github.com/BudongJW/stream2clip/releases/latest" for link, _attrs in buttons)
+    assert 'class="getbar"' in html and "has-getbar" in html  # on a phone the button stays at the bottom of the screen
+    assert 'data-apk="version"' in html and 'data-apk="size"' in html and 'data-release="' not in html
+    screens = {link.rsplit("/", 1)[-1] for tag, link, _attrs in page.links if tag == "img" and "/app/" in link}
+    assert {"start.webp", "editor.webp", "list.webp", "short.webp", "icon.png"} <= screens
+    assert "play.google.com" not in html and "apps.apple.com" not in html  # not on a store: no store badge or link
+    script = (built / "js" / "site.js").read_text(encoding="utf-8")
+    assert "android\\.apk$" in script and '"apk"' in script and '"data-apk"' in script
+    home = Page((built / PurePosixPath(app).parent / "index.html").read_text(encoding="utf-8"))
+    assert sum(1 for _tag, link, _attrs in home.links if link == "app.html") >= 2  # from the menu and the download table
+
+
+@pytest.mark.parametrize("name", ["index.html", "guide.html", "app.html"])
 def test_each_page_links_to_its_other_languages(built, name):
     html = {code: (built / folder / name).read_text(encoding="utf-8") for code, folder in FOLDERS.items()}
     pages = {code: Page(text) for code, text in html.items()}
@@ -156,6 +176,12 @@ def test_the_site_is_on_brand_and_names_nobody(built):
     for name in PAGES:
         html = (built / name).read_text(encoding="utf-8")
         assert 'name="viewport"' in html and "<title>" in html
+        # Scripts only from the site itself, data only from GitHub's release API, nothing framed or posted.
+        policy = re.search(r'<meta http-equiv="Content-Security-Policy" content="([^"]+)">', html)
+        assert policy and html.index("Content-Security-Policy") < html.index("<link"), name
+        rules = dict(part.strip().split(" ", 1) for part in policy.group(1).split(";"))
+        assert rules["default-src"] == "'none'" and rules["script-src"] == "'self'" and rules["connect-src"] == "https://api.github.com", name
+        assert "<script>" not in html and not re.search(r"\son[a-z]+=", html) and ' style="' not in html, name  # nothing inline the policy would block
         assert all("alt" in attrs for tag, _link, attrs in Page(html).links if tag == "img"), name
 
 

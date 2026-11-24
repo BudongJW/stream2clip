@@ -443,6 +443,8 @@ def cmd_highlights(args: argparse.Namespace) -> int:
 
 
 def _add_clip_args(p: argparse.ArgumentParser) -> None:
+    from .subtitles import SUBTITLE_POSITIONS, SUBTITLE_STYLES
+
     g = p.add_argument_group("clip output")
     g.add_argument("--layout", choices=["blur", "center", "fit", "stack", "pip", "none"], help="9:16 layout (default: from --preset; shorts blur, clip and long none): stack = avatar above the game, pip = avatar in a corner of the game; 'none' keeps the original framing")
     g.add_argument("--avatar", type=_avatar, help="stack / pip layout: avatar box x,y,w,h in source pixels, 'auto' to find it with anime face detection, or 'session' to take it from the VTube Studio outline in --session")
@@ -475,10 +477,15 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     s.add_argument("--language", help="speech language for --transcribe (ja, ko, en ...)")
     s.add_argument("--karaoke", action=argparse.BooleanOptionalAction, default=None,
                    help="light the words up as they are spoken; --no-karaoke: plain sentence captions (default: from --preset, karaoke for shorts, sentences for clip and long)")
-    s.add_argument("--subtitle-style", default="default", choices=["default", "box", "pink", "small"], help="look of the captions: box = on a dark plate, pink = pink highlight, small = smaller and lighter")
-    s.add_argument("--subtitle-position", default="bottom", choices=["bottom", "middle", "top"], help="where the captions sit (default bottom; top keeps them off a game's own text box)")
+    s.add_argument("--subtitle-style", default="default", choices=list(SUBTITLE_STYLES), metavar="LOOK",
+                   help="look of the captions: default, box (on a dark plate), pink (pink highlight), small; with a free font fetched on first use: "
+                        "dohyeon, black-han, gothic-black, yellow, pink-pop, plate, cute, handwriting, game, sunflower, pretendard, nanum, brush, doodle (Korean), "
+                        "telop, telop-yellow, zen-maru, rocknroll, reggae (Japanese), impact, comic, heavy, poster (English). `stream2clip fonts` lists the fonts")
+    s.add_argument("--subtitle-position", default="bottom", choices=list(SUBTITLE_POSITIONS), metavar="PLACE",
+                   help="where the captions sit: bottom (default, above the Shorts buttons), low (near the bottom edge), middle, top, "
+                        "under-video / over-video / above-video (on a Short: under, on or over the stream picture)")
     s.add_argument("--font", metavar="FAMILY", help="caption font (default: an installed font for the language of the text)")
-    s.add_argument("--font-size", type=int, metavar="PIXELS", help="caption size on a 1080 px wide frame (default 64)")
+    s.add_argument("--font-size", type=int, metavar="PIXELS", help="caption size on a frame whose short side is 1080 px, for both orientations (default: 80 on horizontal clips, 112 on Shorts, as Korean clip channels caption)")
     s.add_argument("--snap", type=float, default=3.0, metavar="SECONDS", help="with --subtitles: move a clip edge that falls inside a spoken line to the edge of that line, by at most this much (default 3; 0 = leave the edges alone)")
     s.add_argument("--translate", metavar="LANG", help='translate the subtitles (e.g. "ko") with a translator plugin; none is built in')
     s.add_argument("--translator", metavar="NAME", help="translator plugin name, or your own code: file.py[:function] or module:function (default: the first plugin installed)")
@@ -541,6 +548,24 @@ def _soundtrack(args: argparse.Namespace):
     effects = tuple(Effect.parse(spec, library) for spec in args.sfx or ())
     return Soundtrack(music=music, effects=effects, under=args.bgm_under, volume=args.bgm_volume, duck=not args.no_duck,
                       music_start=args.bgm_start, effect_under=args.sfx_under, snap=not args.no_sfx_snap, effect_gap=args.sfx_gap)
+
+
+def _fetch_caption_fonts(families: "list[str]") -> None:
+    """Fetch the catalog fonts a caption look names and this PC does not have yet (pinned, checksum checked).
+
+    A font that cannot be fetched (no connection, a checksum that does not match) does not stop the clips:
+    their captions keep the look's colours and place in the automatic font (``with_available_font``).
+    """
+    from .fonts import install, missing_for
+    from .subtitles import _has_family, installed_fonts
+
+    system = installed_fonts()
+    for font in missing_for([f for f in families if not _has_family(f, system)]):
+        print(f"font   {font.family}: fetching {font.megabytes} MB ({font.licence}) from {font.url.split('/')[2]}", flush=True)
+        try:
+            install(font)
+        except (OSError, RuntimeError) as exc:
+            print(f"font   {font.family}: not fetched ({exc}); the captions use the automatic font", file=sys.stderr, flush=True)
 
 
 def _make_clips(args: argparse.Namespace, highlights) -> int:
@@ -636,11 +661,14 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     if soundtrack is not None:
         for sound in soundtrack.music:
             print(f"music  {sound.label}" + (f"  ({sound.license})" if sound.license else "  (license not recorded)"))
+    look = subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size)
+    if cues is not None or transcriber is not None:
+        _fetch_caption_fonts([look.font])
     results = make_clips(
         video, highlights, args.output, options=options, cues=cues, transcriber=transcriber, language=args.language,
         section=(lambda h: sections[h.rank]) if sections is not None else None,
         karaoke=args.karaoke is not False, source=source, profile=profile, registered=True if args.registered else None,
-        subtitle_style=subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size),
+        subtitle_style=look,
         subtitle_translator=subtitle_translator, translate_to=args.translate or "ko", glossary=glossary, bilingual=args.bilingual,
         credit=credit or None, credit_position=args.credit_position, trim_silence=args.trim_silence, silence_level=args.silence_level,
         audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
@@ -1171,6 +1199,39 @@ def _download_progress(megabytes: int, step: int = 10):
             print(f"  {shown[0]:3d}%  {done / 1e6:.0f} / {megabytes} MB", flush=True)
 
     return progress
+
+
+def cmd_fonts(args: argparse.Namespace) -> int:
+    from .fonts import CAPTION_FONTS, find, fonts_dir, install, installed
+    from .subtitles import SUBTITLE_STYLES
+
+    if args.install:
+        wanted = list(CAPTION_FONTS) if [w.lower() for w in args.install] == ["all"] else [find(w) for w in args.install]
+        unknown = [w for w, f in zip(args.install, wanted) if f is None]
+        if unknown:
+            raise ValueError(f"No caption font {', '.join(unknown)}; `stream2clip fonts` lists them")
+        for font in wanted:
+            assert font is not None
+            if installed(font):
+                print(f"have   {font.family}")
+                continue
+            print(f"fetch  {font.family} ({font.megabytes} MB, {font.licence})", flush=True)
+            install(font)
+        print(f"folder {fonts_dir()}")
+        return 0
+    looks: dict[str, list[str]] = {}
+    for name, style in SUBTITLE_STYLES.items():
+        entry = find(style.font)
+        if entry is not None:
+            looks.setdefault(entry.key, []).append(name)
+    print(f"{'font':24} {'family':28} {'MB':>4}  {'scripts':9} {'used for':22} looks")
+    for font in CAPTION_FONTS:
+        if args.script and args.script not in font.scripts:
+            continue
+        mark = "*" if installed(font) else " "
+        print(f"{mark}{font.key:23} {font.family:28} {font.megabytes:>4}  {','.join(font.scripts):9} {','.join(font.roles):22} {','.join(looks.get(font.key, []))}")
+    print(f"\n* fetched, in {fonts_dir()}. All are free fonts (SIL Open Font License); a look that needs one fetches it on first use.")
+    return 0
 
 
 def cmd_setup(args: argparse.Namespace) -> int:
@@ -1722,6 +1783,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("language", help="show the interface language the app starts in (before a choice made in the app itself)")
     p.add_argument("-v", "--verbose", action="store_true", help="also show where it could come from")
     p.set_defaults(func=cmd_language)
+
+    p = sub.add_parser("fonts", help="caption fonts to choose from (free fonts clip channels use): list them, or fetch some for --subtitle-style / --font")
+    p.add_argument("install", nargs="*", metavar="FONT", help="fetch these fonts (keys or family names from the list), or 'all'; nothing: list them")
+    p.add_argument("--script", choices=["ko", "ja", "en"], help="list only the fonts that draw this script")
+    p.set_defaults(func=cmd_fonts)
 
     p = sub.add_parser("setup", help="show what the features need on this PC and what is missing (ffmpeg, yt-dlp, OBS ...); --ffmpeg fetches ffmpeg")
     p.add_argument("--ffmpeg", action="store_true", help="Windows: download ffmpeg and ffprobe (115 MB, checked against a pinned SHA-256) into the user's tools folder; nothing is fetched when ffmpeg is already found")

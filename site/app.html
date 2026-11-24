@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<title>stream2clip 안드로이드 앱 - 휴대폰에서 하이라이트와 Shorts 제작</title>
+<meta name="description" content="다시보기 주소 하나로 하이라이트를 찾고 휴대폰에서 바로 Shorts를 만드는 안드로이드 앱(베타). APK 다운로드와 설치 방법.">
+<meta name="theme-color" content="#15131F">
+<meta property="og:type" content="website">
+<meta property="og:title" content="stream2clip 안드로이드 앱(베타)">
+<meta property="og:description" content="다시보기 주소 하나로 휴대폰에서 Shorts 완성">
+<meta property="og:image" content="https://budongjw.github.io/stream2clip/assets/social.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="ko" href="https://budongjw.github.io/stream2clip/app.html">
+<link rel="alternate" hreflang="en" href="https://budongjw.github.io/stream2clip/en/app.html">
+<link rel="alternate" hreflang="ja" href="https://budongjw.github.io/stream2clip/ja/app.html">
+<link rel="icon" href="assets/favicon.ico" sizes="48x48">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@300;700&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body class="has-getbar">
+<a class="skip" href="#main">본문으로 이동</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="lockup" href="./" aria-label="stream2clip 홈">
+      <img src="assets/symbol-on-dark.svg" alt="" width="38" height="38">
+      <span><span class="s">stream</span><span class="two">2</span><span class="c">clip</span></span>
+    </a>
+    <nav class="nav" aria-label="주요 메뉴">
+      <a href="#find">기능</a>
+      <a href="#install">설치</a>
+      <a href="./">데스크톱 앱</a>
+      <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+      <details class="lang">
+        <summary aria-label="언어 선택"><span class="flag">🇰🇷</span> 한국어</summary>
+        <ul>
+          <li><a href="app.html" lang="ko" aria-current="true"><span class="flag">🇰🇷</span> 한국어</a></li>
+          <li><a href="en/app.html" lang="en" hreflang="en"><span class="flag">🇺🇸</span> English</a></li>
+          <li><a href="ja/app.html" lang="ja" hreflang="ja"><span class="flag">🇯🇵</span> 日本語</a></li>
+        </ul>
+      </details>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="app-hero">
+    <div class="wrap">
+      <div>
+        <p class="appname"><img src="assets/app/icon.png" alt="" width="256" height="256"><span>stream2clip 안드로이드 앱</span><span class="beta">베타</span></p>
+        <h1>주소 하나로<br><em>Shorts</em> 완성.</h1>
+        <p class="summary">치지직, SOOP, YouTube 다시보기 속 하이라이트를 찾아 휴대폰에서 바로 Shorts로</p>
+        <div class="actions">
+          <a class="btn" data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>
+            APK 다운로드
+          </a>
+          <a class="text" href="#install">설치 방법</a>
+        </div>
+        <dl class="facts">
+          <dt>버전</dt><dd data-apk="version">최신 릴리즈</dd>
+          <dt>파일 크기</dt><dd data-apk="size">릴리즈 페이지 참조</dd>
+          <dt>지원 환경</dt><dd>Android 10 이상</dd>
+          <dt>가격</dt><dd>무료</dd>
+        </dl>
+      </div>
+
+      <div class="phones">
+        <figure class="phone back"><img src="assets/app/list.webp" alt="하이라이트 목록: 구간 시각, 점수 막대, 제목과 고른 글꼴의 영상 문구" width="540" height="1200"></figure>
+        <figure class="phone front"><img src="assets/app/start.webp" alt="앱 첫 화면: 다시보기 주소, 형태 선택, 하이라이트 찾기 버튼과 첫 번째 하이라이트" width="540" height="1200"></figure>
+        <img class="kiri" src="assets/kiri/kiri_wink_512.png" alt="" width="512" height="512">
+      </div>
+    </div>
+  </section>
+
+  <section class="step" id="find">
+    <div class="wrap">
+      <div>
+        <p class="tag">하이라이트 찾기</p>
+        <h2>공유 한 번이면<br><em>하이라이트</em>가 한눈에</h2>
+        <p>채팅이 터진 장면만 골라 점수순으로 정리</p>
+      </div>
+      <figure class="phone"><img src="assets/app/start.webp" alt="다시보기 주소 입력과 형태 선택 화면" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="step flip" id="edit">
+    <div class="wrap">
+      <div>
+        <p class="tag">제목과 문구</p>
+        <h2>제목도 문구도<br><em>원하는 대로</em></h2>
+        <p>클립마다 제목과 영상 문구를 고치고 글꼴, 색, 위치까지 선택</p>
+      </div>
+      <figure class="phone"><img src="assets/app/editor.webp" alt="편집 화면: 제목, 영상 문구, 글꼴, 색, 위치 선택" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="step" id="copy">
+    <div class="wrap">
+      <div>
+        <p class="tag">업로드 준비</p>
+        <h2>제목, 해시태그, 설명란<br><em>복사 한 번</em>으로</h2>
+        <p>원본 방송 링크와 시각까지 담겨 붙여 넣으면 끝</p>
+      </div>
+      <figure class="phone"><img src="assets/app/list.webp" alt="하이라이트 카드: 제목, 설명 복사와 원본에서 보기 버튼, Shorts 만들기" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="step flip" id="make">
+    <div class="wrap">
+      <div>
+        <p class="tag">Shorts 제작</p>
+        <h2>필요한 구간만 받아<br><em>휴대폰에서 바로</em></h2>
+        <p>전체 영상을 받지 않아 빠르고, 완성된 영상은 바로 저장하고 공유</p>
+      </div>
+      <figure class="phone"><img src="assets/app/short.webp" alt="앱이 만든 Shorts: 흐린 배경 위 방송 화면과 노란 영상 문구" width="540" height="1200" loading="lazy"></figure>
+    </div>
+  </section>
+
+  <section class="block" id="install">
+    <div class="wrap">
+      <h2 class="peeked">설치<img class="peek" src="assets/kiri/kiri_turn_left_512.png" alt="" width="512" height="512" loading="lazy"></h2>
+      <div class="split">
+        <div class="tablewrap">
+          <table>
+            <tbody>
+              <tr><th scope="row">지원 환경</th><td>Android 10 이상</td></tr>
+              <tr><th scope="row">언어</th><td>한국어, 日本語, English</td></tr>
+              <tr><th scope="row">업데이트</th><td>새 버전을 받아 그대로 덮어 설치</td></tr>
+              <tr><th scope="row">권한</th><td>인터넷만 사용</td></tr>
+              <tr><th scope="row">가격</th><td>무료(오픈소스, Apache-2.0)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3>설치 절차</h3>
+          <ol class="procedure">
+            <li>휴대폰 브라우저로 <a data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">APK 다운로드</a></li>
+            <li>파일을 열어 설치(처음 한 번은 출처를 알 수 없는 앱 허용)</li>
+            <li>다시보기 앱의 공유 메뉴에서 stream2clip 선택 또는 주소 붙여 넣기</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <img src="assets/app/icon.png" alt="stream2clip 앱 아이콘" width="256" height="256" loading="lazy">
+      <h2>stream2clip 안드로이드 앱</h2>
+      <p>무료 오픈소스</p>
+      <a class="btn" data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">APK 다운로드</a>
+      <a class="text" href="./">데스크톱 앱 보기</a>
+    </div>
+  </section>
+</main>
+
+<div class="getbar"><a class="btn" data-download="apk" href="https://github.com/BudongJW/stream2clip/releases/latest">APK 다운로드</a></div>
+
+<footer>
+  <div class="wrap">
+    <span class="tagline">Stream in. Clips out.</span>
+    <a href="https://github.com/BudongJW/stream2clip">GitHub</a>
+    <a href="https://github.com/BudongJW/stream2clip/releases">릴리즈</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/CHANGELOG.md">변경 내역</a>
+    <a href="https://github.com/BudongJW/stream2clip/blob/main/LICENSE">라이선스</a>
+    <p>오픈소스 소프트웨어(Apache-2.0). 본 페이지는 Google Fonts의 서체, jsDelivr의 국기 글꼴, GitHub의 릴리즈 정보를 불러옴.</p>
+  </div>
+</footer>
+
+<script src="js/site.js" defer></script>
+</body>
+</html>

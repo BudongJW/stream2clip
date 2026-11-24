@@ -244,6 +244,8 @@ class ExportOptions:
     layout: "VerticalLayout | None" = None
     #: Subtitle file (.ass/.srt/.vtt) burned in after the layout, timed from the clip start.
     subtitles: "str | os.PathLike[str] | None" = None
+    #: A folder of fonts the captions may name besides the system's (the caption font catalog, :mod:`stream2clip.fonts`).
+    fonts_dir: "str | os.PathLike[str] | None" = None
     #: Parts of the cut that stay, as (start, end) seconds from its beginning; the rest is dropped and
     #: what stays is closed up (see :func:`stream2clip.audio.sound_parts`). Subtitle times are those of the result.
     keep: "tuple[tuple[float, float], ...] | None" = None
@@ -476,7 +478,8 @@ def build_video_filter(options: ExportOptions) -> str:
     chain.extend(keep_filters(options)[0])  # before the captions: their times are those of the shortened clip
     chain.extend(options.effects)
     if options.subtitles is not None:
-        chain.append(f"subtitles=filename={filter_path(options.subtitles)}")
+        fonts = f":fontsdir={filter_path(options.fonts_dir)}" if options.fonts_dir is not None else ""
+        chain.append(f"subtitles=filename={filter_path(options.subtitles)}{fonts}")
     chain.extend(options.extra_filters)
     if options.transparent:
         chain.append("format=rgba")

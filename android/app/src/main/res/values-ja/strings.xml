@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="badge_beta">ベータ</string>
+    <string name="address_title">アーカイブのURL</string>
+    <string name="paste">貼り付け</string>
+    <string name="form_shorts">Shorts</string>
+    <string name="form_shorts_hint">縦、15~90秒</string>
+    <string name="form_clip">横の切り抜き</string>
+    <string name="form_clip_hint">横、1~3分</string>
+    <string name="find">ハイライトを探す</string>
+    <string name="step_info">配信の情報</string>
+    <string name="step_chat">チャット取得</string>
+    <string name="step_detect">ハイライト検出</string>
+    <string name="empty_hint">CHZZK、SOOP、YouTubeのアーカイブURLを貼り付けるか、そのアプリの共有メニューでstream2clipを選択</string>
+    <string name="source_title">元配信</string>
+    <plurals name="messages_count">
+        <item quantity="other">チャット %1$d件</item>
+    </plurals>
+    <plurals name="clips_count">
+        <item quantity="other">ハイライト %1$d件</item>
+    </plurals>
+    <string name="no_highlights">基準を超える瞬間が見つからない。チャットが少ない配信の可能性</string>
+    <string name="no_stream">このURLからは映像を読めないため、クリップは作れない。タイトルと概要欄は使用可能</string>
+    <string name="length_seconds">%1$d秒</string>
+    <string name="copy_text">タイトル、概要をコピー</string>
+    <string name="copied">タイトルと概要欄をコピー</string>
+    <string name="open_source">元配信で見る</string>
+    <string name="make_short">Shortsを作る</string>
+    <string name="make_clip">切り抜きを作る</string>
+    <string name="making">作成中 %1$d%%</string>
+    <string name="saved">Movies/stream2clipに保存</string>
+    <string name="open_video">動画を開く</string>
+    <string name="share">共有</string>
+    <string name="failed">失敗: %1$s</string>
+    <string name="credit_line">元配信: %1$s</string>
+    <string name="edit_text">タイトル、動画の文字を編集</string>
+    <string name="title_label">タイトル (YouTube)</string>
+    <string name="caption_label">動画の文字</string>
+    <string name="caption_hint">動画の上部に表示。3行を超えると文字が小さくなる</string>
+    <string name="cancel">キャンセル</string>
+    <string name="save_text">保存</string>
+    <string name="waiting">前の動画の後に開始</string>
+    <string name="look_font">フォント</string>
+    <string name="look_color">色</string>
+    <string name="look_place">位置</string>
+    <string name="font_black_han">Black Han Sans</string>
+    <string name="font_do_hyeon">Do Hyeon</string>
+    <string name="font_jua">Jua</string>
+    <string name="font_gothic_black">Gothic A1 Black</string>
+    <string name="font_pretendard">Pretendard Black</string>
+    <string name="font_system">標準フォント</string>
+    <string name="color_white">白</string>
+    <string name="color_yellow">黄色</string>
+    <string name="color_pink">ピンク (白い縁)</string>
+    <string name="place_top">上</string>
+    <string name="place_middle">中央</string>
+    <string name="place_bottom">下</string>
+</resources>

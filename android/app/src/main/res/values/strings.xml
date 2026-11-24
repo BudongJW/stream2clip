@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">stream2clip</string>
+    <string name="badge_beta">베타</string>
+    <string name="address_title">다시보기 주소</string>
+    <string name="paste">붙여넣기</string>
+    <string name="form_shorts">Shorts</string>
+    <string name="form_shorts_hint">세로, 15~90초</string>
+    <string name="form_clip">가로 클립</string>
+    <string name="form_clip_hint">가로, 1~3분</string>
+    <string name="find">하이라이트 찾기</string>
+    <string name="step_info">방송 정보</string>
+    <string name="step_chat">채팅 받기</string>
+    <string name="step_detect">하이라이트 검출</string>
+    <string name="empty_hint">치지직, SOOP, YouTube 다시보기 주소를 붙여넣거나, 그 앱의 공유 메뉴에서 stream2clip 선택</string>
+    <string name="source_title">원본 방송</string>
+    <plurals name="messages_count">
+        <item quantity="other">채팅 %1$d개</item>
+    </plurals>
+    <plurals name="clips_count">
+        <item quantity="other">하이라이트 %1$d개</item>
+    </plurals>
+    <string name="no_highlights">기준을 넘는 순간을 찾지 못함. 채팅이 적은 방송일 수 있음</string>
+    <string name="no_stream">이 주소에서는 영상을 읽을 수 없어 클립을 만들 수 없음. 제목과 설명란은 사용 가능</string>
+    <string name="length_seconds">%1$d초</string>
+    <string name="copy_text">제목, 설명 복사</string>
+    <string name="copied">제목과 설명란을 복사함</string>
+    <string name="open_source">원본에서 보기</string>
+    <string name="make_short">Shorts 만들기</string>
+    <string name="make_clip">클립 만들기</string>
+    <string name="making">만드는 중 %1$d%%</string>
+    <string name="saved">Movies/stream2clip에 저장됨</string>
+    <string name="open_video">영상 열기</string>
+    <string name="share">공유</string>
+    <string name="failed">실패: %1$s</string>
+    <string name="credit_line">원본: %1$s</string>
+    <string name="edit_text">제목, 영상 문구 고치기</string>
+    <string name="title_label">제목 (YouTube)</string>
+    <string name="caption_label">영상 문구</string>
+    <string name="caption_hint">영상 위쪽에 표시. 3줄을 넘으면 글자가 작아짐</string>
+    <string name="cancel">취소</string>
+    <string name="save_text">저장</string>
+    <string name="waiting">앞 영상이 끝나면 시작</string>
+    <string name="look_font">글꼴</string>
+    <string name="look_color">색</string>
+    <string name="look_place">위치</string>
+    <string name="font_black_han">검은고딕</string>
+    <string name="font_do_hyeon">도현체</string>
+    <string name="font_jua">주아체</string>
+    <string name="font_gothic_black">고딕 A1 블랙</string>
+    <string name="font_pretendard">프리텐다드 블랙</string>
+    <string name="font_system">기본 글꼴</string>
+    <string name="color_white">흰색</string>
+    <string name="color_yellow">노랑</string>
+    <string name="color_pink">분홍 (흰 테두리)</string>
+    <string name="place_top">위</string>
+    <string name="place_middle">가운데</string>
+    <string name="place_bottom">아래</string>
+</resources>

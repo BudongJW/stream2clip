@@ -15,6 +15,7 @@
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
+<a href="#안드로이드-앱베타"><img alt="Android app" src="https://img.shields.io/badge/Android-beta-3DDC84?style=for-the-badge&logo=android&logoColor=white&labelColor=15131F"></a>
 
 <!-- 기술 스택 -->
 <a href="#기술-스펙"><img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white"></a>
@@ -27,7 +28,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-684-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-713-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -39,7 +40,7 @@
 
 <br>
 
-**[다운로드, 사용 설명서](https://budongjw.github.io/stream2clip/)** ([English](https://budongjw.github.io/stream2clip/en/), [日本語](https://budongjw.github.io/stream2clip/ja/)) | [빠른 시작](#빠른-시작) | [주요 기능](#주요-기능) | [자동 클립](#방송-클립-자동화) | [스크린샷](#스크린샷) | [기술 스펙](#기술-스펙) | [설치](#설치) | [사용법](#사용법) | [이식](#라이브러리로-쓰기-다른-프로젝트에-이식) | [구조](#구조) | [브랜드](#브랜드) | [로드맵](#로드맵)
+**[다운로드, 사용 설명서](https://budongjw.github.io/stream2clip/)** ([English](https://budongjw.github.io/stream2clip/en/), [日本語](https://budongjw.github.io/stream2clip/ja/)) | [빠른 시작](#빠른-시작) | [주요 기능](#주요-기능) | [자동 클립](#방송-클립-자동화) | [안드로이드 앱](#안드로이드-앱베타) | [스크린샷](#스크린샷) | [기술 스펙](#기술-스펙) | [설치](#설치) | [사용법](#사용법) | [이식](#라이브러리로-쓰기-다른-프로젝트에-이식) | [구조](#구조) | [브랜드](#브랜드) | [로드맵](#로드맵)
 
 <br>
 
@@ -62,6 +63,7 @@ Windows 앱 기준. 설치부터 첫 클립까지 4단계
 
 - 캡쳐와 움짤 녹화: 앱 실행 상태에서 <kbd>F8</kbd> 영역 캡쳐, <kbd>F9</kbd> 영역 녹화
 - 방송 중 기록: 시작 화면의 **방송 기록기**. 상세는 [방송 기록기](#방송-기록기)
+- 휴대폰: [안드로이드 앱(베타)](#안드로이드-앱베타)에 다시보기 주소 입력 또는 치지직, SOOP, YouTube 앱에서 공유. 하이라이트 확인 후 Shorts 제작. [앱 소개 페이지](https://budongjw.github.io/stream2clip/app.html)에서 APK 다운로드
 
 명령줄 기준(macOS, Linux 포함). Python 3.10 이상과 ffmpeg 필요
 
@@ -164,6 +166,7 @@ stream2clip auto "방송 주소" --top 5 -o clips
 | 영상 형태 | Shorts(9:16), 가로 클립(1~3분), 가로 모음 영상(10분 전후, 챕터) 프리셋. 첫 3초의 상황 설명, 최고 순간 2초 미리 보기, 콜라보의 화자별 자막 색, 재사용 콘텐츠 점검 |
 | 특수효과 | 최고 순간 한 곳에만 펀치인 확대, 자막 단어 강조, 채팅 반응 꼬리표. 기준 순간은 스트리머가 누른 VTube Studio 핫키나 소리 시작점이며, 뚜렷하지 않으면 넣지 않음 |
 | 편집 프로그램 연계 | 하이라이트를 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내어 DaVinci Resolve, Premiere Pro 등에서 이어서 편집 |
+| 안드로이드 앱(베타) | 휴대폰에서 다시보기 주소로 하이라이트 찾기, 제목과 설명란 복사, Shorts 제작과 공유. 데스크톱과 같은 파이썬 코어 사용([안드로이드 앱](#안드로이드-앱베타)) |
 
 ### 이식
 
@@ -340,9 +343,10 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avat
 
 | &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
+| 크기 | 가로 클립은 글자 크기 80(프레임 높이의 약 5.5%), Shorts는 112(약 4.5%). 한국어 키리누키 측정값의 중앙값([한국 키리누키 자막 크기](reports/한국%20키리누키%20자막%20크기.md)). 외곽선은 글자 높이의 약 8분의 1과 옅은 그림자 |
 | 폰트 | 자막의 언어에 맞는 설치된 폰트를 자동 선택. 일본어는 Noto Sans JP, Yu Gothic, Meiryo 순, 한국어는 Noto Sans KR, Malgun Gothic 순. `--font FAMILY`로 직접 지정 |
 | 원문 병기 | 원문 줄과 번역 줄에 각 언어의 폰트 적용. 일본어 한자가 한국어 자형으로 표시되지 않음 |
-| 줄바꿈 | 전각 18자 기준으로 최대 3줄. 일본어는 문절 경계(조사 뒤, 문장 부호 뒤)에서, 한국어와 영어는 띄어쓰기에서 나눔. 영문자는 전각의 약 절반 폭으로 계산 |
+| 줄바꿈 | 가로 클립은 전각 22자, Shorts는 12자 기준으로 최대 3줄. 일본어는 문절 경계(조사 뒤, 문장 부호 뒤)에서, 한국어와 영어는 띄어쓰기에서 나눔. 영문자는 전각의 약 절반 폭으로 계산 |
 | 긴 자막 | 3줄로도 화면 폭을 넘는 경우 해당 자막만 축소 표시(최소 55%) |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 값 | 동작 |
@@ -351,16 +355,26 @@ stream2clip clips vod/video.mp4 --highlights highlights.json --layout pip --avat
 | | `box` | 반투명 어두운 상자 위에 표시. 복잡한 게임 화면용 |
 | | `pink` | 강조 색을 라이브 핑크로 변경 |
 | | `small` | 작은 크기, 얇은 외곽선, 보통 굵기 |
-| `--subtitle-position` | `bottom`, `middle`, `top` | 자막 위치. 기본값 `bottom`. 게임 자체의 대사 창이 아래에 있는 경우 `top` 사용 |
-| `--font-size` | 픽셀 | 폭 1080px 화면 기준 글자 크기. 기본값 64 |
+| | 한국어 글꼴 모양 | `dohyeon`(도현체), `black-han`(검은고딕), `gothic-black`(고딕 A1 블랙), `yellow`(노란 채움), `pink-pop`(주아체 분홍 채움, 흰 테두리), `plate`(프리텐다드 상자), `cute`(동글, 분홍 테두리), `handwriting`(나눔펜), `game`(구기체), `sunflower`(해바라기체), `pretendard`(프리텐다드 블랙), `nanum`(나눔고딕 엑스트라볼드), `brush`(연성체), `doodle`(싱글데이 분홍) |
+| | 일본어 글꼴 모양 | `telop`(M PLUS Rounded 1c Black), `telop-yellow`(Dela Gothic One 노랑), `zen-maru`(Zen Maru Gothic, 분홍 테두리), `rocknroll`(RocknRoll One), `reggae`(Reggae One 노랑) |
+| | 영어 글꼴 모양 | `impact`(Anton), `comic`(Bangers 노랑), `heavy`(Archivo Black), `poster`(Bebas Neue) |
+| `--subtitle-position` | `bottom` | 기본값. Shorts 버튼 위 |
+| | `low` | 아래 가장자리 가까이(가로 클립은 높이의 3%). 한국어 가로 키리누키의 위치 |
+| | `middle`, `top` | 가운데, 위쪽. 게임 자체의 대사 창이 아래에 있는 경우 `top` |
+| | `under-video`, `over-video`, `above-video` | Shorts의 가운데 방송 화면 바로 아래, 화면 아래쪽에 겹쳐, 화면 바로 위(blur, fit 레이아웃 기준). 가로 클립에서는 아래쪽 또는 위쪽 |
+| `--font-size` | 픽셀 | 짧은 변 1080px 화면 기준 글자 크기. 지정하면 가로, 세로 모두 같은 크기(한 줄 글자 수는 크기에 맞춰 조정). 기본값은 가로 80, 세로 112 |
 
 ```bash
 stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --subtitle-style box --subtitle-position top -o clips
 ```
 
-- 앱: 하이라이트 창의 **스타일** 줄에서 모양과 위치 선택
 - 자막 확인: 클립마다 읽기에 빠른 줄(초당 글자 수. 일본어, 중국어 8자, 한국어 15자, 그 외 25자의 경험값), 가장 작게 줄여도 화면 폭을 넘는 줄, 0.3초 미만 표시, 같은 자막 3회 이상 연속, 한 줄 안의 같은 말 되풀이, 받아쓰기가 무음에서 지어내기 쉬운 문구를 `clips.json`의 `captions`에 기록. 명령줄은 클립별로 출력, 앱은 내보낸 후 개수 표시. 가이드라인 점검과 별도
-- 라이브러리: `subtitle_style("box", position="top")` 또는 `SubtitleStyle(...)`을 `make_clips(subtitle_style=...)`에 전달
+- 글꼴 모양은 무료 글꼴(SIL Open Font License) 목록의 글꼴을 처음 쓸 때 내려받음. 고정한 출처(Google Fonts 저장소의 한 커밋, Pretendard 릴리스 태그)에서 받고 SHA-256이 맞을 때만 저장. 시스템에 설치하지 않고 ffmpeg에 글꼴 폴더(`fontsdir`)로 전달. 같은 이름의 글꼴이 시스템에 있으면 그 글꼴 사용
+- 자막 언어를 그리지 못하는 글꼴(한국어 글꼴에 일본어 자막 등)은 언어에 맞는 설치된 글꼴로 대신 표시. 원래 굵은 글꼴은 합성 굵기를 더하지 않음
+- 글꼴을 받지 못하면(연결 없음, 확인값 불일치) 클립 제작은 계속 진행. 모양의 색과 위치는 유지하고 글꼴은 자동 선택, 크기와 한 줄 글자 수는 기본 모양 값(글꼴에 맞춘 큰 크기로 화면 밖으로 나가는 것 방지)
+- `stream2clip fonts`: 글꼴 24종 목록(키, 이름, 크기, 문자, 용도, 쓰는 모양, 받은 것 표시). `stream2clip fonts do-hyeon gugi` 또는 `all`로 미리 받기. `--script ko`로 한국어 글꼴만. `--font 이름`에도 목록의 글꼴 사용 가능
+- 앱: 하이라이트 창의 **스타일** 줄에서 모양 27종과 위치 7종 선택. 받지 않은 글꼴이 필요한 모양은 내보내기 전에 내려받을지 확인
+- 라이브러리: `subtitle_style("box", position="top")` 또는 `SubtitleStyle(...)`을 `make_clips(subtitle_style=...)`에 전달. 글꼴 목록과 받기는 `stream2clip.fonts`(`CAPTION_FONTS`, `install`)
 
 ### 자막 번역
 
@@ -786,6 +800,27 @@ stream2clip auto vod/video.mp4 --chat vod/chzzk_VIDEO_NO.chat.jsonl --info vod/i
 - 오래된 CHZZK 다시보기는 채팅이 남아 있지 않을 수 있음
 - SOOP는 2026-06-01부터 일반 스트리머의 다시보기를 올라온 지 90일 후 삭제(고유 조회 50회 이상이면 1년). `fetch`, `auto`, 앱의 주소로 시작하기에서 안내하며 방송 정보의 날짜로 경과 일수 표시
 
+### 안드로이드 앱(베타)
+
+휴대폰에서 다시보기 주소로 하이라이트를 찾고 Shorts를 만드는 앱(`android/`). 검출, 제목, 설명란은 이 저장소의 `stream2clip` 파이썬 패키지를 Chaquopy로 앱 안에서 그대로 실행하고, 클립은 Media3와 휴대폰 인코더로 하이라이트 구간만 읽어 제작
+
+| &numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 입력 | 치지직, SOOP, YouTube 다시보기 주소. 각 앱의 공유 메뉴로도 전달 |
+| 결과 | 하이라이트 목록(시각, 점수 막대, 근거), 데스크톱과 같은 제목, 해시태그, 설명란 복사, 원본 위치 열기. 제목과 영상 문구 직접 수정 |
+| Shorts | 1080x1920 흐린 배경 레이아웃(GPU 셰이더), 제목과 `원본: 채널` 표기. `Movies/stream2clip`에 저장 후 열기, 공유 |
+| 영상 문구 | 글꼴(앱에 넣은 한국어 5종: Black Han Sans, Do Hyeon, Jua, Gothic A1 Black, Pretendard Black, 그리고 시스템 글꼴), 색(흰색, 노랑, 분홍 채움), 위치(위, 가운데, 아래). 고른 모양은 다음 클립에도 적용 |
+| 화면 | 브랜드 로고와 어두운 테마, 마스코트 키리, 키리 얼굴 실행 아이콘. 한국어, 일본어, 영어 |
+| 받기 | [앱 소개 페이지](https://budongjw.github.io/stream2clip/app.html) 또는 릴리즈의 `stream2clip-<버전>-android.apk`(릴리즈마다 같은 키로 서명, 기존 앱 위에 설치). 개발 빌드는 [Android 작업](https://github.com/BudongJW/stream2clip/actions/workflows/android.yml)의 디버그 APK(`stream2clip-android-debug`, 2주 보관). 서명 키 등록은 [docs/ANDROID.md](docs/ANDROID.md#릴리즈-서명) |
+| 제외 | 자막(받아쓰기), 음량, 웃음소리 검출, 앱 안의 YouTube 업로드, 효과, 배경 음악 |
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+```
+
+- 빌드 준비(JDK 17, Android SDK, 빌드용 Python 3.13), 에뮬레이터 사용법, 데스크톱과의 차이: [docs/ANDROID.md](docs/ANDROID.md)
+
 ### 입출력 형식
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;입&NoBreak;력&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 형식 |
@@ -903,7 +938,7 @@ Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방�
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 684개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 713개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -1518,6 +1553,7 @@ python packaging/build_brand.py
 | 특수효과 | 흔들림, 흰 플래시와 깜박임 검사, 컬러 이모지, 集中線, 삐 처리, 모음 영상 전환, 리플레이와 슬로 모션(보고서 7.1절 2, 3단계), 실제 클립으로 배율과 길이 조정 |
 | 검출 조정 | 같은 채널의 여러 방송으로 프로필 효과 확인, 후보 검토 HTML 보고서, 학습형 웃음 신호(AudioSet 태거) |
 | 클립 채널 형식 | 실제 업로드 후 제목, 썸네일 형식의 효과와 재사용 콘텐츠 판정 확인, 실제 콜라보 녹화로 화자 판정 검증, 화자 분리 기능 내장(현재는 RTTM, whisperX 결과, 마이크별 트랙 사용) |
+| 안드로이드 앱 | 실기기 검증, 자막(whisper.cpp 검토), 클립 미리 보기, 앱 안의 YouTube 업로드, 용량 줄이기, Google Play 등록 |
 
 ### 완료
 

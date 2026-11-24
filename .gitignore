@@ -8,3 +8,7 @@ dist/
 *.mkv.part
 vod/
 clips/
+
+# Android release signing keys: never in the repository
+*.keystore
+*.jks

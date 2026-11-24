@@ -472,6 +472,15 @@ def make_clips(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     options = resolve_encoder(options or default_clip_options())  # "auto": find the GPU encoder once for every clip
+    if options.fonts_dir is None:
+        from .fonts import fonts_dir
+
+        if fonts_dir().is_dir():  # caption fonts fetched from the catalog: the captions may name them
+            options = replace(options, fonts_dir=fonts_dir())
+    if subtitle_style is not None:
+        from .subtitles import with_available_font
+
+        subtitle_style = with_available_font(subtitle_style, options.fonts_dir)  # a font not fetched: the automatic one, at plain sizes
     if loudness is not None:
         from .ffmpeg import Loudness
 
@@ -609,7 +618,8 @@ def make_clips(
                                      teaser=opened > 0, profile=profile)
             from .subtitles import caption_issues
 
-            result.captions = caption_issues(clip_cues or [], subtitle_style)  # per clip, apart from the guideline check
+            # per clip, apart from the guideline check; lines as long as this frame's captions hold (shorter on a Short)
+            result.captions = caption_issues(clip_cues or [], (subtitle_style or SubtitleStyle()).for_frame(*play_res))
             result.effects = fx_plan.to_dict() if fx_plan is not None else None  # (plan is the soundtrack's, above)
             result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)

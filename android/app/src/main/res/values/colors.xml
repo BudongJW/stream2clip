@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- stream2clip brand colors (assets/brand/README.txt, src/stream2clip/brand.py) -->
+    <color name="ink">#FF15131F</color>
+    <color name="live_pink">#FFFF4F8B</color>
+    <!-- The lavender of the character icon (stream2clip_kiri) -->
+    <color name="ic_launcher_background">#FFDBC9FD</color>
+</resources>
