@@ -5,6 +5,7 @@
 ### 마스코트 디자인 레퍼런스
 - `packaging/mascot_lab.py`: 마스코트 키리의 2D, 3D 레퍼런스를 만드는 작업 환경. 로컬 모델(LCM Dreamshaper v7 OpenVINO, TripoSR, rembg `isnet-anime`)은 저장소 밖의 별도 Python 3.13 가상환경에 리비전 고정으로 설치(`setup`), 외부 모델은 Hugging Face Space의 Qwen-Image-Edit-2511(Multiple-Angles, Anime LoRA)과 TRELLIS를 이 PC의 Hugging Face 로그인으로 사용
 - 명령: 다른 각도(`angle`), 표정과 의상 편집(`edit`), 3D 모델(`trellis`, `mesh`), 로컬 변형 시안(`sketch`), 3D 모델을 다섯 방향에서 본 그림(`views`, 헤드리스 브라우저의 three.js), 시트(`sheets`). 파일마다 도구, 모델, 라이선스, 입력, 프롬프트, 시드를 `assets/brand/mascot/design/manifest.json`에 기록
+- 모습과 일상(`scenes`): 기본 전신, 잠옷, 겨울, 여름, 외출 모습과 클립 편집, 방송 중, 라면, 잠, 게임, 비 오는 날의 일상, 남은 표정 2종, 피규어 렌더의 TRELLIS 모델을 아직 없는 것부터 차례로 제작. 하루 GPU 사용량을 다 쓰면 남은 목록을 알리고 멈춘 뒤 다음 날 이어서. 모습, 일상 시트(일상은 배경 그대로)
 - 레퍼런스(`assets/brand/mascot/design`): 턴어라운드(옆, 3/4 뒤, 뒷모습 추가)와 색상표, 표정 시트(기존 5종과 슬픔, 화남), 3D 피규어 렌더, 피규어 렌더에서 만든 3D 메시와 다섯 방향 그림, 로컬 의상 시안
 - 제외한 모델: Hunyuan3D-2(라이선스가 한국 제외), rembg 기본 모델 BRIA RMBG 2.0(비상업)
 - 문서 `docs/MASCOT.md`: 캐릭터 기준과 색, 레퍼런스, 모델 구성, 사용법, 확인 내용(평면 그림은 3D 모델이 판 모양이 되어 피규어 렌더를 거침, 로컬 2D 시안은 캐릭터 일치도 낮음, 무료 계정의 하루 GPU 사용량)

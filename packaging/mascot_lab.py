@@ -7,6 +7,8 @@
     python packaging/mascot_lab.py sketch "PROMPT" -o x.png # local: loose variations on the Intel GPU (LCM Dreamshaper v7, OpenVINO)
     python packaging/mascot_lab.py mesh -o kiri_local.glb   # local: a rough 3D shape on the CPU (TripoSR)
     python packaging/mascot_lab.py views kiri.glb           # pictures of a 3D model from the front, side, back and above
+    python packaging/mascot_lab.py scenes                   # hosted: Kiri's looks and daily life, going on from the first one missing
+    python packaging/mascot_lab.py sheets                   # the reference sheets (turnaround, expressions, looks, daily life)
 
 The lab lives in ``~/.cache/stream2clip/mascot`` (``STREAM2CLIP_MASCOT_LAB`` names another folder): a Python 3.13
 virtual environment, the Hugging Face cache with the two local models, and TripoSR's code. Commands other than
@@ -457,7 +459,8 @@ PALETTE = [
     ("머리", "#FC70B7"), ("귀 안쪽, 머리핀, 끈 끝", "#FFE101"), ("헤드폰", "#0A0A0F"), ("헤드폰 회색", "#636382"),
     ("이어컵, 눈", "#FE01CC"), ("피부", "#FDDDD9"), ("볼", "#FBC2C5"), ("후드", "#FCF6ED"), ("후드 끈", "#362D49"),
 ]
-#: Each sheet: a title, the columns, and the pictures (label, file relative to the mascot folder).
+#: Each sheet: a title, the columns, and the pictures (label, file relative to the mascot folder). Scenes made
+#: with ``scenes`` join the sheet of their group (``sheet_specs``); ``backgrounds`` keeps a scene's own background.
 SHEETS: dict[str, dict] = {
     "turnaround": {
         "title": "키리 턴어라운드", "columns": 5, "palette": True,
@@ -469,7 +472,88 @@ SHEETS: dict[str, dict] = {
         "items": [("윙크", "kiri_wink_512.png"), ("빵 터짐", "kiri_laugh_512.png"), ("깜짝", "kiri_surprised_512.png"), ("컷", "kiri_cut_512.png"),
                   ("집중", "kiri_focus_512.png"), ("슬픔", "design/expressions/raw_sad.png"), ("화남", "design/expressions/raw_angry.png")],
     },
+    "looks": {"title": "키리 모습", "columns": 5, "items": []},
+    "daily": {"title": "키리 일상", "columns": 3, "items": [], "backgrounds": True},
 }
+
+#: How Kiri looks and lives, made on the hosted edit model from the front reference in this order: a free
+#: account's daily GPU allowance makes about eight, and ``scenes`` goes on from the first one missing.
+_KEEP_ALL = ("Keep her design exactly: pink bob hair with bangs, a yellow diamond hair clip, black cat-ear headphones with yellow inner ears "
+             "and magenta ear cups, a cream hoodie with yellow-tipped navy drawstrings and a pink scissors mark on her left sleeve. ")
+_KEEP_HEAD = ("Keep her face, pink bob hair with bangs, the yellow diamond hair clip and the black cat-ear headphones with yellow inner ears "
+              "and magenta ear cups exactly. ")
+_STYLE = "Same art style: thick black outlines, flat cel colors, cute chibi proportions."
+_STANDING = " Full-body, standing, front view, plain pure green background."
+_SCENE = "Show this same character small and full-body in a scene: "
+_FACE = ("Keep everything else exactly the same: hair, cat-ear headphones, hair clip, hoodie, pose, framing, thick outlines, flat colors, "
+         "plain green background.")
+#: (group, name, label, prompt, LoRA): the angles LoRA leaves the drawing as it is without its <sks> words; the anime one
+#: draws more detailed eyes and is kept for the faces, as the first two were made.
+SCENES: list[tuple[str, str, str, str, str]] = [
+    ("looks", "fullbody", "기본 전신", "Show this same character full-body: the long cream hoodie down to mid-thigh, black shorts, white knee socks "
+     "and pink-and-white sneakers, standing with a small wave. " + _KEEP_ALL + _STYLE + _STANDING, "angles"),
+    ("daily", "editing", "클립 편집", _SCENE + "sitting at a desk, editing stream clips on a laptop with a video timeline and pink highlight marks "
+     "on the screen, a focused smile, a cozy room with a desk lamp. " + _KEEP_ALL + _STYLE, "angles"),
+    ("daily", "streaming", "방송 중", _SCENE + "streaming live, talking into a desk microphone in front of a monitor with a scrolling chat, waving "
+     "at the camera, soft pink and purple lights in the room. " + _KEEP_ALL + _STYLE, "angles"),
+    ("daily", "ramen", "라면", _SCENE + "eating a bowl of ramen with chopsticks at a low table, cheeks full and happy, steam rising, a glass of "
+     "juice beside the bowl. " + _KEEP_ALL + _STYLE, "angles"),
+    ("daily", "sleeping", "잠", _SCENE + "fast asleep curled up in bed hugging a pillow, the headphones slightly askew, a small zzz above her "
+     "head, a dark room lit by a night light. " + _KEEP_ALL + _STYLE, "angles"),
+    ("daily", "gaming", "게임", _SCENE + "playing a video game with a controller on a beanbag chair, leaning forward excited, the screen glow on "
+     "her face. " + _KEEP_ALL + _STYLE, "angles"),
+    ("daily", "rain", "비 오는 날", _SCENE + "walking on a city sidewalk on a rainy day under a clear umbrella, stepping over a puddle. "
+     + _KEEP_ALL + _STYLE, "angles"),
+    ("looks", "pajamas", "잠옷", "Change her outfit to pastel pink pajamas with a small cat pattern and fluffy slippers, holding a mug, a sleepy "
+     "smile. " + _KEEP_HEAD + _STYLE + _STANDING, "angles"),
+    ("looks", "winter", "겨울", "Change her outfit to a winter look: a navy padded coat over the cream hoodie, a red knitted scarf, mittens and "
+     "boots. " + _KEEP_HEAD + _STYLE + _STANDING, "angles"),
+    ("looks", "summer", "여름", "Change her outfit to summer clothes: a white t-shirt with a small pink scissors print, denim shorts and "
+     "sneakers, holding a yellow ice pop. " + _KEEP_HEAD + _STYLE + _STANDING, "angles"),
+    ("looks", "outing", "외출", "Change her outfit to a going-out look: a short pink jacket over a black top, a pleated grey skirt and a small "
+     "yellow crossbody bag. " + _KEEP_HEAD + _STYLE + _STANDING, "angles"),
+    ("expressions", "flustered", "당황", "Change only her facial expression to flustered: wide eyes, deep blush, a nervous wavy smile and a "
+     "sweat drop. " + _FACE, "anime"),
+    ("expressions", "love", "감동", "Change only her facial expression to moved and touched: sparkling heart-shaped eyes and a happy open "
+     "smile. " + _FACE, "anime"),
+]
+
+
+def scene_file(group: str, name: str) -> Path:
+    return DESIGN / group / f"raw_{name}.png"
+
+
+def sheet_specs() -> dict[str, dict]:
+    """The sheets with their pictures: the fixed ones and every scene made so far, in the order of ``SCENES``."""
+    specs = {name: {**spec, "items": list(spec["items"])} for name, spec in SHEETS.items()}
+    for group, name, label, _prompt, _lora in SCENES:
+        path = scene_file(group, name)
+        if path.exists():
+            shown = path.relative_to(MASCOT).as_posix() if path.is_relative_to(MASCOT) else str(path)  # MASCOT / an absolute path is that path
+            specs[group]["items"].append((label, shown))
+    return {name: spec for name, spec in specs.items() if spec["items"]}
+
+
+def make_scenes(names: list[str] | None = None, *, seed: int = 7) -> int:
+    """Make the scenes not made yet, then the TRELLIS model of the figure render; stop when the GPU allowance is spent."""
+    todo = [s for s in SCENES if (not names or s[1] in names) and not scene_file(s[0], s[1]).exists()]
+    trellis = DESIGN / "3d" / "kiri_trellis.glb"
+    figure = DESIGN / "3d" / "kiri_figure.png"
+    steps = [(f"{group}/{name}", lambda g=group, n=name, p=prompt, lo=lora: hosted_edit(
+        [REFERENCE], p, scene_file(g, n), lora=EDIT_LORA if lo == "anime" else ANGLE_LORA, seed=seed)) for group, name, _l, prompt, lora in todo]
+    if not names and figure.exists() and not trellis.exists():
+        steps.append(("3d/kiri_trellis", lambda: (hosted_3d([figure], trellis, seed=seed), views(trellis, trellis.with_name("kiri_trellis_views.png")))))
+    for i, (_name, step) in enumerate(steps):
+        try:
+            step()
+        except Exception as error:  # noqa: BLE001 - only the spent allowance is expected; anything else is raised again
+            if not any(word in str(error).lower() for word in ("quota", "runs limit")):
+                raise
+            left = [n for n, _step in steps[i:]]
+            print(f"GPU allowance spent; {len(left)} left ({', '.join(left)}). Run the same command again tomorrow.", file=sys.stderr)
+            return 3
+    print(f"scenes: all {len(SCENES)} made" if not names else "scenes: done")
+    return 0
 
 
 def _font(size: int):
@@ -511,9 +595,11 @@ def sheet(name: str) -> Path:
     """One reference sheet (``SHEETS``) on the brand's paper colour, with the palette when the sheet asks for it."""
     from PIL import Image, ImageDraw
 
-    spec = SHEETS[name]
+    spec = sheet_specs()[name]
     items = [(label, MASCOT / file) for label, file in spec["items"] if (MASCOT / file).exists()]
     cell, pad, columns = 420, 36, spec["columns"]
+    if spec.get("backgrounds"):
+        cell = 560  # scenes are read for what happens in them: bigger cells
     rows = (len(items) + columns - 1) // columns
     palette_height = 150 if spec.get("palette") else 0
     width, height = pad * 2 + columns * cell, 110 + rows * (cell + 56) + palette_height + pad
@@ -522,9 +608,16 @@ def sheet(name: str) -> Path:
     draw.text((pad, 34), spec["title"], fill="#15131F", font=_font(44))
     for i, (label, path) in enumerate(items):
         x, y = pad + (i % columns) * cell, 110 + (i // columns) * (cell + 56)
-        picture = cutout(path)
-        picture.thumbnail((cell - 40, cell - 40), Image.LANCZOS)
-        page.paste(picture, (x + (cell - picture.width) // 2, y + cell - 20 - picture.height), picture)
+        if spec.get("backgrounds"):  # a scene as it was drawn, framed
+            picture = Image.open(path).convert("RGB")
+            picture.thumbnail((cell - 24, cell - 24), Image.LANCZOS)
+            left, top = x + (cell - picture.width) // 2, y + cell - 12 - picture.height
+            page.paste(picture, (left, top))
+            draw.rectangle((left - 1, top - 1, left + picture.width, top + picture.height), outline="#15131F", width=2)
+        else:
+            picture = cutout(path)
+            picture.thumbnail((cell - 40, cell - 40), Image.LANCZOS)
+            page.paste(picture, (x + (cell - picture.width) // 2, y + cell - 20 - picture.height), picture)
         box = draw.textbbox((0, 0), label, font=_font(26))
         draw.text((x + (cell - box[2]) // 2, y + cell + 6), label, fill="#15131F", font=_font(26))
     if palette_height:
@@ -583,7 +676,10 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--yaw", type=float, default=0.0, help="turn the model first (degrees) when it does not face the front")
     v.add_argument("-o", "--output", type=Path)
     h = sub.add_parser("sheets", help="the reference sheets in assets/brand/mascot/design")
-    h.add_argument("names", nargs="*", help=f"only these sheets ({', '.join(SHEETS)}; default: all)")
+    h.add_argument("names", nargs="*", help=f"only these sheets ({', '.join(SHEETS)}; default: all that have pictures)")
+    c = sub.add_parser("scenes", help="hosted: Kiri's looks and daily life (and the TRELLIS model), going on from the first one missing")
+    c.add_argument("names", nargs="*", help=f"only these ({', '.join(s[1] for s in SCENES)}; default: all missing)")
+    c.add_argument("--seed", type=int, default=7)
     args = parser.parse_args(argv)
 
     if args.command == "setup":
@@ -612,12 +708,22 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "views":
         views(args.model, args.output or args.model.with_suffix(".png"), yaw=args.yaw)
     elif args.command == "sheets":
-        unknown = [name for name in args.names if name not in SHEETS]
+        specs = sheet_specs()
+        unknown = [name for name in args.names if name not in specs]
         if unknown:
-            print(f"No such sheet: {', '.join(unknown)} (sheets: {', '.join(SHEETS)})", file=sys.stderr)
+            print(f"No such sheet, or no pictures for it yet: {', '.join(unknown)} (sheets: {', '.join(specs)})", file=sys.stderr)
             return 2
-        for name in args.names or SHEETS:
+        for name in args.names or specs:
             sheet(name)
+    elif args.command == "scenes":
+        unknown = [name for name in args.names if name not in {s[1] for s in SCENES}]
+        if unknown:
+            print(f"No such scene: {', '.join(unknown)}", file=sys.stderr)
+            return 2
+        code = make_scenes(args.names, seed=args.seed)
+        for name in sheet_specs():
+            sheet(name)
+        return code
     return 0
 
 

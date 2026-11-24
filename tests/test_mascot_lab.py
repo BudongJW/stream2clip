@@ -22,7 +22,9 @@ def lab():
 
 
 def test_sheets_and_design_files_are_recorded(lab):
-    for name, sheet in lab.SHEETS.items():
+    specs = lab.sheet_specs()
+    assert {"turnaround", "expressions"} <= set(specs)
+    for name, sheet in specs.items():
         assert sheet["items"] and all((lab.MASCOT / file).is_file() for _label, file in sheet["items"]), name
         assert (lab.DESIGN / f"sheet_{name}.png").is_file(), name  # built and kept with the pictures it shows
     manifest = json.loads(lab.MANIFEST.read_text(encoding="utf-8"))["files"]
@@ -60,6 +62,39 @@ def test_a_triposr_mesh_is_turned_for_gltf(lab):
     assert up.tolist() == [0, 1, 0] and front.tolist() == [0, 0, 1]  # TripoSR's z up, facing +x -> glTF's y up, facing +z
     assert np.linalg.det(mesh.matrix[:3, :3]) == pytest.approx(1.0)  # a turn, not a mirror
     assert mesh.visual.vertex_colors.tolist() == [[255, 56, 0, 255]]  # sRGB to linear, alpha kept
+
+
+def test_scenes_keep_the_character_and_go_on_the_next_day(lab, monkeypatch, tmp_path, capsys):
+    names = [s[1] for s in lab.SCENES]
+    assert len(names) == len(set(names)) >= 12 and names[0] == "fullbody"  # the whole figure first: the outfits stand on it
+    for group, name, label, prompt, lora in lab.SCENES:
+        assert group in lab.SHEETS and label and lora in ("angles", "anime"), name
+        assert "cat-ear headphones" in prompt and "hair clip" in prompt, name  # every picture keeps what makes her Kiri
+        assert ("green background" in prompt) != (group == "daily"), name  # scenes have their place; the rest can be cut out
+    monkeypatch.setattr(lab, "DESIGN", tmp_path)
+    made = []
+
+    def edit(inputs, prompt, output, *, lora, seed):
+        if len(made) == 3:
+            raise RuntimeError("You have exceeded your ZeroGPU runs limit.")
+        made.append(output.stem)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(b"png")
+
+    monkeypatch.setattr(lab, "hosted_edit", edit)
+    assert lab.make_scenes() == 3 and made == ["raw_fullbody", "raw_editing", "raw_streaming"]
+    assert "10 left" in capsys.readouterr().err  # the spent allowance stops the run, it does not fail it
+    made.clear()
+    made.append("next day")
+    assert lab.make_scenes(["ramen"]) == 0 and made == ["next day", "raw_ramen"]  # already made: not asked for again
+    assert [label for label, _file in lab.sheet_specs()["daily"]["items"]] == ["클립 편집", "방송 중", "라면"]
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("The model failed")
+
+    monkeypatch.setattr(lab, "hosted_edit", broken)
+    with pytest.raises(RuntimeError, match="model failed"):  # any other failure is not taken for the allowance
+        lab.make_scenes(["gaming"])
 
 
 def test_commands_need_the_lab(lab, monkeypatch, tmp_path, capsys):
