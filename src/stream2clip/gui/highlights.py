@@ -500,6 +500,10 @@ class HighlightsWindow(QMainWindow):
         grid.addWidget(browse, row, column + 2)
         return edit
 
+    def _on_thumbnail_toggled(self, on: bool) -> None:
+        self.thumbnail_style_combo.setEnabled(on)
+        self.thumbnail_art_edit.setEnabled(on)
+
     def _browse(self, edit: QLineEdit, filters: str) -> None:
         start = str(Path(edit.text()).parent) if edit.text() else (self.last_dir or str(Path.home()))
         path, _ = QFileDialog.getOpenFileName(self, tr("파일 고르기"), start, filters)
@@ -834,7 +838,21 @@ class HighlightsWindow(QMainWindow):
         self.thumbnail_check.setToolTip(tr("최고 순간 근처의 가장 선명한 장면에 제목 앞부분을 크게 넣은 1280x720 썸네일(clip_01.jpg)"))
         for check in (self.context_check, self.teaser_check, self.thumbnail_check):
             opening.addWidget(check)
-        opening.addStretch(1)
+        self.thumbnail_style_combo = QComboBox()
+        for label, key in ((tr("장면"), "frame"), (tr("스티커"), "sticker")):
+            self.thumbnail_style_combo.addItem(label, key)
+        self.thumbnail_style_combo.setToolTip(tr("썸네일 모양. 장면: 선명한 장면에 제목 앞부분. 스티커: 한국 키리누키 채널처럼 일러스트를 흰 테두리 스티커로, "
+                                                 "두 줄 제목의 핵심 단어는 노랑, 최고 순간에 가장 많이 친 채팅을 말풍선으로"))
+        self.thumbnail_art_edit = QLineEdit()
+        self.thumbnail_art_edit.setPlaceholderText(tr("(선택) 스티커 일러스트: 투명 PNG 또는 표정 폴더"))
+        self.thumbnail_art_edit.setToolTip(tr("표정 폴더는 파일 이름(laugh, surprised, wink, sad 등)으로 채팅 반응에 맞는 그림을 고름. 비우면 아바타 영역을 사용"))
+        pick_art = QPushButton(tr("찾기"))
+        pick_art.clicked.connect(lambda: self._browse(self.thumbnail_art_edit, "Images (*.png *.webp);;All files (*)"))
+        opening.addWidget(self.thumbnail_style_combo)
+        opening.addWidget(self.thumbnail_art_edit, 1)
+        opening.addWidget(pick_art)
+        self.thumbnail_check.toggled.connect(self._on_thumbnail_toggled)
+        self._on_thumbnail_toggled(self.thumbnail_check.isChecked())
         grid.addLayout(opening, 15, 1, 1, 2)
 
         grid.addWidget(QLabel(tr("효과")), 16, 0)
@@ -921,12 +939,12 @@ class HighlightsWindow(QMainWindow):
                            (self.reduced_motion_check, "reduced_motion"), (self.contact_check, "contact_note")):
             if isinstance(saved.get(key), bool):
                 check.setChecked(saved[key])
-        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset"), (self.fx_combo, "effects")):
+        for combo, key in ((self.singing_combo, "singing"), (self.layout_combo, "layout"), (self.subs_combo, "subtitles"), (self.style_combo, "subtitle_style"), (self.position_combo, "subtitle_position"), (self.format_combo, "format"), (self.agency_combo, "agency"), (self.origin_combo, "session_origin"), (self.sfx_combo, "sfx"), (self.sfx_time_combo, "sfx_when"), (self.preset_combo, "preset"), (self.fx_combo, "effects"), (self.thumbnail_style_combo, "thumbnail_style")):
             index = combo.findData(saved.get(key)) if isinstance(saved.get(key), str) else -1
             if index >= 0:
                 combo.setCurrentIndex(index)
         for edit, key in ((self.language_edit, "language"), (self.target_edit, "target"), (self.glossary_edit, "glossary"), (self.avatar_video_edit, "avatar_video"), (self.credit_edit, "credit"), (self.skip_scene_edit, "skip_scenes"), (self.bgm_edit, "bgm"), (self.output_edit, "output"),
-                          (self.links_edit, "streamer_links")):
+                          (self.links_edit, "streamer_links"), (self.thumbnail_art_edit, "thumbnail_art")):
             if isinstance(saved.get(key), str) and saved[key]:
                 edit.setText(saved[key])
         if isinstance(saved.get("top"), int):
@@ -958,6 +976,7 @@ class HighlightsWindow(QMainWindow):
             "loudness": self.loudness_check.isChecked(), "preset": self.preset_combo.currentData(), "context": self.context_check.isChecked(),
             "teaser": self.teaser_check.isChecked(), "thumbnail": self.thumbnail_check.isChecked(), "feedback": self.feedback_check.isChecked(), "effects": self.fx_combo.currentData(), "reduced_motion": self.reduced_motion_check.isChecked(),
             "contact_note": self.contact_check.isChecked(), "streamer_links": self.links_edit.text().strip(),  # the guests change with each stream: not kept
+            "thumbnail_style": self.thumbnail_style_combo.currentData(), "thumbnail_art": self.thumbnail_art_edit.text().strip(),
             "last_dir": self.last_dir,
         })
 
@@ -1463,6 +1482,11 @@ class HighlightsWindow(QMainWindow):
         context = "auto" if self.context_check.isChecked() else None
         teaser = 2.0 if self.teaser_check.isChecked() and self.format_combo.currentData() in ("mp4", "webm") else 0.0
         thumbnails = self.thumbnail_check.isChecked()
+        thumbnail_style = self.thumbnail_style_combo.currentData() or "frame"
+        thumbnail_art = self.thumbnail_art_edit.text().strip() or None
+        if thumbnails and thumbnail_art and not Path(thumbnail_art).exists():
+            self._on_failed(tr("썸네일 일러스트를 찾을 수 없음: {0}").format(thumbnail_art))
+            return
         fx_preset = self.fx_combo.currentData()
         reduced_motion = self.reduced_motion_check.isChecked()
         guests = tuple(part.strip() for part in self.guests_edit.text().split(",") if part.strip())
@@ -1534,7 +1558,8 @@ class HighlightsWindow(QMainWindow):
                 None if url else video, chosen, out_dir, options=options, cues=cues, transcriber=transcriber, language=language, karaoke=karaoke,
                 subtitle_translator=subtitle_translator, translate_to=target, glossary=glossary, bilingual=bilingual,
                 subtitle_style=subtitle_style(look, position=place), credit=credit, trim_silence=trim, audio_track=track, soundtrack=soundtrack, loudness=loudness,
-                context=context, teaser=teaser, thumbnails=thumbnails, guests=guests, links=links, contact_note=contact_note,
+                context=context, teaser=teaser, thumbnails=thumbnails, thumbnail_style=thumbnail_style, thumbnail_art=thumbnail_art,
+                guests=guests, links=links, contact_note=contact_note,
                 effects=None if fx_preset == "off" else fx_preset, reduced_motion=reduced_motion, hotkeys=hotkeys,
                 source=source, profile=profile, section=(lambda h: sections[h.rank]) if sections is not None else None,
                 on_progress=lambda i, n, h: self._progress.emit(done + i - 1, steps, tr("[{0}/{1}] #{2:02d} {3} - {4} 인코딩 중").format(i, n, h.rank, _clock(h.start), _clock(h.end))),

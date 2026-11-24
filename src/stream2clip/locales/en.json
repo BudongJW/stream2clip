@@ -673,5 +673,11 @@
  "방송 화면 바로 위 (Shorts)": "Just over the stream picture (Shorts)",
  "이 자막 모양은 무료 글꼴 {0}을 씁니다. 내려받을까요?\n(SIL Open Font License, 받은 뒤 확인값 검사)": "This caption look uses the free font {0}. Download it?\n(SIL Open Font License, checked against its checksum after the download)",
  "자막 글꼴 {0} 내려받는 중": "Downloading the caption font {0}",
- "자막 글꼴 {0}을 받지 못해 기본 글꼴로 만드는 중": "Could not download the caption font {0}: making the clips in the standard font"
+ "자막 글꼴 {0}을 받지 못해 기본 글꼴로 만드는 중": "Could not download the caption font {0}: making the clips in the standard font",
+ "장면": "Scene",
+ "스티커": "Sticker",
+ "썸네일 모양. 장면: 선명한 장면에 제목 앞부분. 스티커: 한국 키리누키 채널처럼 일러스트를 흰 테두리 스티커로, 두 줄 제목의 핵심 단어는 노랑, 최고 순간에 가장 많이 친 채팅을 말풍선으로": "Thumbnail look. Scene: the sharpest frame with the first words of the title. Sticker: as Korean clip channels make them, the illustration as a sticker with a white outline, two lines of title with the key word in yellow, and the chat line typed most at the peak in a speech bubble",
+ "(선택) 스티커 일러스트: 투명 PNG 또는 표정 폴더": "(optional) Sticker illustration: a transparent PNG or a folder of expressions",
+ "표정 폴더는 파일 이름(laugh, surprised, wink, sad 등)으로 채팅 반응에 맞는 그림을 고름. 비우면 아바타 영역을 사용": "From a folder of expressions the picture is chosen by file name (laugh, surprised, wink, sad ...) to match the chat's reaction. Left empty, the avatar's box is used",
+ "썸네일 일러스트를 찾을 수 없음: {0}": "Thumbnail illustration not found: {0}"
 }

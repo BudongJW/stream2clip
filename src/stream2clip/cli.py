@@ -516,6 +516,11 @@ def _add_clip_args(p: argparse.ArgumentParser) -> None:
     c.add_argument("--fx-reduced-motion", action="store_true", help="--fx without moving the picture: the emphasised word grows more instead of a zoom")
     c.add_argument("--teaser", type=float, nargs="?", const=2.0, metavar="SECONDS", help="open each clip with this many seconds of its peak (default 2), cut from just before the sound rises; MP4, WebM, MOV")
     c.add_argument("--thumbnail", action="store_true", help="also write <clip>.jpg (1280x720): the sharpest frame around the peak, zoomed onto the avatar box when the layout has one, with the first words of the title")
+    c.add_argument("--thumbnail-style", choices=["frame", "sticker"], help="frame (default): the scene with the first words; sticker: as Korean clip channels make them, "
+                   "with the illustration (--thumbnail-art, else the avatar's box) as a sticker, two lines with the key word in yellow, "
+                   "the chat line typed most at the peak in a bubble and !? for a shock. Implies --thumbnail")
+    c.add_argument("--thumbnail-art", metavar="PICTURE_OR_FOLDER", help="the streamer's illustration for sticker thumbnails: a transparent PNG, or a folder "
+                   "of expressions picked by the chat's main reaction (file names with laugh, surprised, wink, sad ...). Implies --thumbnail-style sticker")
     c.add_argument("--no-hashtags", action="store_true", help="leave the suggested hashtags (agency, talent, general; in Korean also the platform and kirinuki) out of the descriptions")
     c.add_argument("--credit-position", default="top-left", choices=["top-left", "top-right", "bottom-left", "bottom-right"], help="corner of the --credit line (default top-left)")
     m = p.add_argument_group("music & sound effects")
@@ -661,6 +666,8 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
     if soundtrack is not None:
         for sound in soundtrack.music:
             print(f"music  {sound.label}" + (f"  ({sound.license})" if sound.license else "  (license not recorded)"))
+    if args.thumbnail_art and not Path(args.thumbnail_art).exists():
+        raise ValueError(f"--thumbnail-art: no such picture or folder: {args.thumbnail_art}")
     look = subtitle_style(args.subtitle_style, position=args.subtitle_position, font=args.font, size=args.font_size)
     if cues is not None or transcriber is not None:
         _fetch_caption_fonts([look.font])
@@ -674,7 +681,9 @@ def _make_clips(args: argparse.Namespace, highlights) -> int:
         audio_track=args.audio_track, on_progress=lambda i, n, h: print(f"[{i}/{n}] #{h.rank:02d} {_clock(h.start)} - {_clock(h.end)}", flush=True),
         soundtrack=soundtrack, loudness=args.loudness, title_template=args.title_template, add_hashtags=not args.no_hashtags,
         guests=tuple(args.guest or ()), links=tuple(args.streamer_link or ()), contact_note=args.contact_note,
-        thumbnails=args.thumbnail, context=args.context, context_seconds=args.context_seconds, teaser=args.teaser or 0.0,
+        thumbnails=args.thumbnail or bool(args.thumbnail_style or args.thumbnail_art),
+        thumbnail_style=args.thumbnail_style or ("sticker" if args.thumbnail_art else "frame"), thumbnail_art=args.thumbnail_art,
+        context=args.context, context_seconds=args.context_seconds, teaser=args.teaser or 0.0,
         speakers=speakers, speaker_tracks=tracks, speaker_names=args.speaker_names,
         effects=None if args.fx == "off" else args.fx, reduced_motion=args.fx_reduced_motion, hotkeys=hotkeys,
     )

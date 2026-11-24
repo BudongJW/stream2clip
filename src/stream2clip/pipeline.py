@@ -416,6 +416,8 @@ def make_clips(
     links: Sequence[str] = (),
     contact_note: bool = False,
     thumbnails: bool = False,
+    thumbnail_style: str = "frame",
+    thumbnail_art: str | os.PathLike[str] | None = None,
     context: str | None = None,
     context_seconds: float = 3.0,
     teaser: float = 0.0,
@@ -446,7 +448,10 @@ def make_clips(
     platform and 키리누키). The description is written in the title's language and opens with the day of
     the stream; ``links`` (the streamer's channels) follow the channel line, ``contact_note`` asks
     viewers to report a problem for a streamer without clip guidelines. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
-    peak, zoomed onto the layout's avatar box when there is one, with the first words of the title.
+    peak, zoomed onto the layout's avatar box when there is one, with the first words of the title. ``thumbnail_style``
+    ``"sticker"`` makes it as Korean clip channels do (:func:`stream2clip.thumbnails.make_sticker_thumbnail`): the
+    illustration ``thumbnail_art`` (a picture, or a folder of expressions picked by the chat's main reaction) as a
+    sticker, two lines with the key word in yellow and the chat line typed most at the peak in a bubble.
 
     ``context`` is a line at the top for the first ``context_seconds`` of each clip (what is going on;
     ``"auto"``: the stream's topic, from its title). ``teaser`` puts that many seconds of the peak
@@ -599,7 +604,7 @@ def make_clips(
                                glossary=glossary if subtitle_translator else None, template=title_template, guests=guests)
             result.title, result.hashtags = named.title, (named.hashtags if add_hashtags else ())
             if thumbnails:
-                result.thumbnail = _thumbnail(clip_video, h, offset, opts, named.hook, out / f"{stem}.jpg")
+                result.thumbnail = _thumbnail(clip_video, h, offset, opts, named.hook, out / f"{stem}.jpg", style=thumbnail_style, art=thumbnail_art)
             if source is not None:
                 used = [p.sound for p in planned]
                 text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used),
@@ -760,10 +765,12 @@ def _open_with_teaser(
     return round(float(facts[0].duration or 0.0), 2)
 
 
-def _thumbnail(video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, hook: str, out: Path) -> Path | None:
-    """The sharpest of seven frames from 1.5 s before to 1.5 s after the peak, with the first words of the hook."""
+def _thumbnail(video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, hook: str, out: Path, *,
+               style: str = "frame", art: str | os.PathLike[str] | None = None) -> Path | None:
+    """The sharpest of seven frames from 1.5 s before to 1.5 s after the peak, with the first words of the hook
+    (``style`` "sticker": with the illustration, the key word and the chat's line, see ``make_sticker_thumbnail``)."""
     from .export import grab_frames
-    from .thumbnails import make_thumbnail, pick_frame, thumbnail_text
+    from .thumbnails import main_reaction, make_sticker_thumbnail, make_thumbnail, pick_art, pick_frame, thumbnail_text
 
     first, last = opts.start or 0.0, (opts.end if opts.end is not None else h.end - offset)
     peak = min(max(h.peak - offset, first), last)
@@ -772,6 +779,10 @@ def _thumbnail(video: str | os.PathLike[str], h: Highlight, offset: float, opts:
     if not frames:
         return None
     face = opts.layout.avatar if opts.layout is not None and getattr(opts.layout, "avatar", None) is not None and not opts.layout.uses_avatar_video else None
+    if style == "sticker":
+        reaction = main_reaction(h.stats)
+        return make_sticker_thumbnail(pick_frame(frames), hook, out, art=pick_art(art, reaction), face=face,
+                                      quote=h.quotes[0] if h.quotes else "", reaction=reaction)
     return make_thumbnail(pick_frame(frames), thumbnail_text(hook), out, face=face)
 
 
