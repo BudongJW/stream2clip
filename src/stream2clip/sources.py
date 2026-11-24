@@ -39,6 +39,8 @@ __all__ = [
     "load_info",
     "platform_of",
     "chzzk_video_no",
+    "chzzk_details",
+    "with_platform_details",
     "soop_title_no",
     "fetch_chzzk_chat",
     "fetch_soop_chat",
@@ -72,6 +74,16 @@ class SourceInfo:
     live_status: str | None = None  # is_live | was_live | is_upcoming | post_live | not_live
     availability: str | None = None  # public | unlisted | subscriber_only | needs_auth | premium_only
     extractor: str = ""
+    #: The stream's own category as the site files it (YouTube's first category, ``Gaming`` for a CHZZK game stream).
+    category: str = ""
+    #: The game played, when the site says (CHZZK's category of a game stream).
+    game: str = ""
+    #: The day the stream began, YYYYMMDD (``release_date``, else ``upload_date``).
+    stream_date: str | None = None
+
+    @property
+    def is_game(self) -> bool:
+        return self.category.strip().lower() in ("gaming", "game")
 
     @property
     def archive_public(self) -> bool:
@@ -82,11 +94,20 @@ class SourceInfo:
         return self.availability in ("subscriber_only", "premium_only", "needs_auth")
 
     def timestamp_url(self, seconds: float) -> str:
-        """Link to a moment of the source (YouTube/Twitch style ``t=`` parameter)."""
+        """Link to a moment of the source, with the time parameter that site's player reads.
+
+        CHZZK replays read ``currentTime`` and SOOP replays ``change_second`` (both what their own
+        chapter share buttons copy); YouTube and Twitch read ``t``.
+        """
         if not self.url:
             return ""
+        key = TIME_PARAMS.get(platform_of(self.url) or "", "t")
         sep = "&" if "?" in self.url else "?"
-        return f"{self.url}{sep}t={int(seconds)}"
+        return f"{self.url}{sep}{key}={int(seconds)}"
+
+
+#: The query parameter each replay site's player seeks to, in whole seconds.
+TIME_PARAMS = {"chzzk": "currentTime", "soop": "change_second"}
 
 
 def ytdlp_command(*, cookies: str | os.PathLike[str] | None = None, cookies_from_browser: str | None = None) -> list[str]:
@@ -350,7 +371,7 @@ def fetch_replay(
         else:
             stage("fetch-info")
             try:
-                data = fetch_info(url, ytdlp=ytdlp)
+                data = with_platform_details(url, fetch_info(url, ytdlp=ytdlp))
             except RuntimeError as exc:
                 if not korean:
                     raise
@@ -400,7 +421,44 @@ def source_from_info(info: dict[str, Any]) -> SourceInfo:
         live_status=info.get("live_status"),
         availability=info.get("availability"),
         extractor=info.get("extractor_key") or info.get("extractor") or "",
+        category=str((info.get("categories") or [""])[0] or ""),
+        game=str(info.get("game") or ""),
+        stream_date=info.get("release_date") or info.get("upload_date"),
     )
+
+
+def chzzk_details(url: str, *, get: "Transport | None" = None) -> dict[str, Any]:
+    """What yt-dlp leaves out of a CHZZK replay's info, from CHZZK's own replay API.
+
+    ``categories`` (``["Gaming"]`` when ``categoryType`` is ``GAME``), ``game`` (``videoCategoryValue``,
+    such as ``명조:워더링 웨이브``) and ``release_date`` (YYYYMMDD of ``liveOpenDate``, the day the stream
+    began; yt-dlp dates the replay by when it was published, after the stream ended). They pick the upload
+    category, fill ``{game}`` in titles and date the description. Empty when the API says nothing.
+    """
+    number = chzzk_video_no(url)
+    data = json.loads((get or _http_get)(f"{CHZZK_API}/v3/videos/{number}"))
+    content = data.get("content") if isinstance(data, dict) else None
+    if not isinstance(content, dict):
+        return {}
+    extra: dict[str, Any] = {}
+    if content.get("categoryType") == "GAME":
+        extra["categories"] = ["Gaming"]
+        if content.get("videoCategoryValue"):
+            extra["game"] = str(content["videoCategoryValue"])
+    opened = re.match(r"(\d{4})-(\d{2})-(\d{2})", str(content.get("liveOpenDate") or ""))
+    if opened:
+        extra["release_date"] = "".join(opened.groups())
+    return extra
+
+
+def with_platform_details(url: str, info: dict[str, Any], *, get: "Transport | None" = None) -> dict[str, Any]:
+    """``info`` plus :func:`chzzk_details` for a CHZZK replay; unchanged elsewhere or when the API does not answer."""
+    if platform_of(url) != "chzzk":
+        return info
+    try:
+        return {**info, **chzzk_details(url, get=get)}
+    except (OSError, ValueError):  # no network, a refused request, an answer that is not JSON: yt-dlp's info is enough
+        return info
 
 
 # --------------------------------------------------------------------------- CHZZK / SOOP replay chat

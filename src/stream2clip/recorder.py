@@ -371,8 +371,9 @@ class VtsPart(Part):
         self.client = self._connect()
         self.client.subscribe("ModelOutlineEvent", {"draw": False})
         self.client.subscribe("ModelLoadedEvent")
-        if self.marker_hotkeys:
-            self.client.subscribe("HotkeyTriggeredEvent")
+        # Every hotkey is noted (an expression the streamer pressed is the clearest moment for an effect);
+        # the ones named as markers also mark the moment for highlight detection.
+        self.client.subscribe("HotkeyTriggeredEvent")
 
     def _drop(self) -> None:
         if self.client is not None:
@@ -403,6 +404,8 @@ class VtsPart(Part):
                 self._model_is(str(data.get("modelName") or ""), str(data.get("modelID") or ""))
             elif kind == "HotkeyTriggeredEvent":
                 name = str(data.get("hotkeyName") or "")
+                if name.strip():
+                    self.writer.write("vts_hotkey", name=name, action=str(data.get("hotkeyAction") or ""), by_api=bool(data.get("hotkeyTriggeredByAPI")))
                 if name.strip().lower() in self.marker_hotkeys and self._on_marker is not None:
                     self._on_marker("vts_hotkey", name)
         if self.parameters_every > 0 and now - self._last_parameters >= self.parameters_every:

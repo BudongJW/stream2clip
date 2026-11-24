@@ -255,6 +255,9 @@ class ExportOptions:
     #: The builder is pure, so it writes ``auto`` as libx264; :func:`stream2clip.export.export` resolves
     #: ``auto`` to the first GPU encoder that works on this PC (:func:`stream2clip.export.h264_encoder`).
     encoder: str = "libx264"
+    #: Effect filters on the finished clip's clock (a punch-in zoom, see :mod:`stream2clip.effects`): after the
+    #: silence is cut and before the captions, so the captions stay sharp and in place.
+    effects: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.format not in FORMATS:
@@ -471,6 +474,7 @@ def build_video_filter(options: ExportOptions) -> str:
     else:
         chain = pre + ([scale] if scale else [])
     chain.extend(keep_filters(options)[0])  # before the captions: their times are those of the shortened clip
+    chain.extend(options.effects)
     if options.subtitles is not None:
         chain.append(f"subtitles=filename={filter_path(options.subtitles)}")
     chain.extend(options.extra_filters)

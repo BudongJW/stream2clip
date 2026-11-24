@@ -55,6 +55,7 @@ def test_every_line_written_follows_the_schema(tmp_path):
         w.write("replay_saved", path="C:/replay.mkv")
         w.write("status", source="obs", state="connected")
         w.write("something_new", whatever=1)  # readers skip what they do not know
+        w.write("vts_hotkey", name="Smile", action="ToggleExpression", by_api=False)
     lines = path.read_text(encoding="utf-8").splitlines()
     validator = jsonschema.Draft202012Validator(_schema())
     for line in lines:

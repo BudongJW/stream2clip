@@ -55,6 +55,17 @@
           }
         },
         {
+          "if": {"properties": {"type": {"const": "vts_hotkey"}}},
+          "then": {
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string", "description": "the VTube Studio hotkey's name, as the streamer named it"},
+              "action": {"type": "string", "description": "what it does: ToggleExpression, TriggerAnimation, ..."},
+              "by_api": {"type": "boolean", "description": "pressed by a plugin, not by the streamer"}
+            }
+          }
+        },
+        {
           "if": {"properties": {"type": {"const": "surge"}}},
           "then": {"required": ["score"], "properties": {"score": {"type": "number"}, "reasons": {"type": "array", "items": {"type": "string"}}}}
         },

@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 import numpy as np
 
@@ -23,6 +23,7 @@ from .sources import SourceInfo
 from .subtitles import Cue, SubtitleStyle, Transcriber, slice_cues, write_ass
 
 if TYPE_CHECKING:
+    from .effects import EffectPlan
     from .soundtrack import PlannedSound, Sound, Soundtrack
     from .speakers import SpeakerMap
     from .translate import Translator
@@ -53,6 +54,8 @@ class ClipResult:
     teaser: float = 0.0
     #: What to look at in the captions before uploading (:func:`stream2clip.subtitles.caption_issues`).
     captions: list[str] = field(default_factory=list)
+    #: The effects placed (and those left out, with why): :meth:`stream2clip.effects.EffectPlan.to_dict`.
+    effects: dict | None = None
 
     def to_dict(self) -> dict:
         data = {
@@ -63,6 +66,7 @@ class ClipResult:
             "thumbnail": self.thumbnail.name if self.thumbnail else None,
             "teaser": round(self.teaser, 2),
             "captions": list(self.captions),
+            "effects": self.effects,
             "removed": round(self.removed, 2),
             "subtitles": self.subtitles.name if self.subtitles else None,
             "description": self.description.name if self.description else None,
@@ -408,6 +412,9 @@ def make_clips(
     loudness: float | None = None,
     title_template: str | None = None,
     add_hashtags: bool = True,
+    guests: Sequence[str] = (),
+    links: Sequence[str] = (),
+    contact_note: bool = False,
     thumbnails: bool = False,
     context: str | None = None,
     context_seconds: float = 3.0,
@@ -415,6 +422,9 @@ def make_clips(
     speakers: "SpeakerMap | None" = None,
     speaker_tracks: Sequence[int] = (),
     speaker_names: bool = False,
+    effects: "str | dict | None" = None,
+    reduced_motion: bool = False,
+    hotkeys: Sequence[float] = (),
 ) -> list[ClipResult]:
     """Export each highlight; write ``<name>.ass`` / ``<name>.txt`` next to it and a ``clips.json`` index.
 
@@ -431,8 +441,11 @@ def make_clips(
     videos down to about -14 and leaves quieter ones as they are), measured in a first pass.
 
     Every clip gets a suggested title in the language of its subtitles (:func:`stream2clip.titles.clip_title`;
-    ``title_template`` changes its form) and, with ``add_hashtags``, three hashtags at the end of
-    its description. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
+    ``title_template`` changes its form, ``"game"`` adds the game; ``guests`` are named as ``(w.이름)``)
+    and, with ``add_hashtags``, hashtags at the end of its description (three; five in Korean, with the
+    platform and 키리누키). The description is written in the title's language and opens with the day of
+    the stream; ``links`` (the streamer's channels) follow the channel line, ``contact_note`` asks
+    viewers to report a problem for a streamer without clip guidelines. ``thumbnails`` writes ``<name>.jpg`` (1280x720): the sharpest frame around the
     peak, zoomed onto the layout's avatar box when there is one, with the first words of the title.
 
     ``context`` is a line at the top for the first ``context_seconds`` of each clip (what is going on;
@@ -472,6 +485,11 @@ def make_clips(
         return path, float(offset)
 
     play_res = _output_size(video, options) if section is None else None
+    fx = None
+    if effects is not None:
+        from .effects import load_preset
+
+        fx = load_preset(effects) if isinstance(effects, str) else effects
     ai = uses_ai if uses_ai is not None else (transcriber is not None or subtitle_translator is not None)
     results: list[ClipResult] = []
     scratch = tempfile.TemporaryDirectory(prefix="stream2clip-sounds-") if soundtrack else None
@@ -525,11 +543,18 @@ def make_clips(
                     keep = []
             sub_path = None
             situation = _context_text(context, source)
-            if clip_cues or credit or situation:
+            fx_plan = None
+            if fx is not None and fx.get("effects"):
+                fx_plan = _plan_effects(fx, h, clip_video, opts, keep, spoken, clip_cues or [], length, play_res, hotkeys,
+                                     reduced_motion=reduced_motion, audio_track=audio_track, language=language,
+                                     translated=subtitle_translator is not None, translate_to=translate_to, source=source)
+                opts = replace(opts, effects=fx_plan.filters)
+            if clip_cues or credit or situation or (fx_plan is not None and fx_plan.tags):
                 sub_path = write_ass(
                     clip_cues or [], out / f"{stem}.ass", play_res=play_res, style=subtitle_style, karaoke=karaoke,
                     credit=credit, credit_position=credit_position, duration=length, context=situation, context_seconds=context_seconds,
                     speaker_colors=colors, speaker_names=speaker_names,
+                    emphasis=fx_plan.emphasis if fx_plan else (), emphasis_scale=fx_plan.emphasis_scale if fx_plan else 1.25, tags=fx_plan.tags if fx_plan else (),
                 )
                 opts = replace(opts, subtitles=sub_path)
             planned, skipped = [], []
@@ -562,14 +587,14 @@ def make_clips(
                                            speaker_colors=colors, speaker_names=speaker_names)
             result = ClipResult(h, clip_path, sub_path, removed=removed, sounds=planned, skipped_sounds=skipped, teaser=opened)
             named = _title_for(h, clip_cues or [], keep, source, profile, language=language, translate_to=translate_to if subtitle_translator else None,
-                               glossary=glossary if subtitle_translator else None, template=title_template)
+                               glossary=glossary if subtitle_translator else None, template=title_template, guests=guests)
             result.title, result.hashtags = named.title, (named.hashtags if add_hashtags else ())
             if thumbnails:
                 result.thumbnail = _thumbnail(clip_video, h, offset, opts, named.hook, out / f"{stem}.jpg")
             if source is not None:
                 used = [p.sound for p in planned]
                 text = build_description(source, profile, start=h.start, end=h.end, summary=" / ".join(h.reasons[:2]), uses_ai=ai, credits=_credits(used),
-                                         hashtags=result.hashtags)
+                                         hashtags=result.hashtags, language=named.language, links=links, contact_note=contact_note)
                 result.description = out / f"{stem}.txt"
                 result.description.write_text(text, encoding="utf-8")
                 result.issues = check_upload(source, profile, description=text, registered=registered, uses_ai=ai, sounds=used, length=length)
@@ -585,6 +610,7 @@ def make_clips(
             from .subtitles import caption_issues
 
             result.captions = caption_issues(clip_cues or [], subtitle_style)  # per clip, apart from the guideline check
+            result.effects = fx_plan.to_dict() if fx_plan is not None else None  # (plan is the soundtrack's, above)
             result.issues = [i for i in own if i.level != "info"] + result.issues + [i for i in own if i.level == "info"]
             results.append(result)
     finally:
@@ -603,17 +629,21 @@ def make_clips(
 
 
 def _title_for(h: Highlight, cues: "Sequence[Cue]", keep, source: SourceInfo | None, profile: AgencyProfile | None, *, language: str | None,
-               translate_to: str | None, glossary: "Glossary | None", template: str | None):
+               translate_to: str | None, glossary: "Glossary | None", template: str | None, guests: Sequence[str] = ()):
     """The suggested title of one clip: the line at its peak (on the clip's own, possibly shortened, clock) and a tag."""
+    from .sources import platform_of
     from .subtitles import clip_time
-    from .titles import AGENCY_NAMES, clip_title, title_language
+    from .titles import AGENCY_NAMES, clip_title, stream_topic, title_language
 
     peak = min(max(0.0, h.peak - h.start), h.end - h.start)
     stream_title = source.title if source is not None else ""
+    channel = source.channel if source is not None else ""
     lang = title_language(translate_to=translate_to, language=language, cues=cues, fallback=stream_title)
     agency = profile.key if profile is not None and profile.key in AGENCY_NAMES else None
-    return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=source.channel if source is not None else "",
-                      stream_title=stream_title, agency=agency, language=lang, glossary=glossary, template=template, translated=translate_to is not None)
+    game = (source.game if source is not None else "") or (stream_topic(stream_title, channel=channel) if template == "game" else "")
+    return clip_title(cues=cues, peak=clip_time(peak, keep) if keep else peak, channel=channel, stream_title=stream_title, agency=agency, language=lang,
+                      glossary=glossary, template=template, translated=translate_to is not None, guests=guests, game=game,
+                      platform=platform_of(source.url) if source is not None and source.url else None)
 
 
 def _speakers_by_track(cues: "Sequence[Cue]", video: str | os.PathLike[str], start: float, length: float, tracks: Sequence[int]) -> list[Cue]:
@@ -640,6 +670,39 @@ def _context_text(context: str | None, source: SourceInfo | None) -> str:
 #: The teaser starts this long before the moment it shows, so the first word is not cut.
 TEASER_LEAD = 0.4
 
+
+
+def _plan_effects(fx: dict, h: Highlight, clip_video: Any, opts: ExportOptions, keep: Sequence[tuple[float, float]], spoken: Sequence[Cue],
+                  cues: Sequence[Cue], length: float, frame: tuple[int, int], hotkeys: Sequence[float], *, reduced_motion: bool,
+                  audio_track: int | None, language: str | None, translated: bool, translate_to: str | None, source: Any) -> "EffectPlan":
+    """The effects of one clip: its sound onset and hotkey near the peak, its chat reaction, its loudest words."""
+    from .effects import available_filters, default_focus, plan_effects
+    from .soundtrack import onset_near
+    from .subtitles import clip_time
+    from .titles import title_language
+
+    cut = h.end - h.start
+    peak = min(max(0.0, h.peak - h.start), cut)
+    samples = None
+    if probe(clip_video).has_audio:
+        from .audio import decode_pcm
+
+        samples = decode_pcm(clip_video, sample_rate=16000, start=opts.start or 0.0, duration=cut, track=audio_track)
+    onset = None
+    if samples is not None:
+        found = onset_near(samples, 16000, peak)
+        onset = found if found != peak else None  # onset_near hands back the peak itself when nothing rises
+    near = [t - h.start for t in hotkeys if abs((t - h.start) - peak) <= 1.0]
+    hotkey = min(near, key=lambda t: abs(t - peak)) if near else None
+    words = spoken if not translated and any(c.words for c in spoken) else None
+    lang = title_language(translate_to=translate_to if translated else None, language=language, cues=cues,
+                          fallback=getattr(source, "title", "") if source is not None else "")
+    return plan_effects(
+        fx, length=length, peak=peak, onset=onset, hotkey=hotkey, stats=h.stats, cues=cues,
+        words_from=(words, samples, 16000) if words is not None else None,
+        to_clip=(lambda t: clip_time(t, keep)) if keep else (lambda t: t),
+        frame=frame, focus=default_focus(opts.layout), language=lang, filters=available_filters(), reduced_motion=reduced_motion,
+    )
 
 def _open_with_teaser(
     clip: Path, video: str | os.PathLike[str], h: Highlight, offset: float, opts: ExportOptions, cues: "Sequence[Cue]", seconds: float, ass: Path,
@@ -668,7 +731,7 @@ def _open_with_teaser(
         subs = write_ass(teaser_cues, ass, play_res=play_res, style=style, karaoke=karaoke, credit=credit, credit_position=credit_position, duration=last - first,
                          speaker_colors=speaker_colors, speaker_names=speaker_names)
     part = clip.with_name(clip.stem + ".teaser" + clip.suffix)
-    teaser_opts = replace(opts, start=first, end=last, keep=None, mix=None, subtitles=subs)
+    teaser_opts = replace(opts, start=first, end=last, keep=None, mix=None, subtitles=subs, effects=())  # the peak's effects play once, in the clip
     export(video, part, teaser_opts)
     joined = clip.with_name(clip.stem + ".joined" + clip.suffix)
     facts = [probe(part), probe(clip)]

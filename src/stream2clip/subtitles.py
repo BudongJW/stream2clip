@@ -459,12 +459,24 @@ def _is_cjk(ch: str) -> bool:
     return bool(ch) and any(lo <= ord(ch) <= hi for lo, hi in ((0x3040, 0x30FF), (0x3400, 0x9FFF), (0xFF00, 0xFFEF)))
 
 
-def _cue_line(cue: Cue, style: SubtitleStyle, karaoke: bool, base_font: str | None = None) -> str:
+def _shrink_scale(widest: float, style: SubtitleStyle) -> int:
+    """The scale (percent) :func:`_shrink` sets a line to."""
+    return 100 if widest <= style.max_chars * 1.12 else max(55, round(100 * style.max_chars / widest))
+
+
+#: Outline of a word that pops (effects): the brand pink, apart from the speaker palette.
+EMPHASIS_EDGE = LIVE_PINK
+
+
+def _cue_line(cue: Cue, style: SubtitleStyle, karaoke: bool, base_font: str | None = None,
+              emphasis: Sequence[float] = (), emphasis_scale: float = 1.25) -> str:
     if karaoke and cue.words:
         words = [w for w in cue.words if w.text]
         tokens = [w.text.strip() for w in words]
         lines = _wrap(tokens, style.max_chars, style.max_lines)
-        parts: list[str] = [_shrink(max(_width("".join(tokens[i] for i in idxs)) for idxs in lines), style)]
+        widest = max(_width("".join(tokens[i] for i in idxs)) for idxs in lines)
+        base = _shrink_scale(widest, style)
+        parts: list[str] = [_shrink(widest, style)]
         cursor = cue.start
         for li, idxs in enumerate(lines):
             if li:
@@ -476,7 +488,16 @@ def _cue_line(cue: Cue, style: SubtitleStyle, karaoke: bool, base_font: str | No
                     parts.append(f"{{\\k{int(round(gap * 100))}}}")
                 dur = max(1, int(round((w.end - max(w.start, cursor)) * 100)))
                 sep = "" if (k == 0 or _is_cjk(tokens[i][:1]) or _is_cjk(tokens[idxs[k - 1]][-1:])) else " "
-                parts.append(f"{{\\k{dur}}}{sep}{_escape(tokens[i])}")
+                text = _escape(tokens[i])
+                if any(abs(w.start - at) < 0.05 for at in emphasis):
+                    # The word grows as it is said and settles back; the outline turns to the accent
+                    # colour (a plate in the box style keeps its own). \r afterwards returns to the line's style.
+                    at_ms = max(0, int(round((w.start - cue.start) * 1000)))
+                    up = round(base * emphasis_scale)
+                    edge = "" if style.box else f"\\3c&H{_ass_color(EMPHASIS_EDGE)[-6:]}&"  # an override tag takes &HBBGGRR&
+                    text = (f"{{\\t({at_ms},{at_ms + 110},\\fscx{up}\\fscy{up}){edge}\\t({at_ms + 110},{at_ms + 220},\\fscx{base}\\fscy{base})}}"
+                            f"{text}{{\\r\\fscx{base}\\fscy{base}}}")
+                parts.append(f"{{\\k{dur}}}{sep}{text}")
                 cursor = max(cursor, w.end)
         return "".join(parts)
     explicit = [line.strip() for line in cue.text.strip().split("\n") if line.strip()]
@@ -520,8 +541,15 @@ def to_ass(
     context_seconds: float = 3.0,
     speaker_colors: "dict[str, str] | None" = None,
     speaker_names: bool = False,
+    emphasis: Sequence[float] = (),
+    emphasis_scale: float = 1.25,
+    tags: Sequence[Any] = (),
 ) -> str:
-    """Cues as an ASS script. ``credit`` is a small line shown in a corner for the whole clip
+    """Cues as an ASS script.
+
+    ``emphasis`` (start times of words) pops those words of the karaoke lines by ``emphasis_scale``;
+    ``tags`` (:class:`stream2clip.effects.Tag`) are short reaction lines that pop in beside the
+    captions. Both come from :func:`stream2clip.effects.plan_effects`. ``credit`` is a small line shown in a corner for the whole clip
     ("Source: channel name"); it needs ``duration``, the clip's length, when there are no cues to tell it.
     ``context`` is a line of what is going on, on a dark plate at the top for the first ``context_seconds``
     (Japanese clips open with such a 状況説明 line within the first second).
@@ -568,7 +596,7 @@ def to_ass(
         )
 
     def said(c: Cue) -> str:
-        line = _cue_line(c, st, karaoke, font)
+        line = _cue_line(c, st, karaoke, font, emphasis, emphasis_scale)
         if speaker_names and c.speaker:
             return f"{{\\fscx80\\fscy80}}{_escape(c.speaker)}: {{\\fscx100\\fscy100}}" + line
         return line
@@ -607,6 +635,20 @@ def to_ass(
             f"-1,0,0,0,100,100,0,0,3,{round(12 * k, 1):g},0,8,{round(60 * k)},{round(60 * k)},{margin_top},1",
         )
         events.insert(0, f"Dialogue: 2,{_ass_time(0)},{_ass_time(until)},Context,,0,0,0,,{{\\fad(150,250)}}{_escape(context)}")
+    tags = [t for t in tags if str(getattr(t, "text", "")).strip() and t.end > t.start]
+    if tags:
+        tag_font = pick_font(script_of("".join(t.text for t in tags))) if st.font == "auto" else st.font
+        header.insert(
+            header.index("[Events]") - 1,
+            f"Style: Tag,{tag_font},{max(8, round(size * 2.0))},{_ass_color('#FFFFFF')},{_ass_color('#FFFFFF')},{_ass_color(EMPHASIS_EDGE)},&H64000000,"
+            f"-1,0,0,0,100,100,0,0,1,{round(outline * 1.4, 1):g},0,5,0,0,0,1",
+        )
+        # Beside the captions, away from them: upper right over low captions, lower right over high ones.
+        x = round(W * (0.84 if W > H else 0.76))
+        y = round(H * (0.22 if W > H else (0.62 if st.alignment == 8 else 0.28)))
+        for t in tags:
+            pop = "\\fscx0\\fscy0\\t(0,120,\\fscx130\\fscy130)\\t(120,220,\\fscx92\\fscy92)\\t(220,300,\\fscx100\\fscy100)\\fad(0,200)"
+            events.append(f"Dialogue: 3,{_ass_time(t.start)},{_ass_time(t.end)},Tag,,0,0,0,,{{\\pos({x},{y})\\frz-8{pop}}}{_escape(t.text)}")
     return "\n".join(header + events) + "\n"
 
 

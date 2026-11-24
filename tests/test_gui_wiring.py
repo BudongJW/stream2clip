@@ -635,6 +635,9 @@ def test_highlights_window_remembers_its_choices(app, tmp_path):
     first.format_combo.setCurrentIndex(first.format_combo.findData("webm"))
     first.agency_combo.setCurrentIndex(first.agency_combo.findData("vspo"))
     first.output_edit.setText(str(tmp_path / "clips"))
+    first.links_edit.setText("https://www.youtube.com/@official")
+    first.contact_check.setChecked(True)
+    first.guests_edit.setText("니니아")
     first.last_dir = str(tmp_path)
     first.show()
     first.close()
@@ -647,6 +650,8 @@ def test_highlights_window_remembers_its_choices(app, tmp_path):
     assert again.translator_choice() == str(tmp_path / "tr.py") + ":go" and again.translator_combo.currentText() == "tr.py:go"
     assert again.glossary_edit.text() == str(tmp_path / "names.csv") and again.output_edit.text() == str(tmp_path / "clips") and again.last_dir == str(tmp_path)
     assert again.video_edit.text() == ""  # which stream was open is not remembered
+    assert again.links_edit.text() == "https://www.youtube.com/@official" and again.contact_check.isChecked()
+    assert again.guests_edit.text() == ""  # the guests change with each stream
     again.close()
 
 
@@ -667,6 +672,12 @@ def test_upload_dialog_shows_what_would_be_sent(app, tmp_path):
     body = dialog.preview()
     assert body["paidProductPlacementDetails"] == {"hasPaidProductPlacement": True}
     assert json.loads(dialog.preview_box.toPlainText()) == body and "아직 아무것도 올리지 않았습니다" in dialog.status.text()
+    # The category: automatic by the stream the clip came from (its clips.json), or chosen.
+    assert dialog.category_combo.currentData() == "auto" and body["snippet"]["categoryId"] == "22"
+    (tmp_path / "clips.json").write_text(json.dumps({"source": {"category": "Gaming"}}), encoding="utf-8")
+    assert dialog.preview()["snippet"]["categoryId"] == "20"
+    dialog.category_combo.setCurrentIndex(dialog.category_combo.findData("entertainment"))
+    assert dialog.preview()["snippet"]["categoryId"] == "24"
 
     dialog.title_edit.setText("")
     assert dialog.preview() is None and dialog.status.text().startswith("확인 필요")

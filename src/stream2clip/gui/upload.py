@@ -37,6 +37,7 @@ from .settings import load_section, save_section
 __all__ = ["UploadDialog"]
 
 _PRIVACY = [("private", tr("비공개")), ("unlisted", tr("일부 공개 (링크가 있는 사람만)")), ("public", tr("공개"))]
+_CATEGORIES = [("auto", tr("자동 (게임 방송은 게임, 그 밖은 인물 및 블로그)")), ("people", tr("인물 및 블로그")), ("gaming", tr("게임")), ("entertainment", tr("엔터테인먼트"))]
 Uploader = Callable[[str, dict, str, Callable[[float], None]], dict]
 #: ``(video id, image, client secrets, shorts, on_wait)``: sets the thumbnail once the video is up.
 Thumbnailer = Callable[[str, str, str, bool, Callable[[str], None]], Any]
@@ -103,7 +104,15 @@ class UploadDialog(QDialog):
         self.tags_edit.setPlaceholderText(tr("쉼표로 구분"))
         grid.addWidget(self.tags_edit, 3, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("공개 범위")), 4, 0)
+        grid.addWidget(QLabel(tr("분류")), 4, 0)
+        self.category_combo = QComboBox()
+        for key, label in _CATEGORIES:
+            self.category_combo.addItem(label, key)
+        self.category_combo.setCurrentIndex(max(0, self.category_combo.findData(saved.get("category", "auto"))))
+        self.category_combo.setToolTip(tr("YouTube 동영상 카테고리. 자동은 원본 방송이 게임 방송이면 게임, 그 밖은 인물 및 블로그\n(클립 폴더의 clips.json에 적힌 원본 방송 분류. 한국어 클립 채널은 인물 및 블로그가 가장 많음)"))
+        grid.addWidget(self.category_combo, 4, 1, 1, 2)
+
+        grid.addWidget(QLabel(tr("공개 범위")), 5, 0)
         row = QHBoxLayout()
         self.privacy_combo = QComboBox()
         for key, label in _PRIVACY:
@@ -114,9 +123,9 @@ class UploadDialog(QDialog):
         self.paid_check = QCheckBox(tr("유료 광고 포함"))  # declared each time, like the privacy
         self.paid_check.setToolTip(tr("협찬, 간접 광고(PPL), 보증 광고가 있으면 선택. 선택하지 않으면 유료 광고가 없는 영상으로 YouTube에 알림"))
         row.addWidget(self.paid_check)
-        grid.addLayout(row, 4, 1, 1, 2)
+        grid.addLayout(row, 5, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("예약")), 5, 0)
+        grid.addWidget(QLabel(tr("예약")), 6, 0)
         schedule = QHBoxLayout()
         self.schedule_check = QCheckBox(tr("예약 게시"))
         self.schedule_check.setToolTip(tr("비공개로 올린 뒤 정한 시각에 YouTube가 공개로 바꿉니다."))
@@ -127,30 +136,30 @@ class UploadDialog(QDialog):
         self.schedule_edit.setEnabled(False)
         schedule.addWidget(self.schedule_edit, 1)
         self.schedule_check.toggled.connect(self._on_schedule_toggled)
-        grid.addLayout(schedule, 5, 1, 1, 2)
+        grid.addLayout(schedule, 6, 1, 1, 2)
 
-        grid.addWidget(QLabel(tr("썸네일")), 6, 0)
+        grid.addWidget(QLabel(tr("썸네일")), 7, 0)
         self.thumbnail_edit = QLineEdit(thumbnail)
         self.thumbnail_edit.setPlaceholderText(tr("(선택) JPEG 또는 PNG, 50MB 이하"))
         self.thumbnail_edit.setToolTip(tr("업로드 후 맞춤 썸네일로 설정. Shorts는 YouTube 처리가 끝난 뒤 설정(몇 분 걸림).\n채널 인증으로 맞춤 썸네일이 켜진 채널만 가능"))
-        grid.addWidget(self.thumbnail_edit, 6, 1)
+        grid.addWidget(self.thumbnail_edit, 7, 1)
         pick_thumbnail = QPushButton(tr("찾기"))
         pick_thumbnail.clicked.connect(lambda: self._browse(self.thumbnail_edit, "Image (*.jpg *.jpeg *.png);;All files (*)"))
-        grid.addWidget(pick_thumbnail, 6, 2)
+        grid.addWidget(pick_thumbnail, 7, 2)
 
-        grid.addWidget(QLabel(tr("OAuth 파일")), 7, 0)
+        grid.addWidget(QLabel(tr("OAuth 파일")), 8, 0)
         self.secrets_edit = QLineEdit(str(saved.get("client_secrets", "")))
         self.secrets_edit.setPlaceholderText(tr("Google Cloud에서 받은 client_secret.json (본인 프로젝트)"))
         self.secrets_edit.setToolTip(tr("YouTube Data API를 켠 본인 Google Cloud 프로젝트의 데스크톱 앱 유형 OAuth 클라이언트 파일입니다.\n처음 한 번 브라우저에서 동의하면 같은 폴더에 token.json이 저장됩니다."))
-        grid.addWidget(self.secrets_edit, 7, 1)
+        grid.addWidget(self.secrets_edit, 8, 1)
         pick_secrets = QPushButton(tr("찾기"))
         pick_secrets.clicked.connect(lambda: self._browse(self.secrets_edit, "JSON (*.json);;All files (*)"))
-        grid.addWidget(pick_secrets, 7, 2)
+        grid.addWidget(pick_secrets, 8, 2)
 
         self.preview_box = QPlainTextEdit(readOnly=True)
         self.preview_box.setPlaceholderText(tr("보낼 내용 보기 버튼을 누르면 YouTube에 보낼 내용이 여기에 표시됩니다. 업로드는 실행되지 않습니다."))
         self.preview_box.setMaximumHeight(130)
-        grid.addWidget(self.preview_box, 8, 0, 1, 3)  # below the OAuth row, not on it
+        grid.addWidget(self.preview_box, 9, 0, 1, 3)  # below the OAuth row, not on it
 
         bottom = QHBoxLayout()
         self.status = QLabel(tr("비공개로 올린 뒤 YouTube 스튜디오에서 확인하고 공개하는 것을 권합니다"), objectName="Muted")
@@ -169,9 +178,9 @@ class UploadDialog(QDialog):
         self.upload_button.setMinimumHeight(36)
         self.upload_button.clicked.connect(self.upload)
         bottom.addWidget(self.upload_button)
-        grid.addLayout(bottom, 9, 0, 1, 3)
+        grid.addLayout(bottom, 10, 0, 1, 3)
         grid.setColumnStretch(1, 1)
-        self.resize(640, 600)
+        self.resize(640, 630)
 
         self._progress.connect(lambda fraction: self.progress.setValue(int(round(fraction * 100))))
         self._done.connect(self._on_done)
@@ -194,12 +203,14 @@ class UploadDialog(QDialog):
 
     def resource(self) -> dict[str, Any]:
         """The ``videos.insert`` body the form describes; raises ``ValueError`` if YouTube would refuse it."""
-        from ..upload import video_resource
+        from ..upload import clips_source, resolve_category, video_resource
 
         tags = [t for t in self.tags_edit.text().split(",") if t.strip()]
         when = self.schedule_edit.dateTime().toPython() if self.schedule_check.isChecked() else None
+        video = self.video_edit.text().strip()
+        category = resolve_category(self.category_combo.currentData(), clips_source(video) if video else None)
         return video_resource(
-            self.title_edit.text(), self.description_edit.toPlainText(), tags=tags,
+            self.title_edit.text(), self.description_edit.toPlainText(), tags=tags, category_id=category,
             privacy=self.privacy_combo.currentData(), shorts=self.shorts_check.isChecked(), publish_at=when,
             paid_placement=self.paid_check.isChecked(),
         )
@@ -257,7 +268,7 @@ class UploadDialog(QDialog):
             answer = QMessageBox.question(self, tr("공개 업로드"), tr("바로 공개로 올립니다. 올린 뒤에는 되돌리기 어렵습니다. 계속할까요?"))
             if answer != QMessageBox.StandardButton.Yes:
                 return
-        save_section("upload", {"client_secrets": secrets, "tags": self.tags_edit.text(), "shorts": self.shorts_check.isChecked()})
+        save_section("upload", {"client_secrets": secrets, "tags": self.tags_edit.text(), "shorts": self.shorts_check.isChecked(), "category": self.category_combo.currentData()})
         self.busy = True
         self.upload_button.setEnabled(False)
         self.progress.setValue(0)

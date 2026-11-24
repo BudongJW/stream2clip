@@ -3,7 +3,9 @@
 Measured on 290 clip videos uploaded in 2026 (reports/키리누키 영상 레퍼런스 검토.md): every Japanese
 title carried a bracket tag such as 【ホロライブ切り抜き】, English titles mostly name the agency and
 "Clip" or "Eng Sub" in brackets, Korean ones start with the agency in square brackets. The line that
-makes people click goes first (the first ~30 characters decide), the tag after it.
+makes people click goes first (the first ~30 characters decide), the tag after it. Korean clips of a
+streamer outside an agency (523 titles around one CHZZK VTuber, reports/독케익 키리누키 채널 분석.md)
+start with the streamer's name instead and name a collab partner as ``(w.이름)``.
 
 The hook is the subtitle line at the highlight's peak; without subtitles, the stream's own title.
 Only the standard library and :mod:`stream2clip.subtitles` are used.
@@ -20,7 +22,8 @@ from .subtitles import Cue, _width, script_of
 if TYPE_CHECKING:  # pragma: no cover
     from .translation import Glossary
 
-__all__ = ["AGENCY_NAMES", "CLIP_WORDS", "GENERIC_TAGS", "TEMPLATES", "ClipTitle", "clip_title", "context_line", "hashtags", "hook_line", "talent_name", "title_language"]
+__all__ = ["AGENCY_NAMES", "CLIP_WORDS", "GAME_TEMPLATES", "GENERIC_TAGS", "KIRINUKI_TAGS", "PLATFORM_TAGS", "SOLO_TEMPLATES", "TEMPLATES", "ClipTitle", "clip_title",
+           "context_line", "guest_part", "hashtags", "hook_line", "stream_topic", "talent_name", "title_language"]
 
 #: Agency names as clip titles write them, per language (proper names, not interface text).
 AGENCY_NAMES: dict[str, dict[str, str]] = {
@@ -31,16 +34,29 @@ AGENCY_NAMES: dict[str, dict[str, str]] = {
 }
 #: The word for "clip" in the tag and hashtags.
 CLIP_WORDS = {"ja": "切り抜き", "ko": "클립", "en": "Clip"}
-#: Title forms per language; {hook}, {talent}, {agency}, {clip} are filled in, empty parts are tidied away.
+#: Title forms per language; {hook}, {talent}, {agency}, {clip}, {game}, {guests} are filled in, empty parts are tidied away.
 TEMPLATES = {
-    "ja": "{hook}【{talent}/{agency}{clip}】",
-    "ko": "[{agency}] {hook} | {talent}",
-    "en": "{hook} 【{agency} {clip} | {talent}】",
+    "ja": "{hook}{guests}【{talent}/{agency}{clip}】",
+    "ko": "[{agency}] {hook}{guests} | {talent}",
+    "en": "{hook}{guests} 【{agency} {clip} | {talent}】",
 }
+#: Korean clips of a streamer outside an agency put the streamer's name in the bracket: 56% of 523 clip
+#: titles around one CHZZK VTuber started with it (reports/독케익 키리누키 채널 분석.md).
+SOLO_TEMPLATES = {"ko": "[{talent}] {hook}{guests}"}
+#: ``template="game"``: the game in a second bracket, as those channels title game streams.
+GAME_TEMPLATES = {
+    "ja": "{hook}{guests}【{game}】【{talent}/{agency}{clip}】",
+    "ko": "[{talent}][{game}] {hook}{guests}",
+    "en": "{hook}{guests} 【{game} | {talent}】",
+}
+#: Who else is in the clip, after the hook: ``(w.니니아)`` in Korean clip titles.
+GUEST_FORMS = {"ja": " (w/{0})", "ko": " (w.{0})", "en": " (w/ {0})"}
+GUEST_SEPARATORS = {"ja": "、", "ko": ", ", "en": ", "}
 #: How long the hook may be, in full-width characters (a Latin letter counts about half).
 HOOK_WIDTH = {"ja": 30, "ko": 24, "en": 34}
 TITLE_LIMIT = 100  # YouTube's
-_CHANNEL_NOISE = re.compile(r"\b(?:ch|channel|official)\b\.?|チャンネル|채널|公式|【[^】]*】|\[[^\]]*\]", re.IGNORECASE)
+#: What channel names add around the name: Ch., 公式, and VTuber as a word of its own (CHZZK's "버튜버 독케익" is 독케익).
+_CHANNEL_NOISE = re.compile(r"\b(?:ch|channel|official|vtuber)\b\.?|チャンネル|채널|公式|버튜버(?=\s|$)|【[^】]*】|\[[^\]]*\]", re.IGNORECASE)
 _TAG = re.compile(r"【[^】]*】|\[[^\]]*\]|〔[^〕]*〕|#\S+")
 
 
@@ -126,10 +142,18 @@ def hook_line(cues: Sequence[Cue], peak: float, *, width: float = 30, fallback: 
 
 #: The third hashtag, after the agency and the talent.
 GENERIC_TAGS = {"ja": "#切り抜き", "ko": "#버튜버", "en": "#VTuber"}
+#: Korean clips also name the stream's platform and the kind of video; of 139 clip descriptions around a
+#: CHZZK VTuber, 80% had hashtags and the top tags were 치지직, 버튜버 and 키리누키 (41 videos each).
+PLATFORM_TAGS = {"chzzk": {"ko": "#치지직"}, "soop": {"ko": "#숲"}}
+KIRINUKI_TAGS = {"ko": "#키리누키"}
 
 
-def hashtags(language: str, *, agency: str | None = None, talent: str = "") -> tuple[str, ...]:
-    """Up to three, as YouTube shows three above the title: the agency (with 切り抜き in Japanese), the talent, a general one."""
+def hashtags(language: str, *, agency: str | None = None, talent: str = "", platform: str | None = None) -> tuple[str, ...]:
+    """The agency (with 切り抜き in Japanese), the talent and a general one; Korean adds the platform and 키리누키.
+
+    YouTube shows the first three above the title, so in Korean, without an agency, those are the name,
+    버튜버 and the platform (CHZZK, SOOP), as Korean clip channels write them.
+    """
     name = re.sub(r"[\s!]", "", AGENCY_NAMES.get(agency or "", {}).get(language, ""))
     tags = []
     if name:
@@ -137,11 +161,21 @@ def hashtags(language: str, *, agency: str | None = None, talent: str = "") -> t
     if talent:
         tags.append("#" + re.sub(r"[\s!./]", "", talent))
     tags.append(GENERIC_TAGS.get(language, "#VTuber"))
+    tags.append(PLATFORM_TAGS.get(platform or "", {}).get(language, ""))
+    tags.append(KIRINUKI_TAGS.get(language, ""))
     seen: list[str] = []
     for tag in tags:
         if len(tag) > 1 and tag.lower() not in [t.lower() for t in seen]:
             seen.append(tag)
-    return tuple(seen[:3])
+    return tuple(seen[:5 if language == "ko" else 3])
+
+
+def guest_part(guests: Sequence[str], language: str) -> str:
+    """`` (w.니니아, 계춘회)``: the others in a collab, as clip titles add them after the hook; empty without any."""
+    names = [" ".join(g.split()) for g in guests if g and g.strip()]
+    if not names:
+        return ""
+    return GUEST_FORMS.get(language, GUEST_FORMS["en"]).format(GUEST_SEPARATORS.get(language, ", ").join(names))
 
 
 def clip_title(
@@ -155,22 +189,33 @@ def clip_title(
     glossary: "Glossary | None" = None,
     template: str | None = None,
     translated: bool = False,
+    guests: Sequence[str] = (),
+    game: str = "",
+    platform: str | None = None,
 ) -> ClipTitle:
-    """A title for one clip: the hook (the line at ``peak``, on the cues' clock) and a bracket tag with the talent and agency."""
+    """A title for one clip: the hook (the line at ``peak``, on the cues' clock) and a bracket tag with the talent and agency.
+
+    Without an agency a Korean title puts the talent in front (``[독케익] 진짜 너무 맛있다``). ``guests``
+    are added as ``(w.이름)``; ``template="game"`` puts ``game`` in a second bracket; ``platform``
+    (``chzzk``, ``soop``) adds that platform's hashtag in Korean.
+    """
     language = language if language in TEMPLATES else "en"
     talent = talent_name(channel, language, glossary)
     agency_name = AGENCY_NAMES.get(agency or "", {}).get(language, "")
     hook = hook_line(cues, peak, width=HOOK_WIDTH[language], fallback=stream_title)
-    form = template or TEMPLATES[language]
-    title = form.format(hook=hook, talent=talent, agency=agency_name, clip=CLIP_WORDS[language])
-    title = _tidy(title)
+    if template == "game":
+        form = GAME_TEMPLATES[language]
+    else:
+        form = template or (TEMPLATES[language] if agency_name else SOLO_TEMPLATES.get(language, TEMPLATES[language]))
+    parts = {"talent": talent, "agency": agency_name, "clip": CLIP_WORDS[language], "game": " ".join((game or "").split()), "guests": guest_part(guests, language)}
+    title = _tidy(form.format(hook=hook, **parts))
     if translated and language == "en" and "sub" not in title.lower():
         title += " [Eng Sub]"
     if len(title) > TITLE_LIMIT:  # the hook gives way first
         room = len(hook) - (len(title) - TITLE_LIMIT) - 3
         hook = (hook[: max(room, 0)].rstrip() + "...") if room > 0 else ""
-        title = _tidy(form.format(hook=hook, talent=talent, agency=agency_name, clip=CLIP_WORDS[language]))[:TITLE_LIMIT]
-    return ClipTitle(title, hashtags(language, agency=agency, talent=talent), language, hook)
+        title = _tidy(form.format(hook=hook, **parts))[:TITLE_LIMIT]
+    return ClipTitle(title, hashtags(language, agency=agency, talent=talent, platform=platform), language, hook)
 
 
 _BRACKETED = re.compile(r"【([^】]+)】|\[([^\]]+)\]|〔([^〕]+)〕")
@@ -183,14 +228,20 @@ def context_line(stream_title: str, *, channel: str = "", width: float = 24) -> 
     Stream titles put the game or the kind of stream in a bracket tag (``【気のせいすぎるRPG】``); the first
     tag that is not the agency or the talent's name is the topic. Without one, the title itself.
     """
+    topic = stream_topic(stream_title, channel=channel)
+    return _cut(topic, width) if topic else _cut(_clean(stream_title or ""), width)
+
+
+def stream_topic(stream_title: str, *, channel: str = "") -> str:
+    """The first bracket tag of a stream title that is not the agency or the talent (the game, the kind of stream); empty without one."""
     names = {part for part in re.split(r"[\s/|]+", channel) if len(part) > 1}
     for match in _BRACKETED.finditer(stream_title or ""):
         tag = next(group for group in match.groups() if group)
         pieces = [p for p in re.split(r"[/|]", tag) if p.strip()]
         if pieces and all(_AGENCY_WORDS.search(p) or p.strip() in names or any(n in p for n in names) for p in pieces):
             continue  # 【ホロライブ/兎田ぺこら】 says who, not what
-        return _cut(" ".join(tag.split()), width)
-    return _cut(_clean(stream_title or ""), width)
+        return " ".join(tag.split())
+    return ""
 
 
 def _tidy(title: str) -> str:

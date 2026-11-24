@@ -11,7 +11,7 @@
 방송 화면과 다시보기에서 장면을 캡쳐, 녹화하고 하이라이트 구간을 세로형 클립으로 제작하는 영상 편집 도구
 
 <!-- 프로젝트 -->
-<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.17.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
+<a href="#로드맵"><img alt="version" src="https://img.shields.io/badge/version-0.18.0-FF4F8B?style=for-the-badge&labelColor=15131F"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-F7F4FA?style=for-the-badge&labelColor=15131F"></a>
 <a href="https://github.com/BudongJW/stream2clip/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/stream2clip/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&labelColor=15131F"></a>
 <a href="#알려진-제약"><img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-FFD84D?style=for-the-badge&labelColor=15131F"></a>
@@ -27,7 +27,7 @@
 <a href="#기술-스펙"><img alt="faster-whisper" src="https://img.shields.io/badge/faster--whisper-subtitles-412991?style=flat-square"></a>
 <a href="#기술-스펙"><img alt="libass" src="https://img.shields.io/badge/libass-karaoke%20ASS-6E6880?style=flat-square"></a>
 <a href="#개발"><img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-666-4ADE80?style=flat-square"></a>
+<a href="#개발"><img alt="tests" src="https://img.shields.io/badge/tests-684-4ADE80?style=flat-square"></a>
 
 <!-- 기능 -->
 <a href="#출력-포맷"><img alt="output" src="https://img.shields.io/badge/output-GIF%2C%20WebP%2C%20MP4%2C%20WebM%2C%20MOV%2C%20APNG-FF4F8B?style=flat-square&labelColor=15131F"></a>
@@ -106,6 +106,7 @@ stream2clip auto "방송 주소" --top 5 -o clips
 
 | &numsp;&numsp;버&NoBreak;전&numsp;&numsp; | 주요 변경 |
 |:---:|---|
+| v0.18 | 최고 순간의 특수효과(펀치인 확대, 자막 단어 강조, 채팅 반응 꼬리표), 효과 프리셋, VTube Studio 핫키 전체 기록 |
 | v0.17 | 받아쓰기 이름 힌트와 잘못 들은 표기 교정, 큰 받아쓰기 모델, GPU 인코딩, Shorts 썸네일 업로드, 업로드 전 자막 확인, 선택 기록과 채널별 검출 조정, 소리와 heatmap의 시각 보정, 채팅 지연 추정, SOOP 다시보기 만료 안내 |
 | v0.16 | 클립 채널 형식: 클립별 제목과 해시태그 제안, 썸네일, 가로 클립과 가로 모음 영상 형태(`--preset`), 상황 설명과 최고 순간 미리 보기, 재사용 콘텐츠 점검, 콜라보의 화자별 자막 색 |
 | v0.15 | 배경 음악, 효과음: 무료 음원을 클립 소리 아래에 깔고 말하는 동안 줄임, 내장 효과음 5종, 음원 목록의 출처와 라이선스로 설명란 크레디트와 점검, Openverse 음원 검색, 음량 정규화(-14 LUFS) |
@@ -159,8 +160,9 @@ stream2clip auto "방송 주소" --top 5 -o clips
 | YouTube 업로드 | 제작한 클립과 설명란을 YouTube에 업로드. 공개 범위 기본값은 비공개 |
 | 모음 영상, 출처 표기 | 클립을 이어 붙인 모음 영상과 챕터 목록 제작, 클립 구석에 원본 채널 표기 |
 | 배경 음악, 효과음 | 직접 내려받은 무료 음원을 클립 소리 아래에 깔고 말하는 동안 자동으로 줄임. 코드로 만드는 내장 효과음 5종(크레디트 불필요)을 최고 순간, 시작, 끝에 배치. 음원 목록에 기록한 출처와 라이선스로 설명란 크레디트 작성과 업로드 전 점검. Openverse에서 CC 음원 검색, 클립 음량을 -14 LUFS로 정규화 |
-| 제목, 썸네일 | 최고 순간의 대사, 탤런트 이름, 기획사로 클립마다 제목과 해시태그 3개 제안. 가장 선명한 장면에 제목 앞부분을 넣은 1280x720 썸네일. 과장된 표현 경고 |
+| 제목, 썸네일 | 최고 순간의 대사, 탤런트 이름, 기획사로 클립마다 제목과 해시태그 제안. 소속사 없는 한국 스트리머는 `[이름] 대사`와 합방 상대 `(w.이름)`, 플랫폼 태그(`#치지직`, `#숲`)와 `#키리누키`. 가장 선명한 장면에 제목 앞부분을 넣은 1280x720 썸네일. 과장된 표현 경고 |
 | 영상 형태 | Shorts(9:16), 가로 클립(1~3분), 가로 모음 영상(10분 전후, 챕터) 프리셋. 첫 3초의 상황 설명, 최고 순간 2초 미리 보기, 콜라보의 화자별 자막 색, 재사용 콘텐츠 점검 |
+| 특수효과 | 최고 순간 한 곳에만 펀치인 확대, 자막 단어 강조, 채팅 반응 꼬리표. 기준 순간은 스트리머가 누른 VTube Studio 핫키나 소리 시작점이며, 뚜렷하지 않으면 넣지 않음 |
 | 편집 프로그램 연계 | 하이라이트를 EDL 컷 목록, 타임라인 마커, 타임스탬프 목록으로 내보내어 DaVinci Resolve, Premiere Pro 등에서 이어서 편집 |
 
 ### 이식
@@ -252,6 +254,7 @@ stream2clip check --agency nijisanji --info vod/info.json --description clips/cl
 | 업로드 | 내보낸 클립을 **업로드** 버튼으로 YouTube 업로드 창에 전달 |
 | 설정 | 선택한 설정은 다음 실행 시 복원 |
 | 기록 | 내보낼 때 고른 구간, 뺀 구간, 손으로 옮긴 구간을 이 PC의 설정 폴더(`feedback.jsonl`)에 기록. **기록** 줄에서 끄기, `stream2clip feedback`으로 요약, `--clear`로 삭제 |
+| 효과 | 최고 순간의 효과(끄기, 절제, 예능)와 움직임 줄이기 |
 
 방송 주소로 시작하는 경우:
 
@@ -528,6 +531,38 @@ stream2clip sounds search "lofi chill" --kind music
 - 라이선스 점검은 점검 목록이며 법적 판단이 아님. 음원 사이트의 약관은 바뀔 수 있으므로 내려받을 때 원문 확인 필요
 - 조사 자료: [무료 BGM, 효과음 레퍼런스](reports/무료%20BGM%20효과음%20레퍼런스.md)
 
+### 특수효과
+
+클립의 최고 순간 한 곳에만 효과를 넣는 기능. 키리누키와 예능 편집자 모두 효과를 웃음, 반응 지점에만 적게 쓰는 관례에 맞춤. 조사 자료: [클립 특수효과 레퍼런스](reports/클립%20특수효과%20레퍼런스.md)
+
+```bash
+stream2clip clips vod/video.mp4 --highlights highlights.json --subtitles vod/VIDEO_ID.ja.vtt --fx subtle -o clips
+```
+
+| &numsp;프&NoBreak;리&NoBreak;셋&numsp; | 효과 |
+|:---:|---|
+| `off` | 기본값. 효과 없음 |
+| `subtle` | 최고 순간의 펀치인 확대(1.12배, 웃음 1.08배, 귀여움 1.05배, 환호는 확대 없음), 자막 단어 1개 강조 |
+| `variety` | 확대 1.15배(놀람 1.2배), 강조 단어 2개, 채팅 반응 꼬리표(웃음은 일본어 草, 한국어 ㅋㅋㅋ, 영어 LOL. 놀람 !?, 귀여움 하트 기호, 환호 !!) |
+
+| &numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp; | 내용 |
+|:---:|---|
+| 기준 순간 | 최고 순간 앞뒤 1초 안에 직접 누른 VTube Studio 핫키(세션 파일), 없으면 효과음과 같은 소리 시작점. 둘 다 없으면 확대는 넣지 않음 |
+| 확대 | `scale`(eval=frame)과 고정 크기 `crop`의 시간식. 0.12초에 커지고 그 순간의 자막 줄이 끝날 때까지(최대 2.5초) 유지 후 0.4초에 복귀. 무음 구간 제거 뒤, 자막 앞에 적용하여 자막은 확대되지 않음. stack 레이아웃은 아바타 칸 중심, 그 외는 화면 중앙에서 약간 위 |
+| 강조 단어 | 단어별 시각이 있는 자막에서 기준 순간 2초 전부터 1.5초 후 사이에 가장 크고 길게 말한 단어(음량과 글자당 길이의 z 점수, 한 글자 단어 제외). 말하는 순간 1.25배로 커졌다 돌아오고 테두리는 강조색 |
+| 반응 꼬리표 | 채팅 반응 중 한 종류가 40% 이상이고 5개 이상일 때. 자막 반대편에 1.2초 |
+| 예산 | 대표 효과(확대) 1개, 보조 효과 2개 이하 |
+| 움직임 줄이기 | `--fx-reduced-motion`, 앱의 **움직임 줄이기**: 확대 대신 강조 단어를 1.4배로 |
+| ffmpeg 확인 | 효과마다 필요한 필터를 `ffmpeg -filters`로 확인하고, 없으면 이유와 함께 생략 |
+| 기록 | `clips.json`의 `effects`에 넣은 효과와 뺀 효과, 뺀 이유. 앱의 선택 기록에 프리셋 이름 |
+| 프리셋 파일 | `stream2clip fx subtle -o my.json`으로 내보내 수정 후 `--fx my.json`. 형식은 `schemas/effects.v1.schema.json`. 확대 중심(`focus`), 배율, 반응별 설정, 꼬리표 문구 변경 가능 |
+
+- 앱: 하이라이트 창의 **효과**에서 끄기, 절제, 예능 선택. 세션 파일이 있으면 핫키도 기준 순간으로 사용
+- 방송 기록기는 마커로 지정하지 않은 핫키도 모두 세션에 기록(`vts_hotkey`). 플러그인이 누른 핫키는 기준 순간에서 제외
+- 최고 순간 미리 보기(`--teaser`)에는 효과를 넣지 않아 한 번만 재생
+- 흔들림, 흰 플래시, 컬러 이모지, 集中線, 삐 처리, 리플레이는 다음 단계(보고서 7.1절). 플래시가 생기는 효과와 함께 WCAG 2.3.1, ITU-R BT.1702 기준 검사 추가
+- 효과는 재사용 콘텐츠 점검에서 독창적 기여로 계산하지 않음
+
 ### 제목, 썸네일, 영상 형태
 
 실제 클립 채널의 영상 290개 조사([키리누키 영상 레퍼런스 검토](reports/키리누키%20영상%20레퍼런스%20검토.md)) 결과를 반영한 제목, 해시태그, 썸네일, 영상 형태, 클립 시작 부분 구성
@@ -538,26 +573,32 @@ stream2clip auto video.mp4 --chat video.live_chat.json --info info.json --agency
 
 | &numsp;&numsp;형&NoBreak;태&numsp;&numsp; | 레이아웃 | 구간 | 그 외 |
 |:---:|---|---|---|
-| `shorts` | blur(9:16) | 15~90초, 최대 10개 | 기본값 |
-| `clip` | none(가로) | 60~180초, 최대 8개. 앞 45초, 뒤 30초 여유 | 상황 설명 자동 |
-| `long` | none(가로) | 45~150초, 최대 6개 | 모음 영상과 챕터 목록, 0.3초 페이드, 상황 설명 자동 |
+| `shorts` | blur(9:16) | 15~90초, 최대 10개 | 기본값, 노래방 자막 |
+| `clip` | none(가로) | 60~180초, 최대 8개. 앞 45초, 뒤 30초 여유 | 상황 설명 자동, 문장 자막 |
+| `long` | none(가로) | 45~150초, 최대 6개 | 모음 영상과 챕터 목록, 0.3초 페이드, 상황 설명 자동, 문장 자막 |
 
 - 조사한 영상 중 Shorts는 4%. 가로 영상 길이의 중앙값은 일본어 채널 9.8분, 한국어 채널 2.5분, 영어 채널 1.9분
 - `--preset`은 `highlights`, `clips`, `auto`에서 사용. 직접 지정한 옵션(`--layout`, `--top`, `--lead`, `--max-length` 등)이 프리셋보다 우선
 - 실제 방송 1개 기준 `clip`의 구간 길이 중앙값 102초(8개), `long`의 모음 영상 10.8분(6개)
+- 가로 형태의 문장 자막: 단어 색 변화 없이 한 줄씩 표시. 치지직 버튜버 키리누키 표본([독케익 키리누키 채널 분석](reports/독케익%20키리누키%20채널%20분석.md))의 자막 관례. `--karaoke`로 노래방 자막, `--no-karaoke`로 Shorts도 문장 자막
 
-제목 형식(`{hook}`은 최고 순간의 대사):
+제목 형식(`{hook}`은 최고 순간의 대사, `{guests}`는 합방 상대):
 
 ```text
-ja  {hook}【{talent}/{agency}切り抜き】
-ko  [{agency}] {hook} | {talent}
-en  {hook} 【{agency} Clip | {talent}】
+ja        {hook}{guests}【{talent}/{agency}切り抜き】
+ko        [{agency}] {hook}{guests} | {talent}
+ko 개인   [{talent}] {hook}{guests}
+en        {hook}{guests} 【{agency} Clip | {talent}】
+ko game   [{talent}][{game}] {hook}{guests}
 ```
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;항&NoBreak;목&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 내용 |
 |:---:|---|
 | 제목 | 최고 순간에 나온 자막 한 줄, 탤런트 이름, 기획사 이름으로 클립마다 제목 제안. 언어는 번역 대상 언어, 자막 언어 순서로 결정. 탤런트 이름은 채널 이름에서 채널, 공식 등을 뺀 이름(한국어 제목은 용어집의 번역 이름). 영어로 번역한 클립은 끝에 `[Eng Sub]`. 100자 이내. `--title-template`로 형식 변경. `clips.json`의 `title`에 기록, 업로드 창의 제목 기본값 |
-| 해시태그 | 기획사(일본어는 `#ホロライブ切り抜き` 형식), 탤런트, 일반 태그(`#切り抜き`, `#버튜버`, `#VTuber`) 최대 3개. YouTube가 제목 위에 표시하는 개수. 설명란 끝에 추가, `clips.json`의 `hashtags`에 기록. `--no-hashtags`로 끄기 |
+| 개인 스트리머 | 기획사를 고르지 않은 한국어 제목은 `[독케익] 진짜 너무 맛있다`처럼 이름이 앞. 독케익 키리누키 523개 중 56%의 형식. `--guest 이름`(반복)은 대사 뒤에 `(w.니니아, 계춘회)`(일본어 `(w/名前)`, 영어 `(w/ Name)`) |
+| 게임 이름 | `--title-template game`: 게임을 두 번째 괄호로(`[독케익][명조:워더링 웨이브] 대사`). 게임 이름은 치지직 다시보기 정보, 없으면 방송 제목의 괄호 속 태그. 없으면 괄호 생략 |
+| 해시태그 | 기획사(일본어는 `#ホロライブ切り抜き` 형식), 탤런트, 일반 태그(`#切り抜き`, `#버튜버`, `#VTuber`). 일본어, 영어는 최대 3개(YouTube가 제목 위에 표시하는 개수). 한국어는 플랫폼 태그(치지직 `#치지직`, SOOP `#숲`)와 `#키리누키`를 더해 최대 5개, 기획사가 없으면 제목 위 3개가 이름, 버튜버, 플랫폼 순. 설명란 끝에 추가, `clips.json`의 `hashtags`에 기록. `--no-hashtags`로 끄기 |
+| 설명란 | 제목과 같은 언어로 작성. 머리글(`원본 방송`, 일본어는 렌즈 괄호의 `元配信`, `Original stream`) 다음 줄에 방송 날짜(`2026년 11월 17일 방송`). 원본 위치 링크는 사이트별 시각 매개변수(치지직 `?currentTime=`, SOOP `?change_second=`, YouTube, Twitch `t=`, 두 사이트의 챕터 공유 버튼이 복사하는 형식). `--streamer-link 주소`(반복)로 채널 줄 아래에 스트리머의 공식 YouTube 채널 등 추가. `--contact-note`로 가이드라인이 따로 없는 스트리머용 연락 문구(문제가 있으면 댓글로 알려 주면 고치거나 내림) |
 | 썸네일 | `--thumbnail`: 최고 순간 앞뒤 1.5초 사이 7장면 중 가장 선명하고 노출이 적당한 장면 선택. 아바타 영역이 있으면 썸네일 높이의 80%가 되도록 확대(최대 3배). 제목 앞부분을 노란 굵은 글씨와 어두운 테두리로 얼굴 반대편 위쪽에 배치. 1280x720, 2MB 이하 JPEG(`clip_01.jpg`) |
 | 과장 표현 | 제목과 썸네일 문구에 炎上, 放送事故, 논란, 방송사고, shocking 등이 있으면 경고. 기획사 가이드라인의 과장, 오해를 부르는 제목과 썸네일 금지 조항 기준 |
 | 상황 설명 | `--context 문구`: 클립 첫 3초 동안 위쪽에 무슨 상황인지 한 줄 표시. `auto`는 방송 제목의 괄호 속 태그 중 기획사, 탤런트 이름이 아닌 것(게임 이름 등), 없으면 정리한 방송 제목. `--context-seconds`로 표시 시간 변경 |
@@ -569,7 +610,8 @@ en  {hook} 【{agency} Clip | {talent}】
 stream2clip clips collab.mkv --highlights highlights.json --subtitles collab.ja.srt --speaker-tracks 1,2 --speaker 1=호스트:#3FA7FF --speaker 2=게스트:#FF5C9A --speaker-names -o clips
 ```
 
-- 앱: 하이라이트 창의 **형태**에서 Shorts, 가로 클립, 가로 모음 선택(레이아웃, 모음 영상, 상황 설명, 구간 수 함께 변경, 하이라이트 찾기 전에 고르면 구간 길이도 적용). **시작 부분**의 **상황 설명**, **최고 순간 미리 보기**, **썸네일** 선택 후 **클립 내보내기**. 화자별 자막 색은 명령줄 전용
+- 앱: 하이라이트 창의 **형태**에서 Shorts, 가로 클립, 가로 모음 선택(레이아웃, 모음 영상, 상황 설명, 자막 방식, 구간 수 함께 변경, 하이라이트 찾기 전에 고르면 구간 길이도 적용). **시작 부분**의 **상황 설명**, **최고 순간 미리 보기**, **썸네일** 선택 후 **클립 내보내기**. **합방 상대**(쉼표로 구분, 방송마다 새로 입력), **채널 링크**, **연락 문구**는 제목과 설명란에 반영. 화자별 자막 색, 제목 형식 변경은 명령줄 전용
+- 치지직 다시보기: `fetch`와 앱의 주소 입력이 치지직 다시보기 정보(`categoryType`, `videoCategoryValue`, `liveOpenDate`)에서 게임 방송 여부, 게임 이름, 방송 시작일을 `info.json`에 추가(`categories`, `game`, `release_date`). yt-dlp의 날짜는 다시보기 게시 시각이라 자정을 넘긴 방송은 하루 늦음
 - 제목, 썸네일 문구는 제안이며 게시 전 확인 필요. 재사용 콘텐츠 점검은 점검 목록이며 수익 창출 여부는 YouTube가 결정
 
 ### 편집 프로그램용 내보내기
@@ -695,10 +737,11 @@ stream2clip upload clips/clip_01.mp4 --title "레전드 장면" --description-fi
 - 사전 준비: 본인 Google Cloud 프로젝트의 OAuth 클라이언트 파일(데스크톱 앱 유형). 최초 1회 브라우저에서 동의
 - 공개 범위 기본값은 비공개. YouTube API는 미지정 시 공개로 게시하므로 항상 명시하여 전송
 - 유료 광고 표기: 업로드마다 `paidProductPlacementDetails.hasPaidProductPlacement`를 명시하여 전송. 기본값은 유료 광고 없음(`false`). 협찬, 간접 광고(PPL), 보증 광고가 있으면 `--paid-placement`. YouTube API는 2026-11-16부터 값이 없는 영상을 유료 광고 없음으로 간주하지 않음
+- 분류(`--category`): 기본값 `auto`는 영상 옆 `clips.json`에 기록된 원본 방송이 게임 방송이면 게임(20), 그 밖은 인물 및 블로그(22). `people`, `gaming`, `entertainment`(24) 또는 카테고리 번호로 지정. 한국어 키리누키 139개 중 인물 및 블로그 72%, 게임 15%, 엔터테인먼트 12%
 - `--dry-run`: 전송 내용만 표시하고 업로드 미수행
 - `--thumbnail 이미지`: 업로드 후 맞춤 썸네일 설정(JPEG, PNG, 50MB 이하). Shorts는 YouTube 처리가 끝난 뒤 설정(2026-11-03부터 Shorts 썸네일 API 지원). 처리 상태 확인을 위해 처음 한 번 읽기 권한 동의 추가. 맞춤 썸네일이 켜진 채널(채널 인증)만 가능하며, 썸네일이 실패해도 영상은 업로드 상태 유지
 - `--publish-at "2026-12-24 18:00"`: 예약 게시. 비공개로 업로드한 후 지정한 시각(시간대 미표기 시 PC의 현지 시각)에 YouTube가 공개로 전환. 공개 범위를 비공개로 둔 경우에만 사용 가능
-- 앱: 하이라이트 창의 **업로드**. 내보낸 클립과 설명란 파일이 입력된 상태로 열리며 **보낼 내용 보기**로 사전 확인. 공개 범위는 열 때마다 비공개에서 시작. **유료 광고 포함**도 열 때마다 해제 상태에서 시작. **썸네일** 줄에는 내보낸 클립의 썸네일이 입력됨. **예약 게시**를 선택하면 공개 범위가 비공개로 고정되고 지정한 시각에 공개
+- 앱: 하이라이트 창의 **업로드**. 내보낸 클립과 설명란 파일이 입력된 상태로 열리며 **보낼 내용 보기**로 사전 확인. 공개 범위는 열 때마다 비공개에서 시작. **유료 광고 포함**도 열 때마다 해제 상태에서 시작. **썸네일** 줄에는 내보낸 클립의 썸네일이 입력됨. **예약 게시**를 선택하면 공개 범위가 비공개로 고정되고 지정한 시각에 공개. **분류**는 자동, 인물 및 블로그, 게임, 엔터테인먼트 중 선택(선택 기억)
 
 ### 아바타 위치 자동 검출
 
@@ -860,7 +903,7 @@ Windows 11에서 앱을 실제로 조작하며 촬영한 화면. 화면 속 방�
 | 전역 단축키 | Win32 `RegisterHotKey`, **pynput** | - | - | Windows는 추가 설치 불필요, 그 외 `[hotkey]` |
 | 아바타 검출 | **onnxruntime**, deepghs/anime_face_detection | 1.16 이상 | 1.32 | 선택 설치 `[detect]`. 모델 12MB는 최초 사용 시 다운로드 |
 | OCR | **Tesseract**, pytesseract | 0.3 이상 | - | 선택 설치 `[ocr]`. 번역 플러그인과 함께 사용 |
-| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 666개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
+| 테스트 | **pytest**, Xvfb | 8 이상 | 9.2 | 684개. 실제 마우스 이벤트, F8 및 F9, VOD 클립 전체 절차, Windows 전역 단축키와 배율 |
 | CI | **GitHub Actions** | - | - | Ubuntu(Xvfb, GUI 포함), Windows. 패키징 변경 시 Windows 실행 파일과 설치 프로그램을 빌드하여 실행 |
 | 패키징 | setuptools, **PyInstaller**, Inno Setup | 77 이상, 6.10 이상, 6 | 6.22(PyInstaller) | `stream2clip`, `stream2clip-gui` 실행 파일, `stream2clip-recorder` 명령(파이썬 패키지), entry point 플러그인, Windows용 zip 및 설치 프로그램 |
 | 데이터 포맷 | **JSON Schema** 2020-12 | - | - | [`annotation.v1.schema.json`](src/stream2clip/schemas/annotation.v1.schema.json), [`session.v1.schema.json`](src/stream2clip/schemas/session.v1.schema.json) |
@@ -1032,8 +1075,8 @@ python packaging/build_windows.py
 |---|---|
 | `dist/stream2clip/stream2clip-gui.exe` | 데스크톱 앱. 콘솔 창 없음 |
 | `dist/stream2clip/stream2clip.exe` | 명령줄 도구. `fetch`, `auto`, `avatar` 등 전체 명령 |
-| `dist/stream2clip-0.17.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
-| `dist/stream2clip-0.17.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
+| `dist/stream2clip-0.18.0-windows-x64.zip` | 위 폴더를 묶은 배포용 zip |
+| `dist/stream2clip-0.18.0-windows-x64-setup.exe` | 설치 프로그램(`--installer`, Inno Setup 6.1 이상 필요). 첫 화면에서 언어(한국어, 일본어, 영어) 선택, 선택한 언어로 앱 시작. ffmpeg가 없는 PC에서는 ffmpeg 내려받기 작업 제공 |
 
 | &numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;옵&NoBreak;션&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp;&numsp; | 동작 |
 |:---:|---|
@@ -1127,6 +1170,7 @@ stream2clip gui
 | `check` | 기획사 가이드라인 기준 업로드 전 점검, VRM 아바타의 사용 조건 검사 |
 | `evaluate` | 시청자 댓글 타임스탬프 기준 검출 성능 평가, 설정 조정(`--tune`)과 채널 프로필 저장 |
 | `feedback` | 앱의 선택 기록(고른 구간, 뺀 구간) 요약, `--clear`로 삭제 |
+| `fx` | 내장 효과 프리셋 목록, JSON 표시, 수정용 파일로 저장 |
 | `replay` | OBS 리플레이 버퍼 저장 및 클립 변환 |
 | `live` | 라이브 채팅 감시, 급증 시 OBS 리플레이를 클립으로 저장 |
 | `session record`, `session show` | 방송 중 채팅, 표시, OBS 장면, VTube Studio 아바타를 세션 파일로 기록, 기록 내용 표시 |
@@ -1323,6 +1367,7 @@ src/stream2clip/
 ├── presets.py     영상 형태 프리셋 (Shorts, 가로 클립, 가로 모음)
 ├── speakers.py    콜라보 화자: RTTM, 마이크별 오디오 트랙 판정, 이름과 자막 색
 ├── feedback.py    앱의 선택 기록 (고른 구간, 뺀 구간, 옮긴 구간)
+├── effects.py     최고 순간의 효과: 기준 순간, 예산, 확대 필터, 강조 단어, 반응 꼬리표, 프리셋
 ├── capture/       캡처 백엔드 (mss, numpy 배열, 플러그인) + 커서 합성
 ├── editor/        주석 모델, 렌더러, 되돌리기, JSON 직렬화
 ├── record/        실시간 영역 녹화 (무손실 FFV1 중간 파일을 원하는 포맷으로 변환)
@@ -1470,13 +1515,14 @@ python packaging/build_brand.py
 | 편집 연계 | 편집 프로그램에서의 EDL 가져오기 실측, FCPXML 내보내기, 말소리 인식 기반의 무음 구간 판정 |
 | 검출 신호 | SOOP 구독 및 팔로우 알림, Streamer.bot 이벤트, 사용자가 연결하는 판정 플러그인(LLM 등) |
 | 배경 음악, 효과음 | 실제 업로드 후 무료 음원의 소유권 주장 확인, 다른 방송과 곡으로 덕킹 값 확인 |
+| 특수효과 | 흔들림, 흰 플래시와 깜박임 검사, 컬러 이모지, 集中線, 삐 처리, 모음 영상 전환, 리플레이와 슬로 모션(보고서 7.1절 2, 3단계), 실제 클립으로 배율과 길이 조정 |
 | 검출 조정 | 같은 채널의 여러 방송으로 프로필 효과 확인, 후보 검토 HTML 보고서, 학습형 웃음 신호(AudioSet 태거) |
 | 클립 채널 형식 | 실제 업로드 후 제목, 썸네일 형식의 효과와 재사용 콘텐츠 판정 확인, 실제 콜라보 녹화로 화자 판정 검증, 화자 분리 기능 내장(현재는 RTTM, whisperX 결과, 마이크별 트랙 사용) |
 
 ### 완료
 
 <details>
-<summary><b>버전별 완료 항목 57건</b></summary>
+<summary><b>버전별 완료 항목 59건</b></summary>
 
 <br>
 
@@ -1539,6 +1585,10 @@ python packaging/build_brand.py
 | v0.17 | GPU 인코딩(`--encoder`), Shorts 썸네일 업로드(`upload --thumbnail`), 유료 광고 표기, 업로드 전 자막 확인 |
 | v0.17 | 선택 기록(`feedback`), 평가 기반 채널별 조정(`evaluate --tune`, `--profile`), 채팅 지연 추정(`--delay auto`), 소리와 heatmap의 시각 보정 |
 | v0.17 | SOOP 다시보기 만료 안내, 유사 프로젝트 비교 보고서 |
+| v0.18 | 최고 순간의 특수효과(`--fx`, 앱의 **효과**): 펀치인 확대, 자막 단어 강조, 채팅 반응 꼬리표, 예산과 움직임 줄이기, ffmpeg 필터 확인 |
+| v0.18 | 효과 프리셋 JSON과 스키마(`fx`), `clips.json`의 효과 기록, VTube Studio 핫키 전체 기록과 기준 순간 사용, 특수효과 조사 보고서 |
+| v0.18 | 한국 개인 스트리머 형식: `[이름] 대사` 제목, 합방 상대(`--guest`), 게임 괄호(`--title-template game`), 플랫폼 해시태그, 제목 언어의 설명란과 방송 날짜, 채널 링크(`--streamer-link`), 연락 문구(`--contact-note`) |
+| v0.18 | 업로드 분류 자동 선택(`--category auto`, 업로드 창의 **분류**), 치지직(`currentTime`)과 SOOP(`change_second`) 시각 링크, 치지직 다시보기의 게임 여부와 방송 시작일, 가로 형태의 문장 자막, 독케익 키리누키 채널 분석 보고서 |
 
 </details>
 
